@@ -115,7 +115,7 @@ export const HowItWorksSection: React.FC = () => {
                 {/* Footnote */}
                 <motion.div
                   layout="position"
-                  className="pt-4 mt-6 border-t border-slate-100 dark:border-forest-border/60 text-[11px] text-slate-500 dark:text-slate-400"
+                  className="pt-4 mt-6 border-t border-slate-100 dark:border-forest-border/60 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
                 >
                   {s.footnote}
                 </motion.div>
