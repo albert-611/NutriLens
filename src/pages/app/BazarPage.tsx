@@ -322,7 +322,7 @@ export const BazarPage: React.FC = () => {
                     {formatCurrency(item.price)}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <span className="font-mono text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-1 rounded">
+                    <span className="font-sans text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded tracking-wider">
                       synthetic_demo
                     </span>
                     <p className="text-[10px] text-slate-400 mt-1 flex items-center justify-end gap-1">

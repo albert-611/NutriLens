@@ -97,7 +97,7 @@ export const TrustEvidenceSection: React.FC = () => {
             </h3>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-sans">
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-forest-card/40">
               <span className="text-[10px] text-slate-400 block uppercase">Primary Source</span>
               <span className="font-bold text-slate-800 dark:text-slate-100">FAO FCTB (2013)</span>

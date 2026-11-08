@@ -131,7 +131,7 @@ export const ConfirmPage: React.FC = () => {
             alt="Uploaded meal scan"
             className="w-full h-full object-cover object-[center_60%]"
           />
-          <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-black/70 text-emerald-400 border border-emerald-500/30">
+          <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider font-sans bg-black/70 text-emerald-400 border border-emerald-500/30">
             SCAN CAPTURED
           </span>
         </div>

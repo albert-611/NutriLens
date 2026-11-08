@@ -149,7 +149,7 @@ export const IntelligenceFeaturesSection: React.FC = () => {
                       <Icon className="w-5 h-5" />
                     </div>
                     <span
-                      className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border font-sans ${
                         isAvailable
                           ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25'
                           : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25'
@@ -168,7 +168,7 @@ export const IntelligenceFeaturesSection: React.FC = () => {
                   </motion.p>
                 </div>
 
-                <motion.div layout="position" className="pt-4 mt-5 border-t border-slate-100 dark:border-forest-border/60 text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400">
+                <motion.div layout="position" className="pt-4 mt-5 border-t border-slate-100 dark:border-forest-border/60 text-[11px] font-semibold text-slate-500 dark:text-slate-400 font-sans tracking-wide">
                   {feat.tag}
                 </motion.div>
               </MotionCard>

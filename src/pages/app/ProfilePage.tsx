@@ -55,7 +55,7 @@ export const ProfilePage: React.FC = () => {
             User Context
           </span>
           {isDemoUser && (
-            <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
+            <span className="text-xs font-sans font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
               Active Persona: {profile?.display_name}
             </span>
           )}
@@ -107,7 +107,7 @@ export const ProfilePage: React.FC = () => {
                 type="text"
                 disabled
                 value={user?.email || 'demo.student@nutrilens.internal'}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-forest-border bg-slate-100 dark:bg-forest-root text-xs text-slate-400 cursor-not-allowed font-mono"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-forest-border bg-slate-100 dark:bg-forest-root text-xs text-slate-400 cursor-not-allowed font-sans"
               />
             </div>
           </div>
@@ -162,7 +162,7 @@ export const ProfilePage: React.FC = () => {
                 step="10"
                 value={budgetAmount}
                 onChange={(e) => setBudgetAmount(parseFloat(e.target.value) || 0)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans tabular-nums font-semibold"
               />
             </div>
 

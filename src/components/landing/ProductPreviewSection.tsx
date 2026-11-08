@@ -38,10 +38,10 @@ export const ProductPreviewSection: React.FC = () => {
       previewContent: (
         <div className="space-y-4">
           <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-100 dark:bg-forest-card border border-slate-200 dark:border-forest-border">
-            <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-sans tracking-wide">
               INPUT: plate_photo_01.png
             </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-sans tracking-wider">
               GEMINI FLASH VISION
             </span>
           </div>
@@ -74,11 +74,11 @@ export const ProductPreviewSection: React.FC = () => {
           <div className="space-y-2">
             <div className="flex justify-between items-center p-2.5 rounded-lg bg-slate-100 dark:bg-forest-card">
               <span className="font-medium">Red Lentil Soup (Masoor Dal)</span>
-              <span className="font-mono font-bold text-emerald-600">150 g</span>
+              <span className="font-bold text-emerald-600 tabular-nums font-sans">150 g</span>
             </div>
             <div className="flex justify-between items-center p-2.5 rounded-lg bg-slate-100 dark:bg-forest-card">
               <span className="font-medium">Spinach Bhaji (Palong Shak)</span>
-              <span className="font-mono font-bold text-emerald-600">80 g</span>
+              <span className="font-bold text-emerald-600 tabular-nums font-sans">80 g</span>
             </div>
           </div>
         </div>
@@ -112,7 +112,7 @@ export const ProductPreviewSection: React.FC = () => {
               <span className="text-sm font-bold text-slate-800 dark:text-slate-100">21.1 g</span>
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 font-mono text-center">
+          <p className="text-[11px] text-slate-500 font-sans text-center">
             Source: FAO Food Composition Table for Bangladesh (2013)
           </p>
         </div>
@@ -133,7 +133,7 @@ export const ProductPreviewSection: React.FC = () => {
               <span className="font-bold text-slate-900 dark:text-white block">Egg & Lentil Curry Pivot</span>
               <span className="text-[11px] text-slate-500">Replaces beef • Saves ৳ 180.00</span>
             </div>
-            <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+            <span className="text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full tabular-nums font-sans">
               ৳ 65.00 / meal
             </span>
           </div>
@@ -204,7 +204,7 @@ export const ProductPreviewSection: React.FC = () => {
         <div className="max-w-3xl mx-auto rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-10 shadow-lg space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-slate-100 dark:border-forest-border/60">
             <div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block mb-1 font-sans">
                 {currentTab.badge}
               </span>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">

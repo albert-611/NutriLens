@@ -101,7 +101,7 @@ export const BazarToPlateSection: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-forest-border/60 text-slate-500 dark:text-slate-400 font-mono uppercase text-[11px]">
+                <tr className="border-b border-slate-100 dark:border-forest-border/60 text-slate-500 dark:text-slate-400 font-semibold tracking-wider uppercase text-[11px] font-sans">
                   <th className="py-2.5 px-3">Item Name</th>
                   <th className="py-2.5 px-3">Trade Unit</th>
                   <th className="py-2.5 px-3">Observed Price</th>
@@ -121,14 +121,14 @@ export const BazarToPlateSection: React.FC = () => {
                           {row.foodBn}
                         </div>
                       </td>
-                      <td className="py-3 px-3 font-mono text-slate-600 dark:text-slate-300">
+                      <td className="py-3 px-3 font-medium text-slate-600 dark:text-slate-300 font-sans">
                         {row.unit}
                       </td>
-                      <td className="py-3 px-3 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      <td className="py-3 px-3 font-bold tabular-nums text-emerald-600 dark:text-emerald-400 font-sans">
                         {currentPrice}
                       </td>
                       <td className="py-3 px-3">
-                        <span className="inline-flex items-center gap-1 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        <span className="inline-flex items-center gap-1 font-bold tabular-nums text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full font-sans">
                           <TrendingDown className="w-3 h-3" />
                           {row.trend}
                         </span>
@@ -147,7 +147,7 @@ export const BazarToPlateSection: React.FC = () => {
               <span>Observation date: 2026-11-08 • Savar Municipality Market Cluster</span>
             </div>
             
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono font-bold text-[10px] tracking-wider border border-amber-500/25">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold text-[10px] tracking-wider border border-amber-500/25 font-sans">
               <span>SIMULATED DEMO DATA</span>
             </div>
           </div>

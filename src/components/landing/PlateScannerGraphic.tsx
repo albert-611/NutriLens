@@ -93,13 +93,13 @@ export const PlateScannerGraphic: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowHud(showHud === false)}
-            className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition-colors"
+            className="flex items-center gap-1 text-[11px] font-sans font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition-colors"
             title="Toggle AI Bounding Box HUD"
           >
             <Eye className="w-3 h-3" />
             <span>{showHud ? 'HUD ON' : 'HUD OFF'}</span>
           </button>
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Savar Wet Market
           </span>
         </div>
@@ -290,7 +290,7 @@ export const PlateScannerGraphic: React.FC = () => {
             <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold mt-1 ml-3.5 flex items-center gap-2">
               <span>Portion: {activeItem.weight}</span>
               <span>•</span>
-              <span className="flex items-center gap-1 font-mono">
+              <span className="flex items-center gap-1 font-sans font-bold tabular-nums">
                 <Store className="w-3 h-3 text-emerald-600" />
                 Est. Bazar: {activeItem.cost}
               </span>
@@ -301,7 +301,7 @@ export const PlateScannerGraphic: React.FC = () => {
             <span className="text-sm font-extrabold text-slate-900 dark:text-white">
               {activeItem.calories}
             </span>
-            <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 space-x-1">
+            <div className="text-[10px] font-sans font-semibold text-slate-500 dark:text-slate-400 mt-0.5 space-x-1 tabular-nums">
               <span>P: {activeItem.protein}</span>
               <span>•</span>
               <span>C: {activeItem.carbs}</span>

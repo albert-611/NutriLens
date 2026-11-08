@@ -131,7 +131,7 @@ export const MealRescuePage: React.FC = () => {
               <label className="text-slate-700 dark:text-slate-300">
                 {t('meal_rescue.budget_label')}
               </label>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono">
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold font-sans tabular-nums">
                 {formatCurrency(budget)}
               </span>
             </div>
@@ -144,7 +144,7 @@ export const MealRescuePage: React.FC = () => {
               onChange={(e) => setBudget(parseInt(e.target.value))}
               className="w-full accent-emerald-500 cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+            <div className="flex justify-between text-[10px] text-slate-400 font-sans tabular-nums">
               <span>৳40 min</span>
               <span>৳200 max</span>
             </div>

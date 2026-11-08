@@ -47,6 +47,12 @@ export default {
           'Roboto',
           'sans-serif',
         ],
+        mono: [
+          'JetBrains Mono',
+          'Plus Jakarta Sans',
+          'ui-monospace',
+          'monospace',
+        ],
       },
     },
   },

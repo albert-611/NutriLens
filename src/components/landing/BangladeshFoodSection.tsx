@@ -65,7 +65,7 @@ export const BangladeshFoodSection: React.FC = () => {
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-6 text-white">
-                <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-400 uppercase">
+                <span className="text-[11px] font-bold tracking-widest text-emerald-400 uppercase font-sans">
                   Bangla Thali Scan
                 </span>
                 <p className="font-bold text-sm sm:text-base">

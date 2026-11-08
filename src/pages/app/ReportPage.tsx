@@ -74,10 +74,10 @@ export const ReportPage: React.FC = () => {
       {/* Title & Receipt Banner */}
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <span className="text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-sans">
             Authoritative Server Calculation
           </span>
-          <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">
             Formula: v1.0.0-fao_bangladesh
           </span>
         </div>
@@ -150,7 +150,7 @@ export const ReportPage: React.FC = () => {
             <ShieldCheck className="w-4 h-4 text-emerald-500" />
             {t('report.evidence_title')}
           </h2>
-          <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded font-sans tracking-wide">
             Savar Bazar Price Model
           </span>
         </div>
@@ -176,7 +176,7 @@ export const ReportPage: React.FC = () => {
                   <td className="py-3 capitalize text-slate-600 dark:text-slate-300">{row.state}</td>
                   <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{row.calories} kcal</td>
                   <td className="py-3 font-medium text-slate-800 dark:text-slate-200">{row.protein} g</td>
-                  <td className="py-3 font-mono text-[11px] text-emerald-600 dark:text-emerald-400">{row.sourceId}</td>
+                  <td className="py-3 font-semibold text-[11px] text-emerald-600 dark:text-emerald-400 font-sans">{row.sourceId}</td>
                   <td className="py-3 font-bold text-slate-900 dark:text-white text-right">৳ {row.cost.toFixed(2)}</td>
                 </tr>
               ))}
@@ -186,7 +186,7 @@ export const ReportPage: React.FC = () => {
                 <td className="pt-3" colSpan={3}>Total Edible Meal Sum</td>
                 <td className="pt-3">{totals.energy_kcal.toFixed(0)} kcal</td>
                 <td className="pt-3">{totals.protein_g.toFixed(1)} g</td>
-                <td className="pt-3 font-mono text-[10px] text-slate-400">Summed per 100g</td>
+                <td className="pt-3 text-[10px] text-slate-400 font-sans">Summed per 100g</td>
                 <td className="pt-3 text-right text-emerald-600 dark:text-emerald-400">৳ {totals.estimated_cost.toFixed(2)}</td>
               </tr>
             </tfoot>
@@ -200,7 +200,7 @@ export const ReportPage: React.FC = () => {
             <span>{t('report.source_fao')}</span>
           </div>
           <p className="text-[11px] leading-relaxed">
-            All prices based on Savar Demo Market observations tagged as <strong className="font-mono text-emerald-700 dark:text-emerald-400">SIMULATED DEMO DATA</strong>. No nutritional score is fabricated.
+            All prices based on Savar Demo Market observations tagged as <strong className="text-emerald-700 dark:text-emerald-400 font-bold font-sans">SIMULATED DEMO DATA</strong>. No nutritional score is fabricated.
           </p>
         </div>
 

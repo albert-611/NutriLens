@@ -86,7 +86,7 @@ export const ProblemSolutionSection: React.FC = () => {
                         <div className="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform duration-200">
                           <Icon className="w-6 h-6" />
                         </div>
-                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-forest-card text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-forest-border">
+                        <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-forest-card text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-forest-border font-sans">
                           {prob.tag}
                         </span>
                       </motion.div>

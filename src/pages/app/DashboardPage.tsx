@@ -185,7 +185,7 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-emerald-600 dark:text-emerald-400">৳ {meal.bazarCost.toFixed(2)}</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">SIMULATED</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-sans font-semibold tracking-wider">SIMULATED</p>
                   </div>
                 </div>
               </div>

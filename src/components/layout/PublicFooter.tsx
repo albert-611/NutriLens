@@ -64,7 +64,7 @@ export const PublicFooter: React.FC = () => {
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Deterministic Math</span>
               </li>
-              <li className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+              <li className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 font-sans">
                 Savar & Ashulia Demo
               </li>
             </ul>
@@ -77,7 +77,7 @@ export const PublicFooter: React.FC = () => {
           <p className="text-center sm:text-left max-w-2xl leading-relaxed">
             Nutrition information is provided for general informational purposes. Market information in the prototype may include simulated demonstration data.
           </p>
-          <p className="shrink-0 font-mono">
+          <p className="shrink-0 font-sans font-medium">
             © {currentYear} NutriLens. All rights reserved.
           </p>
         </div>
