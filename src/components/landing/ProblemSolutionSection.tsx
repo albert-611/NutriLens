@@ -97,15 +97,15 @@ export const ProblemSolutionSection: React.FC = () => {
         <div className="relative">
           <BorderGlow
             edgeSensitivity={30}
-            glowColor="270 80 75"
+            glowColor="158 84 60"
             borderColor="rgba(16, 185, 129, 0.35)"
             backgroundColor="#071d14"
             borderRadius={24}
-            glowRadius={32}
-            glowIntensity={0.8}
+            glowRadius={36}
+            glowIntensity={0.85}
             coneSpread={25}
             animated={false}
-            colors={['#8B7CFF', '#C084FC', '#38BDF8']}
+            colors={['#10B981', '#34D399', '#6EE7B7']}
             fillOpacity={0.25}
             className="w-full text-white shadow-2xl bg-gradient-to-br from-emerald-950 via-[#071d14] to-forest-root"
           >
