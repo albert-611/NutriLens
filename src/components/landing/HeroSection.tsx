@@ -25,53 +25,57 @@ export const HeroSection: React.FC = () => {
 
             {/* Main Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-[1.12]">
-              <BlurText
-                text="Your Food."
-                effect="focus"
-                animateBy="words"
-                direction="top"
-                staggerFrom="start"
-                trigger="view"
-                delay={100}
-                stepDuration={0.4}
-                blur={8}
-                distance={25}
-                loop={false}
-                as="span"
-                className="inline-block"
-              />{' '}
-              <br className="hidden sm:inline" />
-              <BlurText
-                text="Your Nutrition."
-                effect="focus"
-                animateBy="words"
-                direction="top"
-                staggerFrom="start"
-                trigger="view"
-                delay={220}
-                stepDuration={0.4}
-                blur={8}
-                distance={25}
-                loop={false}
-                as="span"
-                className="inline-block"
-              />{' '}
-              <br className="hidden sm:inline" />
-              <BlurText
-                text="Your Intelligence."
-                effect="focus"
-                animateBy="words"
-                direction="top"
-                staggerFrom="start"
-                trigger="view"
-                delay={340}
-                stepDuration={0.4}
-                blur={8}
-                distance={25}
-                loop={false}
-                as="span"
-                className="inline-block text-emerald-600 dark:text-emerald-400"
-              />
+              <span className="block">
+                <BlurText
+                  text="Your Food."
+                  effect="focus"
+                  animateBy="words"
+                  direction="top"
+                  staggerFrom="start"
+                  trigger="view"
+                  delay={100}
+                  stepDuration={0.4}
+                  blur={8}
+                  distance={25}
+                  loop={false}
+                  as="span"
+                  className="inline-flex"
+                />
+              </span>
+              <span className="block">
+                <BlurText
+                  text="Your Nutrition."
+                  effect="focus"
+                  animateBy="words"
+                  direction="top"
+                  staggerFrom="start"
+                  trigger="view"
+                  delay={220}
+                  stepDuration={0.4}
+                  blur={8}
+                  distance={25}
+                  loop={false}
+                  as="span"
+                  className="inline-flex"
+                />
+              </span>
+              <span className="block text-emerald-600 dark:text-emerald-400">
+                <BlurText
+                  text="Your Intelligence."
+                  effect="focus"
+                  animateBy="words"
+                  direction="top"
+                  staggerFrom="start"
+                  trigger="view"
+                  delay={340}
+                  stepDuration={0.4}
+                  blur={8}
+                  distance={25}
+                  loop={false}
+                  as="span"
+                  className="inline-flex"
+                />
+              </span>
             </h1>
 
             {/* Supporting Copy */}

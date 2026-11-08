@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { motion, MotionConfig, type Easing, type MotionStyle, type Transition } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -413,11 +413,14 @@ export const BlurText = ({
 
   const Component: any = as;
 
+  const isInline = className.includes('inline');
+  const defaultDisplay = isInline ? '' : className.includes('block') ? '' : 'flex flex-wrap';
+
   return (
     <MotionConfig reducedMotion="user">
       <Component
         ref={ref as any}
-        className={`blur-text flex flex-wrap ${trigger === 'click' ? 'cursor-pointer' : ''} ${className}`}
+        className={`blur-text ${defaultDisplay} ${trigger === 'click' ? 'cursor-pointer' : ''} ${className}`.trim()}
         style={{ color }}
         onPointerEnter={trigger === 'hover' ? handleEnter : undefined}
         onClick={trigger === 'click' ? replay : undefined}
@@ -426,7 +429,7 @@ export const BlurText = ({
         {groups.map((indices, w) => (
           <span
             key={`word-${w}`}
-            className="inline-flex"
+            className="inline-flex whitespace-nowrap"
             style={wordStyle(w)}
             onPointerEnter={focusOnHover ? () => setFocusWord(w) : undefined}
             onPointerLeave={focusOnHover ? () => setFocusWord(-1) : undefined}
