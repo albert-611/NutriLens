@@ -1,0 +1,123 @@
+{
+  "app": {
+    "name": "NutriLens",
+    "tagline": "See your food differently. Eat smarter.",
+    "demo_badge": "SIMULATED DEMO DATA",
+    "market_pilot": "Savar & Ashulia Pilot"
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "analyze": "Analyze Food",
+    "confirm": "Confirm Items",
+    "report": "Nutrition Report",
+    "bazar": "Bazar Intelligence",
+    "meal_rescue": "Meal Rescue",
+    "shopping": "Smart Shopping",
+    "profile": "Profile & Settings",
+    "login": "Sign In",
+    "register": "Get Started",
+    "logout": "Log Out"
+  },
+  "landing": {
+    "badge": "Bangladesh-First Nutrition Intelligence",
+    "hero_title": "Your Food Has a Story.",
+    "hero_title_highlight": "Discover It.",
+    "hero_subtitle": "Turn everyday meals into smarter nutrition decisions. Understand what's on your plate, explore local food prices in Savar and Ashulia, and discover affordable ways to eat better.",
+    "cta_explore": "Explore NutriLens",
+    "cta_how_it_works": "See How It Works",
+    "problem_tag": "The Reality",
+    "problem_title": "Why Global Nutrition Apps Fail in Bangladesh",
+    "problem_p1": "Traditional diet trackers don't understand Bangladeshi food culture. They confuse boiled parboiled rice with dry raw grains and fail to account for mixed curry preparations.",
+    "problem_p2": "More importantly, nutrition advice is completely detached from the daily bazar. Recommending expensive salmon or quinoa when local Tilapia, eggs, and lentils are available wastes money and undermines health.",
+    "steps_tag": "The Closed Loop",
+    "steps_title": "From Plate Photo to Smart Shopping Basket",
+    "step1_title": "1. Capture Your Food",
+    "step1_desc": "Snap a photo of your breakfast, lunch, or dinner. AI identifies local ingredients without guessing authoritative calories.",
+    "step2_title": "2. Confirm Portions",
+    "step2_desc": "You verify the food identity, preparation state, and portion size. Sourced nutrition is calculated using verified FAO data.",
+    "step3_title": "3. Local Bazar Context",
+    "step3_desc": "Compare your meal components against simulated local market prices in Savar and Ashulia.",
+    "step4_title": "4. Affordable Pivot",
+    "step4_desc": "Receive culturally familiar substitutions that protect your budget, fit your available time, and fulfill your nutrition goals."
+  },
+  "dashboard": {
+    "welcome": "Welcome back",
+    "current_goal": "Nutrition Focus",
+    "active_market": "Active Bazar",
+    "daily_budget": "Daily Budget Target",
+    "recent_activity": "Recent Plate Analysis",
+    "quick_analyze": "Scan Plate Photo",
+    "quick_bazar": "Check Bazar Prices",
+    "quick_rescue": "Optimize Next Meal"
+  },
+  "analyze": {
+    "title": "Plate Scanner",
+    "subtitle": "Upload or drag-and-drop a photo of your meal. We will detect visible food candidates.",
+    "drag_drop": "Drag & drop your meal photo here, or click to browse",
+    "formats": "Supported formats: JPEG, PNG, WebP (Max 5MB)",
+    "consent_notice": "By scanning, you confirm you are uploading a food image for non-clinical nutrition estimation.",
+    "analyze_btn": "Identify Candidates",
+    "or_manual": "Or search food manually without a camera",
+    "manual_search_placeholder": "Search e.g. Bhat, Masoor Dal, Dim Bhaji..."
+  },
+  "confirm": {
+    "title": "Review & Confirm Portions",
+    "subtitle": "AI proposes candidates, but you know what you served. Adjust grams and preparation before calculating nutrition.",
+    "add_item": "Add Food Item",
+    "calculate_btn": "Calculate Authoritative Nutrition",
+    "grams": "Grams (g)",
+    "prep_state": "Preparation State"
+  },
+  "report": {
+    "title": "Nutrition Evidence Receipt",
+    "subtitle": "Deterministic calculation per confirmed 100g edible portion. Missing micronutrients are preserved as unknown.",
+    "calories": "Calories",
+    "protein": "Protein",
+    "carbs": "Carbohydrates",
+    "fat": "Fat",
+    "fibre": "Dietary Fibre",
+    "evidence_title": "Evidence Receipt & Provenance",
+    "formula_version": "Calculation Engine Version",
+    "source_fao": "FAO Food Composition Table for Bangladesh (2013)"
+  },
+  "bazar": {
+    "title": "Bazar Intelligence",
+    "subtitle": "Commodity pricing and stock levels in local demonstration bazars.",
+    "simulated_warning": "ALL DATA DISPLAYED IS SIMULATED DEMO DATA FOR HACKATHON TESTING ONLY.",
+    "select_market": "Select Market Area",
+    "price": "Price",
+    "pack_size": "Pack Size",
+    "unit_price": "Unit Price",
+    "stock": "Stock State",
+    "observed_at": "Observed"
+  },
+  "meal_rescue": {
+    "title": "Constraint-Aware Meal Rescue",
+    "subtitle": "Find affordable, culturally familiar pivots that satisfy your nutrition focus and stay within budget.",
+    "budget_label": "Maximum Meal Budget (BDT)",
+    "servings_label": "Servings",
+    "exclusions_label": "Dietary Exclusions",
+    "find_pivots_btn": "Generate Feasible Alternatives"
+  },
+  "shopping": {
+    "title": "Smart Shopping Basket",
+    "subtitle": "Aggregated shopping list rounded to local pack quantities with pantry deductions.",
+    "item": "Ingredient",
+    "needed": "Needed",
+    "pantry": "In Pantry",
+    "buy": "Purchase",
+    "est_cost": "Estimated Cash Cost",
+    "total_checkout": "Total Estimated Checkout Cost"
+  },
+  "profile": {
+    "title": "Profile & Settings",
+    "subtitle": "Manage your dietary goals, household size, and bazar context.",
+    "display_name": "Full Name",
+    "language": "Interface Language",
+    "market": "Preferred Bazar",
+    "goal": "General Wellness Goal",
+    "budget": "Default Budget Target (BDT)",
+    "save_btn": "Save Settings"
+  }
+}
