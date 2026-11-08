@@ -1,6 +1,7 @@
 import React from 'react';
 import { HelpCircle, Globe2, Wallet, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { BlurText } from '../animations/BlurText';
+import { CursorGrid } from '../animations/CursorGrid';
 
 const PROBLEMS = [
   {
@@ -92,30 +93,46 @@ export const ProblemSolutionSection: React.FC = () => {
         </div>
 
         {/* Solution Bridge Banner */}
-        <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-br from-emerald-900 to-forest-root text-white border border-emerald-700/40 shadow-xl space-y-6">
-          <div className="max-w-3xl space-y-2">
-            <span className="text-xs uppercase font-bold tracking-widest text-emerald-400">
-              The Connected Solution
-            </span>
-            <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              NutriLens connects the plate to the next practical food decision.
-            </h3>
-            <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed">
-              Instead of treating nutrition in isolation, NutriLens bridges computer vision, verified compositional tables, and local wet market prices into a closed loop:
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-            {SOLUTION_PILLARS.map((pillar, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-2.5 p-3 rounded-xl bg-white/5 border border-white/10 text-xs sm:text-sm text-emerald-50"
-              >
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>{pillar}</span>
+        <div className="relative rounded-3xl bg-gradient-to-br from-emerald-900 to-forest-root text-white border border-emerald-700/40 shadow-xl overflow-hidden">
+          <CursorGrid
+            cellSize={60}
+            color="#ffffff"
+            highlight="area"
+            gridStyle="lines"
+            radius={140}
+            holdTime={400}
+            fadeDuration={800}
+            fillOpacity={0.06}
+            gridOpacity={0.08}
+            spotlight={0.6}
+            clickPulse
+          >
+            <div className="relative z-10 p-8 sm:p-10 space-y-6">
+              <div className="max-w-3xl space-y-2">
+                <span className="text-xs uppercase font-bold tracking-widest text-emerald-400">
+                  The Connected Solution
+                </span>
+                <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                  NutriLens connects the plate to the next practical food decision.
+                </h3>
+                <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed">
+                  Instead of treating nutrition in isolation, NutriLens bridges computer vision, verified compositional tables, and local wet market prices into a closed loop:
+                </p>
               </div>
-            ))}
-          </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                {SOLUTION_PILLARS.map((pillar, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2.5 p-3 rounded-xl bg-white/5 border border-white/10 text-xs sm:text-sm text-emerald-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <span>{pillar}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CursorGrid>
         </div>
 
       </div>
