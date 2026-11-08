@@ -1,5 +1,6 @@
 import React from 'react';
 import { HelpCircle, Globe2, Wallet, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { BlurText } from '../animations/BlurText';
 
 const PROBLEMS = [
   {
@@ -39,7 +40,21 @@ export const ProblemSolutionSection: React.FC = () => {
         {/* Section Header */}
         <div className="max-w-3xl mx-auto text-center space-y-4">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Making better food decisions shouldn't be complicated.
+            <BlurText
+              text="Making better food decisions shouldn't be complicated."
+              effect="focus"
+              animateBy="words"
+              direction="top"
+              staggerFrom="start"
+              trigger="view"
+              delay={80}
+              stepDuration={0.35}
+              blur={6}
+              distance={20}
+              loop={false}
+              as="span"
+              className="inline-flex flex-wrap justify-center"
+            />
           </h2>
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
             People make food choices every day, but understanding nutrition, local food options and affordability often requires information from disconnected places.

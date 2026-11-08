@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronUp, Sparkles } from 'lucide-react';
 import { Button } from '../common/Button';
+import { BlurText } from '../animations/BlurText';
 
 export const FinalCTASection: React.FC = () => {
   return (
@@ -19,7 +20,21 @@ export const FinalCTASection: React.FC = () => {
 
           <div className="space-y-4 max-w-2xl mx-auto">
             <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-[1.15]">
-              Make Every Meal a Smarter Decision.
+              <BlurText
+                text="Make Every Meal a Smarter Decision."
+                effect="focus"
+                animateBy="words"
+                direction="top"
+                staggerFrom="start"
+                trigger="view"
+                delay={80}
+                stepDuration={0.35}
+                blur={6}
+                distance={20}
+                loop={false}
+                as="span"
+                className="inline-flex flex-wrap justify-center text-white"
+              />
             </h2>
             <p className="text-base sm:text-lg text-emerald-100/90 leading-relaxed">
               Explore how food understanding, nutrition evidence and local market context can work together to make everyday food choices more practical.

@@ -10,6 +10,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { BlurText } from '../animations/BlurText';
 
 interface PreviewTab {
   id: string;
@@ -156,7 +157,21 @@ export const ProductPreviewSection: React.FC = () => {
             Prototype Preview
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            See NutriLens in action.
+            <BlurText
+              text="See NutriLens in action."
+              effect="focus"
+              animateBy="words"
+              direction="top"
+              staggerFrom="start"
+              trigger="view"
+              delay={80}
+              stepDuration={0.35}
+              blur={6}
+              distance={20}
+              loop={false}
+              as="span"
+              className="inline-flex flex-wrap justify-center"
+            />
           </h2>
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
             Experience the working interface across each milestone of the Vision-to-Market loop.

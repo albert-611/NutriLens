@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check, ShieldAlert, BookOpen, Scale, Sparkles } from 'lucide-react';
+import { BlurText } from '../animations/BlurText';
 
 const HIGHLIGHTS = [
   {
@@ -31,7 +32,21 @@ export const BangladeshFoodSection: React.FC = () => {
             Culturally Grounded
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Nutrition intelligence that understands your food.
+            <BlurText
+              text="Nutrition intelligence that understands your food."
+              effect="focus"
+              animateBy="words"
+              direction="top"
+              staggerFrom="start"
+              trigger="view"
+              delay={80}
+              stepDuration={0.35}
+              blur={6}
+              distance={20}
+              loop={false}
+              as="span"
+              className="inline-flex flex-wrap justify-center"
+            />
           </h2>
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
             Food guidance becomes more useful when it understands familiar ingredients, local names, preparation methods and everyday meals. NutriLens begins with Bangladesh-focused food knowledge and a localized market demonstration.

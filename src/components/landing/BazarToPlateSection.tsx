@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Store, TrendingDown, ShoppingBag, Calendar, Info, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../common/Button';
+import { BlurText } from '../animations/BlurText';
 
 interface MarketComparison {
   food: string;
@@ -33,7 +34,21 @@ export const BazarToPlateSection: React.FC = () => {
             Market Affordability Engine
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Good food decisions should make sense for your budget.
+            <BlurText
+              text="Good food decisions should make sense for your budget."
+              effect="focus"
+              animateBy="words"
+              direction="top"
+              staggerFrom="start"
+              trigger="view"
+              delay={80}
+              stepDuration={0.35}
+              blur={6}
+              distance={20}
+              loop={false}
+              as="span"
+              className="inline-flex flex-wrap justify-center"
+            />
           </h2>
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
             NutriLens connects meal choices with local food price observations, helping users explore familiar alternatives that fit their preferences and budget.
