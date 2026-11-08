@@ -178,7 +178,7 @@ export const TrustEvidenceSection: React.FC = () => {
               className="rounded-[inherit]"
             >
               <div className="p-6 sm:p-9 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-white/10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
                       <Receipt className="w-5 h-5 text-emerald-400" />
@@ -197,26 +197,22 @@ export const TrustEvidenceSection: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-sans">
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-sans">
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1">
                     <span className="text-[10px] text-emerald-300/70 block uppercase font-bold tracking-wider">Primary Source</span>
-                    <span className="font-bold text-sm text-white block">FAO FCTB (2013)</span>
-                    <span className="text-[11px] text-emerald-200/60 block leading-relaxed">Peer-reviewed food composition records</span>
+                    <span className="font-bold text-sm sm:text-base text-white block">FAO FCTB (2013)</span>
                   </div>
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1.5">
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1">
                     <span className="text-[10px] text-emerald-300/70 block uppercase font-bold tracking-wider">Formula Engine</span>
-                    <span className="font-bold text-sm text-white block">v1.0 Deterministic</span>
-                    <span className="text-[11px] text-emerald-200/60 block leading-relaxed">Zero LLM hallucinations in math</span>
+                    <span className="font-bold text-sm sm:text-base text-white block">v1.0 Deterministic</span>
                   </div>
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1.5">
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1">
                     <span className="text-[10px] text-amber-300/70 block uppercase font-bold tracking-wider">Data Mode</span>
-                    <span className="font-bold text-sm text-amber-300 block">Synthetic Demo</span>
-                    <span className="text-[11px] text-amber-200/60 block leading-relaxed">Marked transparently during prototype</span>
+                    <span className="font-bold text-sm sm:text-base text-amber-300 block">Synthetic Demo</span>
                   </div>
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1.5">
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1">
                     <span className="text-[10px] text-emerald-300/70 block uppercase font-bold tracking-wider">Missing Nutrients</span>
-                    <span className="font-bold text-sm text-emerald-400 block">Preserved as NULL</span>
-                    <span className="text-[11px] text-emerald-200/60 block leading-relaxed">Never falsely replaced with zero</span>
+                    <span className="font-bold text-sm sm:text-base text-emerald-400 block">Preserved as NULL</span>
                   </div>
                 </div>
               </div>
