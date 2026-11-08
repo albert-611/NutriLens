@@ -7,6 +7,7 @@ import { LangToggle } from '../common/LangToggle';
 import { Button } from '../common/Button';
 import { AnnouncementBar } from '../landing/AnnouncementBar';
 import { SpecularButton } from '../animations/SpecularButton';
+import { BorderBeam } from '@/components/ui/border-beam';
 
 export const PublicNavbar: React.FC = () => {
   const { t } = useTranslation();
@@ -57,8 +58,18 @@ export const PublicNavbar: React.FC = () => {
             <ThemeToggle />
             
             <Link to="/login">
-              <Button variant="ghost" size="sm">
+              <Button variant="outline" size="sm" className="relative overflow-hidden font-semibold border-slate-300 dark:border-forest-border">
                 Sign In
+                <BorderBeam
+                  size={40}
+                  initialOffset={20}
+                  className="from-transparent via-yellow-500 to-transparent"
+                  transition={{
+                    type: "spring",
+                    stiffness: 60,
+                    damping: 20,
+                  }}
+                />
               </Button>
             </Link>
             
@@ -135,8 +146,18 @@ export const PublicNavbar: React.FC = () => {
 
             <div className="pt-4 border-t border-slate-200 dark:border-forest-border flex flex-col gap-2">
               <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="w-full">
-                <Button variant="outline" size="sm" className="w-full justify-center">
+                <Button variant="outline" size="sm" className="relative overflow-hidden w-full justify-center font-semibold border-slate-300 dark:border-forest-border">
                   Sign In
+                  <BorderBeam
+                    size={40}
+                    initialOffset={20}
+                    className="from-transparent via-yellow-500 to-transparent"
+                    transition={{
+                      type: "spring",
+                      stiffness: 60,
+                      damping: 20,
+                    }}
+                  />
                 </Button>
               </Link>
               <Link to="/app" onClick={() => setMobileMenuOpen(false)} className="w-full">
