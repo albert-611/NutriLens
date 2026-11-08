@@ -5,6 +5,7 @@ import { Button } from '../common/Button';
 import { BlurText } from '../animations/BlurText';
 import { CursorGrid } from '../animations/CursorGrid';
 import { BorderGlow } from '../animations/BorderGlow';
+import { SpecularButton } from '../animations/SpecularButton';
 
 export const FinalCTASection: React.FC = () => {
   return (
@@ -73,15 +74,27 @@ export const FinalCTASection: React.FC = () => {
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
                   <Link to="/app" className="w-full sm:w-auto">
-                    <Button
-                      variant="primary"
+                    <SpecularButton
                       size="lg"
-                      icon={<ArrowRight className="w-4 h-4" />}
-                      iconPosition="right"
-                      className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold shadow-lg shadow-emerald-500/25"
+                      radius={16}
+                      tint="#10b981"
+                      tintOpacity={1}
+                      textColor="#ffffff"
+                      lineColor="#6ee7b7"
+                      baseColor="#059669"
+                      intensity={1.2}
+                      idleIntensity={0.45}
+                      shineSize={12}
+                      shineFade={36}
+                      thickness={1.3}
+                      glow={1.5}
+                      followMouse
+                      proximity={250}
+                      className="w-full sm:w-auto font-bold shadow-lg shadow-emerald-500/30"
                     >
-                      Explore NutriLens
-                    </Button>
+                      <span>Explore NutriLens</span>
+                      <ArrowRight className="w-4 h-4 shrink-0" />
+                    </SpecularButton>
                   </Link>
                   <a href="#how-it-works" className="w-full sm:w-auto">
                     <Button

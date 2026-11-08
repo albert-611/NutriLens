@@ -6,6 +6,7 @@ import { ThemeToggle } from '../common/ThemeToggle';
 import { LangToggle } from '../common/LangToggle';
 import { Button } from '../common/Button';
 import { AnnouncementBar } from '../landing/AnnouncementBar';
+import { SpecularButton } from '../animations/SpecularButton';
 
 export const PublicNavbar: React.FC = () => {
   const { t } = useTranslation();
@@ -62,9 +63,24 @@ export const PublicNavbar: React.FC = () => {
             </Link>
             
             <Link to="/app">
-              <Button variant="primary" size="sm" icon={<ArrowRight className="w-4 h-4" />} iconPosition="right">
-                Explore NutriLens
-              </Button>
+              <SpecularButton
+                size="sm"
+                radius={12}
+                tint="#10b981"
+                tintOpacity={1}
+                textColor="#ffffff"
+                lineColor="#6ee7b7"
+                baseColor="#059669"
+                intensity={1.1}
+                idleIntensity={0.4}
+                glow={1.3}
+                followMouse
+                proximity={180}
+                className="font-bold shadow-md shadow-emerald-500/20"
+              >
+                <span>Explore NutriLens</span>
+                <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+              </SpecularButton>
             </Link>
           </div>
 
@@ -124,9 +140,24 @@ export const PublicNavbar: React.FC = () => {
                 </Button>
               </Link>
               <Link to="/app" onClick={() => setMobileMenuOpen(false)} className="w-full">
-                <Button variant="primary" size="sm" className="w-full justify-center">
-                  Explore NutriLens
-                </Button>
+                <SpecularButton
+                  size="sm"
+                  radius={12}
+                  tint="#10b981"
+                  tintOpacity={1}
+                  textColor="#ffffff"
+                  lineColor="#6ee7b7"
+                  baseColor="#059669"
+                  intensity={1.1}
+                  idleIntensity={0.4}
+                  glow={1.3}
+                  followMouse
+                  proximity={180}
+                  className="w-full justify-center font-bold shadow-md shadow-emerald-500/20"
+                >
+                  <span>Explore NutriLens</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                </SpecularButton>
               </Link>
             </div>
           </div>
