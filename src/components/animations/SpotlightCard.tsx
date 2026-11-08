@@ -338,3 +338,4 @@ export const SpotlightCard = ({
 };
 
 export default SpotlightCard;
+
