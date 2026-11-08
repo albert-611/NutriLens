@@ -58,18 +58,18 @@ export const BangladeshFoodSection: React.FC = () => {
           
           {/* Left: Authentic Plate Photo Presentation */}
           <div className="lg:col-span-5 flex flex-col items-center">
-            <div className="relative w-full max-w-md aspect-square rounded-3xl overflow-hidden border-2 border-slate-200 dark:border-forest-border shadow-xl bg-slate-900/5 dark:bg-[#06140e]">
+            <div className="relative w-full max-w-md aspect-square rounded-3xl overflow-hidden border-2 border-slate-200 dark:border-forest-border shadow-xl bg-slate-900/5 dark:bg-[#06140e] group">
               <img
-                src="/images/demo-plate.png"
-                alt="Authentic Bangladeshi meal plate"
-                className="w-full h-full object-cover object-[center_60%]"
+                src="/images/bhaat-gorur-mangsho.jpg"
+                alt="Bhaat with Gorur Mangsho (ভাত ও গরুর মাংস)"
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-6 text-white">
                 <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-400 uppercase">
                   Bangla Thali Scan
                 </span>
                 <p className="font-bold text-sm sm:text-base">
-                  Bhat, Masoor Dal, Rui Macher Jhol, Palong Shak
+                  Bhaat with Gorur Mangsho (ভাত ও গরুর মাংস)
                 </p>
                 <p className="text-xs text-slate-300 mt-0.5">
                   Edible portion analysis via FAO FCTB 2013 standard recipes
