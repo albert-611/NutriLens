@@ -1,81 +1,87 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Heart, ShieldCheck, Database } from 'lucide-react';
+import { Database, ShieldCheck } from 'lucide-react';
 
 export const PublicFooter: React.FC = () => {
+  const currentYear = new Date().getFullYear();
+
   return (
     <footer className="border-t border-slate-200 dark:border-forest-border bg-white dark:bg-forest-root text-slate-600 dark:text-slate-400 text-xs transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
           
           {/* Brand & Mission */}
-          <div className="md:col-span-2 space-y-3">
+          <div className="sm:col-span-2 space-y-3">
             <div className="flex items-center gap-2">
               <img src="/logo.svg" alt="NutriLens Logo" className="w-6 h-6" />
               <span className="font-bold text-slate-900 dark:text-white text-base font-sans">
                 NutriLens
               </span>
             </div>
-            <p className="text-slate-500 dark:text-slate-400 max-w-md leading-relaxed">
+            <p className="text-slate-500 dark:text-slate-400 max-w-md leading-relaxed text-xs">
               Bangladesh-first Nutrition Intelligence platform connecting plate photo recognition, verified Food Composition Tables, and local market affordability.
             </p>
             <div className="flex items-center gap-2 text-[11px] text-emerald-600 dark:text-emerald-400 pt-1">
-              <Database className="w-3.5 h-3.5" />
-              <span>Sourced from FAO Food Composition Table for Bangladesh (2013) & DGHS Guidelines</span>
+              <Database className="w-3.5 h-3.5 shrink-0" />
+              <span>FAO Food Composition Table for Bangladesh (2013)</span>
             </div>
           </div>
 
-          {/* Platform Links */}
+          {/* Product Navigation Group */}
           <div className="space-y-2">
-            <p className="font-semibold text-slate-900 dark:text-slate-200 uppercase tracking-wider text-[11px]">
-              Platform
+            <p className="font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider text-[11px]">
+              Product
             </p>
-            <ul className="space-y-1.5">
+            <ul className="space-y-1.5 text-xs">
               <li>
-                <Link to="/app/analyze" className="hover:text-emerald-500 transition-colors">Plate Scanner</Link>
+                <a href="#how-it-works" className="hover:text-emerald-500 transition-colors">How It Works</a>
               </li>
               <li>
-                <Link to="/app/bazar" className="hover:text-emerald-500 transition-colors">Bazar Intelligence</Link>
+                <a href="#features" className="hover:text-emerald-500 transition-colors">Intelligence Features</a>
               </li>
               <li>
-                <Link to="/app/meal-rescue" className="hover:text-emerald-500 transition-colors">Meal Rescue</Link>
+                <a href="#preview" className="hover:text-emerald-500 transition-colors">Product Preview</a>
               </li>
               <li>
-                <Link to="/app/shopping" className="hover:text-emerald-500 transition-colors">Smart Shopping</Link>
+                <a href="#local-bazar" className="hover:text-emerald-500 transition-colors">Bazar-to-Plate</a>
               </li>
             </ul>
           </div>
 
-          {/* Legal & Standards */}
+          {/* Project & Transparency */}
           <div className="space-y-2">
-            <p className="font-semibold text-slate-900 dark:text-slate-200 uppercase tracking-wider text-[11px]">
-              Verification
+            <p className="font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider text-[11px]">
+              Project
             </p>
-            <ul className="space-y-1.5">
-              <li className="flex items-center gap-1.5">
+            <ul className="space-y-1.5 text-xs">
+              <li>
+                <a href="#bangladesh-first" className="hover:text-emerald-500 transition-colors">About NutriLens</a>
+              </li>
+              <li>
+                <a href="#trust" className="hover:text-emerald-500 transition-colors">Trust & Evidence</a>
+              </li>
+              <li className="flex items-center gap-1.5 pt-1 text-slate-500">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Deterministic Sourced Math</span>
+                <span>Deterministic Math</span>
               </li>
-              <li className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Savar / Ashulia Demo Pilot</span>
-              </li>
-              <li className="text-slate-500 dark:text-slate-400">
-                Hackathon Prototype v0.1
+              <li className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                Savar & Ashulia Demo
               </li>
             </ul>
           </div>
+
         </div>
 
-        {/* Disclaimer & Bottom Bar */}
-        <div className="pt-8 border-t border-slate-100 dark:border-forest-border/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500 dark:text-slate-400">
-          <p className="max-w-2xl text-center sm:text-left">
-            <strong className="text-slate-700 dark:text-slate-300">Non-Clinical Disclaimer:</strong> NutriLens provides nutritional intelligence for educational and lifestyle awareness only. It does not provide medical diagnosis, treatment, or clinical dietary prescriptions.
+        {/* Footer Disclaimer & Copyright */}
+        <div className="pt-6 border-t border-slate-100 dark:border-forest-border/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500 dark:text-slate-400">
+          <p className="text-center sm:text-left max-w-2xl leading-relaxed">
+            Nutrition information is provided for general informational purposes. Market information in the prototype may include simulated demonstration data.
           </p>
-          <p className="shrink-0 flex items-center gap-1">
-            Built for Bangladesh with <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
+          <p className="shrink-0 font-mono">
+            © {currentYear} NutriLens. All rights reserved.
           </p>
         </div>
+
       </div>
     </footer>
   );

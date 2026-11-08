@@ -97,8 +97,8 @@ export const PlateScannerGraphic: React.FC = () => {
         
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowHud(!showHud)}
-            className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-forest-elevated border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition-colors"
+            onClick={() => setShowHud(showHud === false)}
+            className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition-colors"
             title="Toggle AI Bounding Box HUD"
           >
             <Eye className="w-3 h-3" />

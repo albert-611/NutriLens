@@ -61,3 +61,4 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onMobileMenuToggle }) => {
     </header>
   );
 };
+
