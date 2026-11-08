@@ -1,8 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
-import { SpecularButton } from '../animations/SpecularButton';
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
@@ -17,92 +16,30 @@ export const Button: React.FC<ButtonProps> = ({
   icon,
   iconPosition = 'left',
   loading = false,
-  className = '',
+  className,
   disabled,
-  onClick,
-  type = 'button',
   ...props
 }) => {
-  const variantConfig = {
-    primary: {
-      tint: '#10b981',
-      tintOpacity: 1,
-      textColor: '#ffffff',
-      lineColor: '#6ee7b7',
-      baseColor: '#059669',
-      glow: 1.5,
-      intensity: 1.2,
-      idleIntensity: 0.45,
-      className: 'font-bold shadow-lg shadow-emerald-500/25',
-    },
-    secondary: {
-      tint: 'rgba(16, 185, 129, 0.12)',
-      tintOpacity: 1,
-      textColor: '#6ee7b7',
-      lineColor: '#34d399',
-      baseColor: 'rgba(16, 185, 129, 0.35)',
-      glow: 1.3,
-      intensity: 1.1,
-      idleIntensity: 0.35,
-      className: 'border border-emerald-500/30 font-semibold',
-    },
-    outline: {
-      tint: 'rgba(16, 185, 129, 0.05)',
-      tintOpacity: 1,
-      textColor: 'inherit',
-      lineColor: '#34d399',
-      baseColor: 'rgba(16, 185, 129, 0.35)',
-      glow: 1.3,
-      intensity: 1.1,
-      idleIntensity: 0.35,
-      className: 'border border-slate-300 dark:border-forest-border text-slate-800 dark:text-emerald-100 font-semibold',
-    },
-    ghost: {
-      tint: 'transparent',
-      tintOpacity: 0,
-      textColor: 'inherit',
-      lineColor: '#10b981',
-      baseColor: 'transparent',
-      glow: 1.1,
-      intensity: 1.0,
-      idleIntensity: 0.25,
-      className: 'text-slate-700 dark:text-slate-300 hover:text-emerald-500 font-medium',
-    },
-    danger: {
-      tint: '#e11d48',
-      tintOpacity: 1,
-      textColor: '#ffffff',
-      lineColor: '#fda4af',
-      baseColor: '#be123c',
-      glow: 1.5,
-      intensity: 1.2,
-      idleIntensity: 0.4,
-      className: 'font-bold shadow-lg shadow-rose-500/25',
-    },
-  }[variant];
+  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none';
 
-  const sizeRadius = {
-    sm: 12,
-    md: 14,
-    lg: 16,
-  }[size];
+  const variants = {
+    primary: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm hover:shadow-emerald-600/20 active:scale-[0.98] focus:ring-emerald-500',
+    secondary: 'bg-forest-card hover:bg-forest-cardHover text-forest-mint border border-forest-border dark:bg-forest-card dark:hover:bg-forest-cardHover dark:text-emerald-300 dark:border-forest-border active:scale-[0.98] focus:ring-emerald-500',
+    outline: 'border border-slate-300 dark:border-forest-border hover:bg-slate-100 dark:hover:bg-forest-card/60 text-slate-700 dark:text-slate-200 active:scale-[0.98] focus:ring-emerald-500',
+    ghost: 'hover:bg-slate-100 dark:hover:bg-forest-card/50 text-slate-700 dark:text-slate-300 active:scale-[0.98] focus:ring-emerald-500',
+    danger: 'bg-rose-600 hover:bg-rose-500 text-white shadow-sm active:scale-[0.98] focus:ring-rose-500',
+  };
+
+  const sizes = {
+    sm: 'text-xs px-3 py-1.5 gap-1.5',
+    md: 'text-sm px-4 py-2.5 gap-2',
+    lg: 'text-base px-6 py-3.5 gap-2.5 font-semibold',
+  };
 
   return (
-    <SpecularButton
-      size={size}
-      radius={sizeRadius}
-      tint={variantConfig.tint}
-      tintOpacity={variantConfig.tintOpacity}
-      textColor={variantConfig.textColor}
-      lineColor={variantConfig.lineColor}
-      baseColor={variantConfig.baseColor}
-      glow={variantConfig.glow}
-      intensity={variantConfig.intensity}
-      idleIntensity={variantConfig.idleIntensity}
+    <button
+      className={clsx(baseStyles, variants[variant], sizes[size], className)}
       disabled={disabled || loading}
-      onClick={onClick}
-      type={type}
-      className={clsx(variantConfig.className, className)}
       {...props}
     >
       {loading ? (
@@ -119,6 +56,6 @@ export const Button: React.FC<ButtonProps> = ({
       {!loading && icon && iconPosition === 'right' ? (
         <span className="shrink-0">{icon}</span>
       ) : null}
-    </SpecularButton>
+    </button>
   );
 };

@@ -7,7 +7,7 @@ export type SpecularButtonSize = 'sm' | 'md' | 'lg';
 const SIZES: Record<SpecularButtonSize, string> = {
   sm: 'px-5 py-2.5 text-[0.875rem]',
   md: 'px-7 py-3.5 text-[1rem]',
-  lg: 'px-[34px] py-[16px] text-[1.0625rem]'
+  lg: 'px-[38px] py-[18px] text-[1.125rem]'
 };
 
 const BUTTON =

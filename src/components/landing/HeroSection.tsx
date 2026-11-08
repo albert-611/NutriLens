@@ -104,15 +104,27 @@ export const HeroSection: React.FC = () => {
                 </SpecularButton>
               </Link>
               <a href="#how-it-works" className="w-full sm:w-auto">
-                <Button
-                  variant="outline"
+                <SpecularButton
                   size="lg"
-                  icon={<ChevronDown className="w-4 h-4" />}
-                  iconPosition="right"
-                  className="w-full sm:w-auto"
+                  radius={16}
+                  tint="rgba(16, 185, 129, 0.06)"
+                  tintOpacity={1}
+                  textColor="#ffffff"
+                  lineColor="#6ee7b7"
+                  baseColor="#059669"
+                  intensity={1.2}
+                  idleIntensity={0.45}
+                  shineSize={12}
+                  shineFade={36}
+                  thickness={1.3}
+                  glow={1.5}
+                  followMouse
+                  proximity={250}
+                  className="w-full sm:w-auto border border-emerald-500/50 hover:border-emerald-400 text-slate-900 dark:text-emerald-100 font-bold shadow-lg shadow-emerald-500/10"
                 >
-                  See How It Works
-                </Button>
+                  <span>See How It Works</span>
+                  <ChevronDown className="w-4 h-4 shrink-0" />
+                </SpecularButton>
               </a>
             </div>
 

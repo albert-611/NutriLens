@@ -97,13 +97,26 @@ export const FinalCTASection: React.FC = () => {
                     </SpecularButton>
                   </Link>
                   <a href="#how-it-works" className="w-full sm:w-auto">
-                    <Button
-                      variant="outline"
+                    <SpecularButton
                       size="lg"
-                      className="w-full sm:w-auto border-emerald-700/60 text-emerald-100 hover:bg-emerald-800/40"
+                      radius={16}
+                      tint="rgba(16, 185, 129, 0.08)"
+                      tintOpacity={1}
+                      textColor="#ffffff"
+                      lineColor="#6ee7b7"
+                      baseColor="#059669"
+                      intensity={1.2}
+                      idleIntensity={0.45}
+                      shineSize={12}
+                      shineFade={36}
+                      thickness={1.3}
+                      glow={1.5}
+                      followMouse
+                      proximity={250}
+                      className="w-full sm:w-auto border border-emerald-500/50 hover:border-emerald-400 text-emerald-100 font-bold shadow-lg shadow-emerald-500/10"
                     >
-                      Review How It Works
-                    </Button>
+                      <span>Review How It Works</span>
+                    </SpecularButton>
                   </a>
                 </div>
 
