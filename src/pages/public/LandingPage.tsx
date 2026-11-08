@@ -75,7 +75,7 @@ export const LandingPage: React.FC = () => {
     {
       title: 'Bangla Plate Intelligence',
       titleBn: 'বাংলা প্লেট বুদ্ধিমত্তা',
-      desc: 'Accurately recognizes local dishes—parboiled rice, lentil curries, freshwater fish, and leafy shak—distinguishing cooked from raw states.',
+      desc: 'Accurately recognizes local dishes (parboiled rice, lentil curries, freshwater fish, and leafy greens), distinguishing cooked from raw states.',
       icon: ChefHat,
     },
     {
@@ -99,7 +99,7 @@ export const LandingPage: React.FC = () => {
     {
       title: 'Cuisine-Preserving Substitution',
       titleBn: 'ঐতিহ্যবাহী খাবার প্রতিস্থাপন',
-      desc: 'Swaps expensive proteins for affordable local alternatives—like replacing beef with eggs or lentils—without breaking culinary habits.',
+      desc: 'Swaps expensive proteins for affordable local alternatives, such as replacing beef with farm eggs or lentils, without breaking culinary habits.',
       icon: Layers,
     },
     {
@@ -601,3 +601,4 @@ export const LandingPage: React.FC = () => {
     </div>
   );
 };
+
