@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import {
   ShieldCheck,
   FileCheck2,
@@ -7,29 +8,39 @@ import {
   AlertTriangle,
   Receipt,
   CheckCircle2,
+  ChevronDown,
 } from 'lucide-react';
 import { BlurText } from '../animations/BlurText';
+import { MotionCard } from '../animations/MotionCard';
 
 const PRINCIPLES = [
   {
     icon: CheckCircle2,
+    tag: 'Human Verification',
     title: 'User-Confirmed Food',
     desc: 'AI provides candidate detections. Users review dish names and edit portion weights before any nutrition calculation executes.',
+    expanded: 'Nutrition calculations are never triggered blindly on raw machine vision. By allowing manual gram adjustments and recipe toggles, NutriLens guarantees that actual portion realities match the mathematical models.',
   },
   {
     icon: Database,
+    tag: 'Zero Fabrication',
     title: 'Traceable Nutrition Data',
     desc: 'Anchored directly in peer-reviewed food composition records (FAO FCTB 2013). Unknown micronutrient values remain preserved as unknown, never converted to zero.',
+    expanded: 'Missing values in nutrient composition tables are explicitly tagged as NULL rather than 0. This prevents false health claims and ensures clinical-grade integrity for micronutrient analysis.',
   },
   {
     icon: Eye,
+    tag: 'Transparent Science',
     title: 'Visible Assumptions',
     desc: 'Clear disclosure of edible portion multipliers, standard moisture losses, preparation states, and recipe composition models.',
+    expanded: 'Every calculation reveals its provenance: from raw-to-cooked yield factors to oil absorption coefficients in regional curries, all computational formulas remain completely transparent.',
   },
   {
     icon: FileCheck2,
+    tag: 'Market Integrity',
     title: 'Honest Market Information',
     desc: 'Simulated pricing data is always clearly marked with explicit labels. We never present synthetic market records as live retailer inventory.',
+    expanded: 'Bazar observations from Savar and Ashulia clusters carry explicit metadata timestamps and synthetic tags during prototype stages, preventing misleading retail price expectations.',
   },
 ];
 
@@ -70,26 +81,72 @@ export const TrustEvidenceSection: React.FC = () => {
           {PRINCIPLES.map((p, idx) => {
             const Icon = p.icon;
             return (
-              <div
+              <MotionCard
                 key={idx}
-                className="p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-3"
+                hoverLift={-8}
+                hoverScale={1.02}
+                className="relative p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-colors duration-200 group cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <Icon className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  {p.title}
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {p.desc}
-                </p>
-              </div>
+                {({ isOpen }) => (
+                  <>
+                    <div className="space-y-4">
+                      <motion.div layout="position" className="flex items-center justify-between">
+                        <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:scale-105 transition-all duration-200">
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-sans">
+                          {p.tag}
+                        </span>
+                      </motion.div>
+
+                      <motion.h3
+                        layout="position"
+                        className="font-bold text-base text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
+                      >
+                        {p.title}
+                      </motion.h3>
+
+                      <motion.p
+                        layout="position"
+                        className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed"
+                      >
+                        {p.desc}
+                      </motion.p>
+
+                      {isOpen && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.2 }}
+                          className="pt-3 mt-3 border-t border-slate-100 dark:border-forest-border/80"
+                        >
+                          <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed bg-emerald-50 dark:bg-emerald-950/40 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800/40">
+                            {p.expanded}
+                          </p>
+                        </motion.div>
+                      )}
+                    </div>
+
+                    <motion.div
+                      layout="position"
+                      className="pt-4 mt-4 border-t border-slate-100 dark:border-forest-border/60 flex items-center justify-between text-xs font-semibold text-slate-400 dark:text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
+                    >
+                      <span>{isOpen ? 'Show Less' : 'Click to Expand'}</span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                          isOpen ? 'rotate-180 text-emerald-500' : ''
+                        }`}
+                      />
+                    </motion.div>
+                  </>
+                )}
+              </MotionCard>
             );
           })}
         </div>
 
         {/* Evidence Receipt Breakdown Box */}
-        <div className="max-w-4xl mx-auto rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="max-w-4xl mx-auto rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-8 shadow-sm space-y-6 hover:border-emerald-500/40 transition-colors duration-200">
           <div className="flex items-center gap-2 pb-4 border-b border-slate-100 dark:border-forest-border/60">
             <Receipt className="w-5 h-5 text-emerald-600" />
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -98,20 +155,20 @@ export const TrustEvidenceSection: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-sans">
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-forest-card/40">
-              <span className="text-[10px] text-slate-400 block uppercase">Primary Source</span>
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-card/50 border border-slate-200/60 dark:border-forest-border/60 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-200">
+              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Primary Source</span>
               <span className="font-bold text-slate-800 dark:text-slate-100">FAO FCTB (2013)</span>
             </div>
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-forest-card/40">
-              <span className="text-[10px] text-slate-400 block uppercase">Formula Engine</span>
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-card/50 border border-slate-200/60 dark:border-forest-border/60 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-200">
+              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Formula Engine</span>
               <span className="font-bold text-slate-800 dark:text-slate-100">v1.0 Deterministic</span>
             </div>
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-forest-card/40">
-              <span className="text-[10px] text-slate-400 block uppercase">Data Mode</span>
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-card/50 border border-slate-200/60 dark:border-forest-border/60 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-200">
+              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Data Mode</span>
               <span className="font-bold text-amber-600">Synthetic Demo</span>
             </div>
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-forest-card/40">
-              <span className="text-[10px] text-slate-400 block uppercase">Missing Nutrients</span>
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-card/50 border border-slate-200/60 dark:border-forest-border/60 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-200">
+              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Missing Nutrients</span>
               <span className="font-bold text-emerald-600">Preserved as NULL</span>
             </div>
           </div>
