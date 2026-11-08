@@ -51,7 +51,7 @@ export const Button: React.FC<ButtonProps> = ({
         <span className="shrink-0">{icon}</span>
       ) : null}
 
-      <span>{children}</span>
+      {typeof children === 'string' ? <span>{children}</span> : children}
 
       {!loading && icon && iconPosition === 'right' ? (
         <span className="shrink-0">{icon}</span>

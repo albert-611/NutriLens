@@ -58,8 +58,12 @@ export const PublicNavbar: React.FC = () => {
             <ThemeToggle />
             
             <Link to="/login">
-              <Button variant="outline" size="sm" className="relative overflow-hidden font-semibold border-slate-300 dark:border-forest-border">
-                Sign In
+              <Button
+                variant="outline"
+                size="sm"
+                className="relative overflow-hidden font-semibold border border-slate-300 dark:border-forest-border bg-white/80 dark:bg-forest-card/80 backdrop-blur-sm"
+              >
+                <span className="relative z-10">Sign In</span>
                 <BorderBeam
                   size={40}
                   initialOffset={20}
@@ -146,8 +150,12 @@ export const PublicNavbar: React.FC = () => {
 
             <div className="pt-4 border-t border-slate-200 dark:border-forest-border flex flex-col gap-2">
               <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="w-full">
-                <Button variant="outline" size="sm" className="relative overflow-hidden w-full justify-center font-semibold border-slate-300 dark:border-forest-border">
-                  Sign In
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="relative overflow-hidden w-full justify-center font-semibold border border-slate-300 dark:border-forest-border bg-white/80 dark:bg-forest-card/80 backdrop-blur-sm"
+                >
+                  <span className="relative z-10">Sign In</span>
                   <BorderBeam
                     size={40}
                     initialOffset={20}
