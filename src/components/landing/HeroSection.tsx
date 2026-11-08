@@ -10,8 +10,8 @@ export const HeroSection: React.FC = () => {
       {/* Background radial ambient glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-emerald-500/10 dark:bg-emerald-500/15 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="w-full max-w-[1536px] mx-auto px-4 sm:px-8 lg:px-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
           
           {/* Left Column: Headline, Copy and CTAs */}
           <div className="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left z-10">

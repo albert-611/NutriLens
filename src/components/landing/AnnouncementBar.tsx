@@ -19,7 +19,7 @@ export const AnnouncementBar: React.FC = () => {
       aria-label="Product announcement"
       className="relative z-50 bg-emerald-900/90 dark:bg-emerald-950/90 text-emerald-100 px-4 py-1.5 text-xs font-medium border-b border-emerald-800/40 backdrop-blur-md transition-colors"
     >
-      <div className="w-full max-w-[1536px] mx-auto px-4 sm:px-8 lg:px-12 flex items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 flex items-center justify-between gap-4">
         <div className="flex-1 flex items-center justify-center gap-2 text-center">
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-semibold border border-emerald-500/30">
             <Sparkles className="w-3 h-3 text-emerald-400" />
