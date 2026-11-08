@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronDown, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '../common/Button';
 import { PlateScannerGraphic } from './PlateScannerGraphic';
+import { BlurText } from '../animations/BlurText';
 
 export const HeroSection: React.FC = () => {
   return (
@@ -24,11 +25,53 @@ export const HeroSection: React.FC = () => {
 
             {/* Main Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-[1.12]">
-              Your Food. <br className="hidden sm:inline" />
-              Your Nutrition. <br className="hidden sm:inline" />
-              <span className="text-emerald-600 dark:text-emerald-400">
-                Your Intelligence.
-              </span>
+              <BlurText
+                text="Your Food."
+                effect="focus"
+                animateBy="words"
+                direction="top"
+                staggerFrom="start"
+                trigger="view"
+                delay={100}
+                stepDuration={0.4}
+                blur={8}
+                distance={25}
+                loop={false}
+                as="span"
+                className="inline-block"
+              />{' '}
+              <br className="hidden sm:inline" />
+              <BlurText
+                text="Your Nutrition."
+                effect="focus"
+                animateBy="words"
+                direction="top"
+                staggerFrom="start"
+                trigger="view"
+                delay={220}
+                stepDuration={0.4}
+                blur={8}
+                distance={25}
+                loop={false}
+                as="span"
+                className="inline-block"
+              />{' '}
+              <br className="hidden sm:inline" />
+              <BlurText
+                text="Your Intelligence."
+                effect="focus"
+                animateBy="words"
+                direction="top"
+                staggerFrom="start"
+                trigger="view"
+                delay={340}
+                stepDuration={0.4}
+                blur={8}
+                distance={25}
+                loop={false}
+                as="span"
+                className="inline-block text-emerald-600 dark:text-emerald-400"
+              />
             </h1>
 
             {/* Supporting Copy */}

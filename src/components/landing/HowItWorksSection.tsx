@@ -1,5 +1,6 @@
 import React from 'react';
 import { Camera, CheckSquare, BarChart3, ShoppingBag, ArrowRight } from 'lucide-react';
+import { BlurText } from '../animations/BlurText';
 
 const STEPS = [
   {
@@ -47,7 +48,21 @@ export const HowItWorksSection: React.FC = () => {
             Vision-to-Market Workflow
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            From what's on your plate to what comes next.
+            <BlurText
+              text="From what's on your plate to what comes next."
+              effect="blur"
+              animateBy="words"
+              direction="top"
+              staggerFrom="start"
+              trigger="view"
+              delay={80}
+              stepDuration={0.35}
+              blur={6}
+              distance={20}
+              loop={false}
+              as="span"
+              className="inline justify-center"
+            />
           </h2>
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
             NutriLens turns a food image into a confirmed nutrition estimate and helps connect that insight to practical, locally relevant meal choices.

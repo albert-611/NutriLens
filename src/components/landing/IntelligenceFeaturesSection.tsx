@@ -9,6 +9,7 @@ import {
   Receipt,
   MessageSquare,
 } from 'lucide-react';
+import { BlurText } from '../animations/BlurText';
 
 interface Feature {
   id: string;
@@ -106,7 +107,21 @@ export const IntelligenceFeaturesSection: React.FC = () => {
             Comprehensive Capabilities
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            One connected intelligence system.
+            <BlurText
+              text="One connected intelligence system."
+              effect="focus"
+              animateBy="words"
+              direction="top"
+              staggerFrom="start"
+              trigger="view"
+              delay={80}
+              stepDuration={0.35}
+              blur={6}
+              distance={20}
+              loop={false}
+              as="span"
+              className="inline justify-center"
+            />
           </h2>
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
             NutriLens brings food understanding, nutrition evidence and practical meal decisions into one connected experience.
