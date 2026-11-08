@@ -10,11 +10,11 @@ export const HeroSection: React.FC = () => {
       {/* Background radial ambient glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-emerald-500/10 dark:bg-emerald-500/15 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-6 items-center">
           
           {/* Left Column: Headline, Copy and CTAs */}
-          <div className="lg:col-span-7 space-y-6 sm:space-y-8 text-center lg:text-left z-10">
+          <div className="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left z-10">
             
             {/* Eyebrow */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs font-bold tracking-wider uppercase">
@@ -70,7 +70,7 @@ export const HeroSection: React.FC = () => {
           </div>
 
           {/* Right Column: High-Quality Plate Scanner Visual with Real Photo */}
-          <div className="lg:col-span-5 flex justify-center lg:justify-end z-10">
+          <div className="lg:col-span-5 flex justify-center lg:justify-center z-10">
             <PlateScannerGraphic />
           </div>
 
