@@ -13,34 +13,36 @@ export const FinalCTASection: React.FC = () => {
       <div className="absolute inset-0 bg-radial from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative rounded-3xl bg-gradient-to-br from-forest-root via-forest-card to-emerald-950 text-white border border-emerald-800/40 shadow-2xl text-center overflow-hidden">
-          <CursorGrid
-            cellSize={60}
-            color="#ffffff"
-            highlight="area"
-            gridStyle="lines"
-            radius={140}
-            holdTime={400}
-            fadeDuration={800}
-            fillOpacity={0.06}
-            gridOpacity={0.08}
-            spotlight={0.6}
-            clickPulse
+        <div className="relative">
+          <BorderGlow
+            edgeSensitivity={30}
+            glowColor="270 80 75"
+            borderColor="rgba(16, 185, 129, 0.35)"
+            backgroundColor="#0c1813"
+            borderRadius={24}
+            glowRadius={32}
+            glowIntensity={0.8}
+            coneSpread={25}
+            animated={false}
+            colors={['#8B7CFF', '#C084FC', '#38BDF8']}
+            fillOpacity={0.25}
+            className="w-full text-white shadow-2xl text-center bg-gradient-to-br from-forest-root via-forest-card to-emerald-950"
           >
-            <div className="relative z-10 p-2 sm:p-3">
-              <BorderGlow
-                edgeSensitivity={30}
-                glowColor="270 80 75"
-                backgroundColor="rgba(17, 17, 20, 0.7)"
-                borderRadius={24}
-                glowRadius={32}
-                glowIntensity={0.8}
-                coneSpread={25}
-                animated={false}
-                colors={['#8B7CFF', '#C084FC', '#38BDF8']}
-                fillOpacity={0.25}
-                className="p-8 sm:p-14 space-y-8"
-              >
+            <CursorGrid
+              cellSize={60}
+              color="#ffffff"
+              highlight="area"
+              gridStyle="lines"
+              radius={140}
+              holdTime={400}
+              fadeDuration={800}
+              fillOpacity={0.06}
+              gridOpacity={0.08}
+              spotlight={0.6}
+              clickPulse
+              className="rounded-[inherit]"
+            >
+              <div className="p-8 sm:p-14 space-y-8 max-w-3xl mx-auto">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold tracking-wider uppercase border border-emerald-500/30 mx-auto">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Ready for Exploration</span>
@@ -95,9 +97,9 @@ export const FinalCTASection: React.FC = () => {
                 <p className="text-xs text-emerald-300/70 pt-4">
                   Prototype demo includes pre-configured personas with Savar and Ashulia local market observations.
                 </p>
-              </BorderGlow>
-            </div>
-          </CursorGrid>
+              </div>
+            </CursorGrid>
+          </BorderGlow>
         </div>
       </div>
     </section>

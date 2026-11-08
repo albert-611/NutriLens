@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useRef, useCallback, useState, useEffect, type ReactNode } from 'react';
 
@@ -7,6 +7,7 @@ export interface BorderGlowProps {
   className?: string;
   edgeSensitivity?: number;
   glowColor?: string;
+  borderColor?: string;
   backgroundColor?: string;
   borderRadius?: number;
   glowRadius?: number;
@@ -94,6 +95,7 @@ export const BorderGlow: React.FC<BorderGlowProps> = ({
   className = '',
   edgeSensitivity = 30,
   glowColor = '40 80 80',
+  borderColor,
   backgroundColor = '#120F17',
   borderRadius = 28,
   glowRadius = 40,
@@ -196,8 +198,8 @@ export const BorderGlow: React.FC<BorderGlowProps> = ({
       onPointerLeave={() => setIsHovered(false)}
       className={`relative grid isolate border ${className}`}
       style={{
-        background: backgroundColor,
-        borderColor: lightSurface ? 'rgb(24 24 27 / 12%)' : 'rgb(255 255 255 / 15%)',
+        backgroundColor: backgroundColor,
+        borderColor: borderColor || (lightSurface ? 'rgb(24 24 27 / 12%)' : 'rgb(255 255 255 / 15%)'),
         borderRadius: `${borderRadius}px`,
         transform: 'translate3d(0, 0, 0.01px)',
         boxShadow: lightSurface
@@ -207,7 +209,7 @@ export const BorderGlow: React.FC<BorderGlowProps> = ({
     >
       {/* mesh gradient border */}
       <div
-        className="absolute inset-0 rounded-[inherit] -z-[1]"
+        className="absolute inset-0 rounded-[inherit] pointer-events-none -z-[1]"
         style={{
           border: '1px solid transparent',
           background: [
@@ -224,7 +226,7 @@ export const BorderGlow: React.FC<BorderGlowProps> = ({
 
       {/* mesh gradient fill near edges */}
       <div
-        className="absolute inset-0 rounded-[inherit] -z-[1]"
+        className="absolute inset-0 rounded-[inherit] pointer-events-none -z-[1]"
         style={{
           border: '1px solid transparent',
           background: fillBg.join(', '),
@@ -275,7 +277,7 @@ export const BorderGlow: React.FC<BorderGlowProps> = ({
         />
       </span>
 
-      <div className="flex flex-col relative z-[1]">
+      <div className="flex flex-col relative z-[1] w-full h-full">
         {children}
       </div>
     </div>

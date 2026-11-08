@@ -94,34 +94,36 @@ export const ProblemSolutionSection: React.FC = () => {
         </div>
 
         {/* Solution Bridge Banner */}
-        <div className="relative rounded-3xl bg-gradient-to-br from-emerald-950 via-[#071d14] to-forest-root text-white border border-emerald-700/30 shadow-2xl overflow-hidden">
-          <CursorGrid
-            cellSize={60}
-            color="#ffffff"
-            highlight="area"
-            gridStyle="lines"
-            radius={140}
-            holdTime={400}
-            fadeDuration={800}
-            fillOpacity={0.06}
-            gridOpacity={0.08}
-            spotlight={0.6}
-            clickPulse
+        <div className="relative">
+          <BorderGlow
+            edgeSensitivity={30}
+            glowColor="270 80 75"
+            borderColor="rgba(16, 185, 129, 0.35)"
+            backgroundColor="#071d14"
+            borderRadius={24}
+            glowRadius={32}
+            glowIntensity={0.8}
+            coneSpread={25}
+            animated={false}
+            colors={['#8B7CFF', '#C084FC', '#38BDF8']}
+            fillOpacity={0.25}
+            className="w-full text-white shadow-2xl bg-gradient-to-br from-emerald-950 via-[#071d14] to-forest-root"
           >
-            <div className="relative z-10 p-2 sm:p-3">
-              <BorderGlow
-                edgeSensitivity={30}
-                glowColor="270 80 75"
-                backgroundColor="rgba(7, 29, 20, 0.65)"
-                borderRadius={24}
-                glowRadius={32}
-                glowIntensity={0.8}
-                coneSpread={25}
-                animated={false}
-                colors={['#8B7CFF', '#C084FC', '#38BDF8']}
-                fillOpacity={0.25}
-                className="p-6 sm:p-8 space-y-6"
-              >
+            <CursorGrid
+              cellSize={60}
+              color="#ffffff"
+              highlight="area"
+              gridStyle="lines"
+              radius={140}
+              holdTime={400}
+              fadeDuration={800}
+              fillOpacity={0.06}
+              gridOpacity={0.08}
+              spotlight={0.6}
+              clickPulse
+              className="rounded-[inherit]"
+            >
+              <div className="p-6 sm:p-10 space-y-6">
                 <div className="max-w-3xl space-y-2">
                   <span className="text-xs uppercase font-bold tracking-widest text-emerald-400">
                     The Connected Solution
@@ -145,9 +147,9 @@ export const ProblemSolutionSection: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              </BorderGlow>
-            </div>
-          </CursorGrid>
+              </div>
+            </CursorGrid>
+          </BorderGlow>
         </div>
 
       </div>
