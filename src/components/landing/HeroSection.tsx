@@ -107,10 +107,10 @@ export const HeroSection: React.FC = () => {
                 <SpecularButton
                   size="lg"
                   radius={16}
-                  tint="rgba(16, 185, 129, 0.06)"
+                  tint="#ffffff"
                   tintOpacity={1}
-                  textColor="#ffffff"
-                  lineColor="#6ee7b7"
+                  textColor="#000000"
+                  lineColor="#10b981"
                   baseColor="#059669"
                   intensity={1.2}
                   idleIntensity={0.45}
@@ -120,10 +120,10 @@ export const HeroSection: React.FC = () => {
                   glow={1.5}
                   followMouse
                   proximity={250}
-                  className="w-full sm:w-auto border border-emerald-500/50 hover:border-emerald-400 text-slate-900 dark:text-emerald-100 font-bold shadow-lg shadow-emerald-500/10"
+                  className="w-full sm:w-auto border border-emerald-500/50 hover:border-emerald-400 !text-black font-bold shadow-lg shadow-black/5"
                 >
-                  <span>See How It Works</span>
-                  <ChevronDown className="w-4 h-4 shrink-0" />
+                  <span className="text-black">See How It Works</span>
+                  <ChevronDown className="w-4 h-4 shrink-0 text-black" />
                 </SpecularButton>
               </a>
             </div>
