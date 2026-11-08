@@ -67,3 +67,4 @@ export const MotionCard: React.FC<MotionCardProps> = ({
 };
 
 export default MotionCard;
+
