@@ -69,7 +69,7 @@ export const BorderBeam: React.FC<BorderBeamProps> = ({
   style,
   reverse = false,
   initialOffset = 0,
-  borderWidth = 1.5,
+  borderWidth = 2,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pathRef = useRef<SVGRectElement>(null);
@@ -172,7 +172,16 @@ export const BorderBeam: React.FC<BorderBeamProps> = ({
   return (
     <div
       ref={containerRef}
-      style={style}
+      style={{
+        padding: `${borderWidth}px`,
+        WebkitMaskImage: 'linear-gradient(#fff 0 0), linear-gradient(#fff 0 0)',
+        WebkitMaskClip: 'content-box, border-box',
+        WebkitMaskComposite: 'xor',
+        maskImage: 'linear-gradient(#fff 0 0), linear-gradient(#fff 0 0)',
+        maskClip: 'content-box, border-box',
+        maskComposite: 'exclude',
+        ...style,
+      }}
       className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[inherit]"
       aria-hidden="true"
     >
@@ -213,8 +222,8 @@ export const BorderBeam: React.FC<BorderBeamProps> = ({
           height: size,
         }}
         className={cn(
-          'pointer-events-none rounded-full blur-[2px]',
-          className || 'bg-gradient-to-r from-transparent via-yellow-400 to-transparent'
+          'pointer-events-none rounded-full bg-gradient-to-r',
+          className || 'from-transparent via-yellow-400 to-transparent'
         )}
       />
 
@@ -228,10 +237,10 @@ export const BorderBeam: React.FC<BorderBeamProps> = ({
           y: posY,
           translateX: '-50%',
           translateY: '-50%',
-          width: Math.max(size * 0.45, 12),
-          height: Math.max(size * 0.45, 12),
+          width: Math.max(size * 0.5, 14),
+          height: Math.max(size * 0.5, 14),
         }}
-        className="pointer-events-none rounded-full bg-white/90 blur-[1px] shadow-[0_0_12px_rgba(234,179,8,0.9)]"
+        className="pointer-events-none rounded-full bg-white shadow-[0_0_10px_#eab308]"
       />
     </div>
   );
