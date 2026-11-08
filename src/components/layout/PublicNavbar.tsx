@@ -7,7 +7,6 @@ import { LangToggle } from '../common/LangToggle';
 import { Button } from '../common/Button';
 import { AnnouncementBar } from '../landing/AnnouncementBar';
 import { SpecularButton } from '../animations/SpecularButton';
-import { BorderBeam } from '@/components/ui/border-beam';
 
 export const PublicNavbar: React.FC = () => {
   const { t } = useTranslation();
@@ -61,19 +60,9 @@ export const PublicNavbar: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="relative overflow-hidden font-semibold border border-slate-300 dark:border-forest-border bg-white/80 dark:bg-forest-card/80 backdrop-blur-sm"
+                className="font-semibold border border-slate-300 dark:border-forest-border hover:border-slate-400 dark:hover:border-forest-mint/50 transition-colors"
               >
-                <span className="relative z-10">Sign In</span>
-                <BorderBeam
-                  size={40}
-                  initialOffset={20}
-                  className="from-transparent via-yellow-500 to-transparent"
-                  transition={{
-                    type: "spring",
-                    stiffness: 60,
-                    damping: 20,
-                  }}
-                />
+                Sign In
               </Button>
             </Link>
             
@@ -153,19 +142,9 @@ export const PublicNavbar: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="relative overflow-hidden w-full justify-center font-semibold border border-slate-300 dark:border-forest-border bg-white/80 dark:bg-forest-card/80 backdrop-blur-sm"
+                  className="w-full justify-center font-semibold border border-slate-300 dark:border-forest-border hover:border-slate-400 dark:hover:border-forest-mint/50 transition-colors"
                 >
-                  <span className="relative z-10">Sign In</span>
-                  <BorderBeam
-                    size={40}
-                    initialOffset={20}
-                    className="from-transparent via-yellow-500 to-transparent"
-                    transition={{
-                      type: "spring",
-                      stiffness: 60,
-                      damping: 20,
-                    }}
-                  />
+                  Sign In
                 </Button>
               </Link>
               <Link to="/app" onClick={() => setMobileMenuOpen(false)} className="w-full">
