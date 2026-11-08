@@ -17,7 +17,7 @@ export const PublicNavbar: React.FC = () => {
       <AnnouncementBar />
 
       <header className="sticky top-0 z-40 w-full bg-surface-lightRoot/85 dark:bg-forest-root/85 backdrop-blur-md border-b border-slate-200/60 dark:border-forest-border/60 transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           
           {/* Brand Logo & Wordmark */}
           <Link to="/" className="flex items-center gap-3 group">

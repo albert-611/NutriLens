@@ -6,7 +6,7 @@ import { PlateScannerGraphic } from './PlateScannerGraphic';
 
 export const HeroSection: React.FC = () => {
   return (
-    <section className="relative pt-12 pb-20 sm:pt-16 sm:pb-28 lg:pt-20 lg:pb-32 overflow-hidden">
+    <section className="relative pt-2 pb-16 sm:pt-3 sm:pb-20 lg:pt-4 lg:pb-24 overflow-hidden">
       {/* Background radial ambient glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-emerald-500/10 dark:bg-emerald-500/15 blur-[120px] rounded-full pointer-events-none" />
 

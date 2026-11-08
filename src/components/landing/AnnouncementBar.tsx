@@ -17,7 +17,7 @@ export const AnnouncementBar: React.FC = () => {
   return (
     <aside
       aria-label="Product announcement"
-      className="relative z-50 bg-emerald-900/90 dark:bg-emerald-950/90 text-emerald-100 px-4 py-2 text-xs font-medium border-b border-emerald-800/40 backdrop-blur-md transition-colors"
+      className="relative z-50 bg-emerald-900/90 dark:bg-emerald-950/90 text-emerald-100 px-4 py-1.5 text-xs font-medium border-b border-emerald-800/40 backdrop-blur-md transition-colors"
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         <div className="flex-1 flex items-center justify-center gap-2 text-center">
