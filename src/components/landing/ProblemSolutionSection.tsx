@@ -2,6 +2,7 @@ import React from 'react';
 import { HelpCircle, Globe2, Wallet, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { BlurText } from '../animations/BlurText';
 import { CursorGrid } from '../animations/CursorGrid';
+import { BorderGlow } from '../animations/BorderGlow';
 
 const PROBLEMS = [
   {
@@ -93,7 +94,7 @@ export const ProblemSolutionSection: React.FC = () => {
         </div>
 
         {/* Solution Bridge Banner */}
-        <div className="relative rounded-3xl bg-gradient-to-br from-emerald-900 to-forest-root text-white border border-emerald-700/40 shadow-xl overflow-hidden">
+        <div className="relative rounded-3xl bg-gradient-to-br from-emerald-950 via-[#071d14] to-forest-root text-white border border-emerald-700/30 shadow-2xl overflow-hidden">
           <CursorGrid
             cellSize={60}
             color="#ffffff"
@@ -107,30 +108,44 @@ export const ProblemSolutionSection: React.FC = () => {
             spotlight={0.6}
             clickPulse
           >
-            <div className="relative z-10 p-8 sm:p-10 space-y-6">
-              <div className="max-w-3xl space-y-2">
-                <span className="text-xs uppercase font-bold tracking-widest text-emerald-400">
-                  The Connected Solution
-                </span>
-                <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-                  NutriLens connects the plate to the next practical food decision.
-                </h3>
-                <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed">
-                  Instead of treating nutrition in isolation, NutriLens bridges computer vision, verified compositional tables, and local wet market prices into a closed loop:
-                </p>
-              </div>
+            <div className="relative z-10 p-2 sm:p-3">
+              <BorderGlow
+                edgeSensitivity={30}
+                glowColor="270 80 75"
+                backgroundColor="rgba(7, 29, 20, 0.65)"
+                borderRadius={24}
+                glowRadius={32}
+                glowIntensity={0.8}
+                coneSpread={25}
+                animated={false}
+                colors={['#8B7CFF', '#C084FC', '#38BDF8']}
+                fillOpacity={0.25}
+                className="p-6 sm:p-8 space-y-6"
+              >
+                <div className="max-w-3xl space-y-2">
+                  <span className="text-xs uppercase font-bold tracking-widest text-emerald-400">
+                    The Connected Solution
+                  </span>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                    NutriLens connects the plate to the next practical food decision.
+                  </h3>
+                  <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed">
+                    Instead of treating nutrition in isolation, NutriLens bridges computer vision, verified compositional tables, and local wet market prices into a closed loop:
+                  </p>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-                {SOLUTION_PILLARS.map((pillar, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-2.5 p-3 rounded-xl bg-white/5 border border-white/10 text-xs sm:text-sm text-emerald-50"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <span>{pillar}</span>
-                  </div>
-                ))}
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                  {SOLUTION_PILLARS.map((pillar, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-2.5 p-3 rounded-xl bg-white/5 border border-white/10 text-xs sm:text-sm text-emerald-50"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <span>{pillar}</span>
+                    </div>
+                  ))}
+                </div>
+              </BorderGlow>
             </div>
           </CursorGrid>
         </div>
