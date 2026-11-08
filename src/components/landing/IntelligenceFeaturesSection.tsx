@@ -9,7 +9,9 @@ import {
   Receipt,
   MessageSquare,
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { BlurText } from '../animations/BlurText';
+import { MotionCard } from '../animations/MotionCard';
 
 interface Feature {
   id: string;
@@ -135,12 +137,14 @@ export const IntelligenceFeaturesSection: React.FC = () => {
             const isAvailable = feat.status === 'available';
 
             return (
-              <div
+              <MotionCard
                 key={feat.id}
-                className="p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-all duration-200 group"
+                hoverLift={-6}
+                hoverScale={1.02}
+                className="p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-colors duration-200 group"
               >
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <motion.div layout="position" className="flex items-center justify-between">
                     <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-200">
                       <Icon className="w-5 h-5" />
                     </div>
@@ -153,21 +157,21 @@ export const IntelligenceFeaturesSection: React.FC = () => {
                     >
                       {feat.statusLabel}
                     </span>
-                  </div>
+                  </motion.div>
 
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  <motion.h3 layout="position" className="text-base font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                     {feat.title}
-                  </h3>
+                  </motion.h3>
 
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  <motion.p layout="position" className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                     {feat.desc}
-                  </p>
+                  </motion.p>
                 </div>
 
-                <div className="pt-4 mt-5 border-t border-slate-100 dark:border-forest-border/60 text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400">
+                <motion.div layout="position" className="pt-4 mt-5 border-t border-slate-100 dark:border-forest-border/60 text-[11px] font-mono font-semibold text-slate-500 dark:text-slate-400">
                   {feat.tag}
-                </div>
-              </div>
+                </motion.div>
+              </MotionCard>
             );
           })}
         </div>
