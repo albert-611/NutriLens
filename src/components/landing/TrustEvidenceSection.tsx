@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { BlurText } from '../animations/BlurText';
 import { MotionCard } from '../animations/MotionCard';
+import { BorderGlow } from '../animations/BorderGlow';
+import { CursorGrid } from '../animations/CursorGrid';
 
 const PRINCIPLES = [
   {
@@ -145,37 +147,85 @@ export const TrustEvidenceSection: React.FC = () => {
           })}
         </div>
 
-        {/* Evidence Receipt Breakdown Box */}
-        <div className="max-w-4xl mx-auto rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-8 shadow-sm space-y-6 hover:border-emerald-500/40 transition-colors duration-200">
-          <div className="flex items-center gap-2 pb-4 border-b border-slate-100 dark:border-forest-border/60">
-            <Receipt className="w-5 h-5 text-emerald-600" />
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Sample Evidence Receipt Breakdown
-            </h3>
-          </div>
+        {/* Evidence Receipt Breakdown Box (Green Box with Interactive Cursor Grid) */}
+        <div className="max-w-5xl mx-auto relative">
+          <BorderGlow
+            edgeSensitivity={30}
+            glowColor="158 84 60"
+            borderColor="rgba(16, 185, 129, 0.35)"
+            backgroundColor="#071d14"
+            borderRadius={24}
+            glowRadius={36}
+            glowIntensity={0.85}
+            coneSpread={25}
+            animated={false}
+            colors={['#10B981', '#34D399', '#6EE7B7']}
+            fillOpacity={0.25}
+            className="w-full text-white shadow-2xl bg-gradient-to-br from-emerald-950 via-[#071d14] to-forest-root"
+          >
+            <CursorGrid
+              cellSize={60}
+              color="#ffffff"
+              highlight="area"
+              gridStyle="lines"
+              radius={140}
+              holdTime={400}
+              fadeDuration={800}
+              fillOpacity={0.06}
+              gridOpacity={0.08}
+              spotlight={0.6}
+              clickPulse
+              className="rounded-[inherit]"
+            >
+              <div className="p-6 sm:p-9 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
+                      <Receipt className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 block">
+                        Audit Trail & Data Lineage
+                      </span>
+                      <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                        Sample Evidence Receipt Breakdown
+                      </h3>
+                    </div>
+                  </div>
+                  <span className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Verified Standard
+                  </span>
+                </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-sans">
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-card/50 border border-slate-200/60 dark:border-forest-border/60 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-200">
-              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Primary Source</span>
-              <span className="font-bold text-slate-800 dark:text-slate-100">FAO FCTB (2013)</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-card/50 border border-slate-200/60 dark:border-forest-border/60 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-200">
-              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Formula Engine</span>
-              <span className="font-bold text-slate-800 dark:text-slate-100">v1.0 Deterministic</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-card/50 border border-slate-200/60 dark:border-forest-border/60 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-200">
-              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Data Mode</span>
-              <span className="font-bold text-amber-600">Synthetic Demo</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-card/50 border border-slate-200/60 dark:border-forest-border/60 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-200">
-              <span className="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Missing Nutrients</span>
-              <span className="font-bold text-emerald-600">Preserved as NULL</span>
-            </div>
-          </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-sans">
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1.5">
+                    <span className="text-[10px] text-emerald-300/70 block uppercase font-bold tracking-wider">Primary Source</span>
+                    <span className="font-bold text-sm text-white block">FAO FCTB (2013)</span>
+                    <span className="text-[11px] text-emerald-200/60 block leading-relaxed">Peer-reviewed food composition records</span>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1.5">
+                    <span className="text-[10px] text-emerald-300/70 block uppercase font-bold tracking-wider">Formula Engine</span>
+                    <span className="font-bold text-sm text-white block">v1.0 Deterministic</span>
+                    <span className="text-[11px] text-emerald-200/60 block leading-relaxed">Zero LLM hallucinations in math</span>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1.5">
+                    <span className="text-[10px] text-amber-300/70 block uppercase font-bold tracking-wider">Data Mode</span>
+                    <span className="font-bold text-sm text-amber-300 block">Synthetic Demo</span>
+                    <span className="text-[11px] text-amber-200/60 block leading-relaxed">Marked transparently during prototype</span>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.08] transition-all duration-200 space-y-1.5">
+                    <span className="text-[10px] text-emerald-300/70 block uppercase font-bold tracking-wider">Missing Nutrients</span>
+                    <span className="font-bold text-sm text-emerald-400 block">Preserved as NULL</span>
+                    <span className="text-[11px] text-emerald-200/60 block leading-relaxed">Never falsely replaced with zero</span>
+                  </div>
+                </div>
+              </div>
+            </CursorGrid>
+          </BorderGlow>
         </div>
 
         {/* Health Disclaimer Notice */}
-        <div className="max-w-4xl mx-auto p-5 rounded-2xl bg-slate-100 dark:bg-forest-card/60 border border-slate-200 dark:border-forest-border text-xs text-slate-600 dark:text-slate-400 flex items-start gap-3">
+        <div className="max-w-5xl mx-auto p-5 rounded-2xl bg-slate-100 dark:bg-forest-card/60 border border-slate-200 dark:border-forest-border text-xs text-slate-600 dark:text-slate-400 flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
             <span className="font-bold text-slate-900 dark:text-white">Health Disclaimer:</span> NutriLens provides general food and nutrition information. It is not a medical diagnostic service and does not replace individualized advice from a qualified healthcare professional.
