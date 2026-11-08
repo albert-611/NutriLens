@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronDown, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronDown, ShieldCheck } from 'lucide-react';
 import { Button } from '../common/Button';
 import { PlateScannerGraphic } from './PlateScannerGraphic';
 import { BlurText } from '../animations/BlurText';
@@ -17,12 +17,6 @@ export const HeroSection: React.FC = () => {
           {/* Left Column: Headline, Copy and CTAs */}
           <div className="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left z-10">
             
-            {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs font-bold tracking-wider uppercase">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Personalized, Localized Nutrition Intelligence</span>
-            </div>
-
             {/* Main Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-[1.12]">
               <span className="block">

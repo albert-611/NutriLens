@@ -25,14 +25,9 @@ export const PublicNavbar: React.FC = () => {
               <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full" />
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white font-sans">
-                  NutriLens
-                </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
-                  BD
-                </span>
-              </div>
+              <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white font-sans block">
+                NutriLens
+              </span>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-0.5 font-medium hidden sm:block">
                 Nutrition Intelligence
               </p>

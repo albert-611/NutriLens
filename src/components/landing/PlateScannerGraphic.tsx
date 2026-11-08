@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Database, Store, Eye, Crosshair } from 'lucide-react';
+import { Database, Store, Eye } from 'lucide-react';
 
 interface FoodItem {
   id: string;
@@ -89,12 +89,7 @@ export const PlateScannerGraphic: React.FC = () => {
       <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-emerald-950/20 pointer-events-none" />
 
       {/* Top Scanner HUD Header */}
-      <div className="flex items-center justify-between text-xs font-medium z-10 mb-2">
-        <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-300">
-          <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span className="font-semibold">Gemini Vision: 4 Items Confirmed</span>
-        </div>
-        
+      <div className="flex items-center justify-end text-xs font-medium z-10 mb-2">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowHud(showHud === false)}
@@ -314,14 +309,11 @@ export const PlateScannerGraphic: React.FC = () => {
           </div>
         </div>
 
-        {/* Provenance & Demo Benchmark Footer */}
+        {/* Provenance Footer */}
         <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-forest-border/50 flex items-center justify-between text-[10px]">
           <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
             <Database className="w-3 h-3 text-emerald-500" />
             FAO FCTB (2013) Standard Recipe
-          </span>
-          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-            SIMULATED DEMO DATA
           </span>
         </div>
       </div>
