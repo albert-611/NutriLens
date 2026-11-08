@@ -49,12 +49,21 @@ export const ConfirmPage: React.FC = () => {
     },
     {
       id: 'item-3',
-      foodId: '33333333-3333-3333-3333-333333333314',
-      name: 'Fried Egg (Dim Bhaji)',
-      nameBn: 'ডিম ভাজি',
-      grams: 60,
+      foodId: '33333333-3333-3333-3333-333333333320',
+      name: 'Rohu Fish Curry (Rui Macher Jhol)',
+      nameBn: 'রুই মাছের ঝোল',
+      grams: 180,
+      preparationState: 'cooked_gravy',
+      category: 'fish_and_seafood',
+    },
+    {
+      id: 'item-4',
+      foodId: '33333333-3333-3333-3333-333333333329',
+      name: 'Spinach Bhaji (Palong Shak)',
+      nameBn: 'পালং শাক ভাজি',
+      grams: 80,
       preparationState: 'fried',
-      category: 'eggs',
+      category: 'vegetables',
     },
   ]);
 
@@ -112,6 +121,32 @@ export const ConfirmPage: React.FC = () => {
         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
           {t('confirm.subtitle')}
         </p>
+      </div>
+
+      {/* Plate Scan Source Image Banner */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-slate-50 dark:bg-forest-card/60 border border-slate-200 dark:border-forest-border flex flex-col sm:flex-row items-center gap-5">
+        <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-2xl overflow-hidden border-2 border-emerald-500/40 shadow-md flex-shrink-0 bg-black/10">
+          <img
+            src="/images/demo-plate.png"
+            alt="Uploaded meal scan"
+            className="w-full h-full object-cover object-[center_60%]"
+          />
+          <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-black/70 text-emerald-400 border border-emerald-500/30">
+            SCAN CAPTURED
+          </span>
+        </div>
+        <div className="space-y-1.5 flex-1 text-center sm:text-left">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+            <Sparkles className="w-3 h-3" />
+            <span>Gemini Vision Multimodal Detection</span>
+          </div>
+          <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
+            Bangla Plate Vision: 4 Components Detected
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Please review the recognized items, adjust portion weights if needed, and confirm to calculate your nutrition breakdown against the FAO Food Composition Table for Bangladesh (2013).
+          </p>
+        </div>
       </div>
 
       {/* Confirmation Items List */}
@@ -242,3 +277,4 @@ export const ConfirmPage: React.FC = () => {
     </div>
   );
 };
+

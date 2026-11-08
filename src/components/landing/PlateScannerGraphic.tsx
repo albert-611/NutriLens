@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Check, Database, Store, Eye, Crosshair } from 'lucide-react';
+import { Sparkles, Database, Store, Eye, Crosshair } from 'lucide-react';
 
 interface FoodItem {
   id: string;
@@ -13,8 +13,8 @@ interface FoodItem {
   carbs: string;
   fat: string;
   cost: string;
-  // Bounding box in percentage [top, left, width, height]
-  box: { top: number; left: number; width: number; height: number };
+  // Bounding box in SVG coordinate space (viewBox: 40 380 1776 1776)
+  box: { x: number; y: number; width: number; height: number };
 }
 
 const DETECTED_ITEMS: FoodItem[] = [
@@ -30,7 +30,7 @@ const DETECTED_ITEMS: FoodItem[] = [
     carbs: '2.1 g',
     fat: '14.2 g',
     cost: '৳ 57.60',
-    box: { top: 12, left: 52, width: 42, height: 38 },
+    box: { x: 940, y: 630, width: 700, height: 690 },
   },
   {
     id: 'dal',
@@ -44,7 +44,7 @@ const DETECTED_ITEMS: FoodItem[] = [
     carbs: '21.4 g',
     fat: '2.2 g',
     cost: '৳ 18.00',
-    box: { top: 14, left: 6, width: 40, height: 38 },
+    box: { x: 120, y: 580, width: 630, height: 590 },
   },
   {
     id: 'shak',
@@ -58,7 +58,7 @@ const DETECTED_ITEMS: FoodItem[] = [
     carbs: '3.8 g',
     fat: '4.1 g',
     cost: '৳ 6.50',
-    box: { top: 6, left: 34, width: 32, height: 26 },
+    box: { x: 690, y: 490, width: 440, height: 420 },
   },
   {
     id: 'rice',
@@ -72,7 +72,7 @@ const DETECTED_ITEMS: FoodItem[] = [
     carbs: '57.2 g',
     fat: '0.6 g',
     cost: '৳ 13.60',
-    box: { top: 48, left: 10, width: 80, height: 46 },
+    box: { x: 280, y: 1190, width: 1260, height: 790 },
   },
 ];
 
@@ -92,7 +92,7 @@ export const PlateScannerGraphic: React.FC = () => {
       <div className="flex items-center justify-between text-xs font-medium z-10 mb-2">
         <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-300">
           <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span className="font-semibold">Vision Model: 4 Items Confirmed</span>
+          <span className="font-semibold">Gemini Vision: 4 Items Confirmed</span>
         </div>
         
         <div className="flex items-center gap-2">
@@ -110,217 +110,171 @@ export const PlateScannerGraphic: React.FC = () => {
         </div>
       </div>
 
-      {/* Plate Stage */}
+      {/* Plate Stage with Real User Photo */}
       <div className="relative w-full aspect-square my-2 flex items-center justify-center">
-        {/* Realistic Thali Dish Plate */}
-        <div className="relative w-[92%] h-[92%] rounded-full shadow-2xl overflow-hidden border-[6px] border-slate-300 dark:border-[#223d30] bg-[#e6e8e5] dark:bg-[#06140e] flex items-center justify-center">
+        <div className="relative w-full h-full rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden border-2 border-slate-200 dark:border-forest-border bg-slate-900/5 dark:bg-[#06140e] flex items-center justify-center">
           
-          {/* Inner Thali Rim Metallic Shading */}
-          <div className="absolute inset-0 rounded-full border-[10px] border-slate-200/60 dark:border-[#102a1e]/80 pointer-events-none z-10 shadow-inner" />
-          <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-black/20 via-transparent to-white/20 pointer-events-none z-10" />
-
-          {/* SVG Food Illustrations - Realistic Overhead Composition */}
+          {/* Responsive SVG Container locked to image coordinate system */}
           <svg
-            viewBox="0 0 400 400"
+            viewBox="40 380 1776 1776"
             className="w-full h-full select-none"
-            style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }}
           >
             <defs>
-              {/* Rice Texture Pattern */}
-              <pattern id="rice-grain" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(25)">
-                <ellipse cx="4" cy="4" rx="3.5" ry="1.5" fill="#fdfcf8" stroke="#e8e2d2" strokeWidth="0.5" />
-                <ellipse cx="11" cy="10" rx="3.5" ry="1.5" fill="#f8f4e6" stroke="#ded6c0" strokeWidth="0.5" />
-              </pattern>
+              {/* Laser Scan Gradient */}
+              <linearGradient id="laser-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#10b981" stopOpacity="0" />
+                <stop offset="50%" stopColor="#10b981" stopOpacity="0.8" />
+                <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+              </linearGradient>
 
-              {/* Dal Gradient */}
-              <radialGradient id="dal-soup" cx="45%" cy="45%" r="50%">
-                <stop offset="0%" stopColor="#f7b731" />
-                <stop offset="60%" stopColor="#fa8231" />
-                <stop offset="100%" stopColor="#eb3b5a" />
-              </radialGradient>
-
-              {/* Fish Curry Gravy Gradient */}
-              <radialGradient id="curry-gravy" cx="50%" cy="45%" r="55%">
-                <stop offset="0%" stopColor="#e17055" />
-                <stop offset="65%" stopColor="#d63031" />
-                <stop offset="100%" stopColor="#801010" />
-              </radialGradient>
-
-              {/* Spinach Texture */}
-              <radialGradient id="shak-gradient" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#2ed573" />
-                <stop offset="50%" stopColor="#1e824c" />
-                <stop offset="100%" stopColor="#114b27" />
-              </radialGradient>
+              {/* Selection Box Glow Filter */}
+              <filter id="hud-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="15" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
             </defs>
 
-            {/* Base Plate Interior */}
-            <circle cx="200" cy="200" r="190" fill="#f3f4f1" className="dark:fill-[#0c1f17]" />
+            {/* Real Photographic Bangladeshi Plate Image */}
+            <image
+              href="/images/demo-plate.png"
+              x="0"
+              y="0"
+              width="1856"
+              height="2304"
+              preserveAspectRatio="xMidYMid slice"
+            />
 
-            {/* 1. STEAMED PARBOILED RICE (Bottom Mound) */}
-            <g id="rice-mound" className="cursor-pointer" onClick={() => setActiveId('rice')}>
-              {/* Rice Base Shadow */}
-              <path
-                d="M 40,240 Q 200,160 360,240 A 185,185 0 0,1 40,240 Z"
-                fill="#ded7c4"
-                className="dark:fill-[#1b2b22]"
-              />
-              {/* Rice Mound Texture */}
-              <path
-                d="M 45,235 Q 200,165 355,235 A 180,180 0 0,1 45,235 Z"
-                fill="url(#rice-grain)"
-              />
-              {/* Individual grain highlights for high realism */}
-              <ellipse cx="180" cy="240" rx="4" ry="1.8" fill="#ffffff" transform="rotate(10 180 240)" />
-              <ellipse cx="220" cy="250" rx="4.5" ry="1.8" fill="#ffffff" transform="rotate(-15 220 250)" />
-              <ellipse cx="150" cy="280" rx="4" ry="1.8" fill="#ffffff" transform="rotate(35 150 280)" />
-              <ellipse cx="250" cy="290" rx="4.2" ry="1.8" fill="#ffffff" transform="rotate(-25 250 290)" />
-              <ellipse cx="200" cy="310" rx="4" ry="1.8" fill="#ffffff" transform="rotate(5 200 310)" />
-              <ellipse cx="130" cy="320" rx="4.5" ry="1.8" fill="#ffffff" transform="rotate(-40 130 320)" />
-              <ellipse cx="270" cy="320" rx="4" ry="1.8" fill="#ffffff" transform="rotate(45 270 320)" />
-            </g>
-
-            {/* 2. MASOOR DAL BOWL / KATORI (Upper Left) */}
-            <g id="dal-dish" className="cursor-pointer" onClick={() => setActiveId('dal')}>
-              {/* Steel Katori Rim */}
-              <circle cx="100" cy="115" r="68" fill="#bcc3cb" className="dark:fill-[#2d3a33]" />
-              <circle cx="100" cy="115" r="64" fill="#e9ecef" className="dark:fill-[#1b2520]" />
-              {/* Dal Soup Liquid */}
-              <circle cx="100" cy="115" r="60" fill="url(#dal-soup)" />
-              {/* Fried Garlic / Cumin Baghar flecks */}
-              <ellipse cx="90" cy="105" rx="5" ry="2.5" fill="#f1c40f" transform="rotate(20 90 105)" />
-              <ellipse cx="115" cy="120" rx="4" ry="2" fill="#d35400" transform="rotate(-30 115 120)" />
-              <ellipse cx="80" cy="130" rx="3.5" ry="1.5" fill="#7f8c8d" transform="rotate(15 80 130)" />
-              {/* Fresh Coriander leaf garnishes */}
-              <path d="M 105,95 Q 110,90 115,95 Q 110,100 105,95 Z" fill="#27ae60" />
-              <path d="M 102,96 Q 105,90 108,96 Q 105,102 102,96 Z" fill="#2ecc71" />
-              <circle cx="120" cy="100" r="1.5" fill="#27ae60" />
-            </g>
-
-            {/* 3. ROHU FISH CURRY (Upper Right) */}
-            <g id="fish-curry" className="cursor-pointer" onClick={() => setActiveId('fish')}>
-              {/* Curry Gravy pool */}
-              <ellipse cx="290" cy="125" rx="72" ry="62" fill="url(#curry-gravy)" />
-              
-              {/* Rui Mach Steak (Peti/Gada Cut - distinctive crescent fish silhouette) */}
-              <g transform="translate(255, 95) rotate(-15)">
-                {/* Fish Flesh Outer Sear */}
-                <path
-                  d="M 10,25 C 15,5 55,5 65,25 C 60,45 20,45 10,25 Z"
-                  fill="#c0392b"
-                  stroke="#781e1e"
-                  strokeWidth="2"
+            {/* Computer Vision HUD Overlays */}
+            {showHud && (
+              <g id="hud-layer">
+                {/* Continuous Animated Laser Radar Sweep */}
+                <rect
+                  x="40"
+                  y="380"
+                  width="1776"
+                  height="16"
+                  fill="url(#laser-grad)"
+                  className="animate-[scan_3.5s_ease-in-out_infinite]"
                 />
-                {/* Fish Steak Inner White Flakes */}
-                <path
-                  d="M 16,24 C 20,10 50,10 58,24 C 54,38 22,38 16,24 Z"
-                  fill="#f9ebdc"
-                />
-                {/* Fish Bone Center Circle */}
-                <circle cx="37" cy="24" r="5" fill="#795548" />
-                <circle cx="37" cy="24" r="2.5" fill="#ffffff" />
-                {/* Gravy Drizzle across fish steak */}
-                <path d="M 22,22 Q 35,28 50,20" stroke="#d63031" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+
+                {/* Detected Food Bounding Boxes */}
+                {DETECTED_ITEMS.map((item) => {
+                  const isActive = item.id === activeId;
+                  const { x, y, width, height } = item.box;
+                  const corner = 36; // bracket size
+
+                  return (
+                    <g
+                      key={item.id}
+                      className="cursor-pointer transition-all duration-200"
+                      onClick={() => setActiveId(item.id)}
+                    >
+                      {/* Translucent Detection Fill */}
+                      <rect
+                        x={x}
+                        y={y}
+                        width={width}
+                        height={height}
+                        rx="16"
+                        fill={isActive ? '#10b981' : '#059669'}
+                        fillOpacity={isActive ? 0.22 : 0.08}
+                        stroke={isActive ? '#10b981' : '#10b981'}
+                        strokeWidth={isActive ? '6' : '3'}
+                        strokeDasharray={isActive ? 'none' : '16,12'}
+                        filter={isActive ? 'url(#hud-glow)' : 'none'}
+                      />
+
+                      {/* Corner Reticle Brackets (YOLO / SAM Style) */}
+                      {/* Top-Left */}
+                      <path
+                        d={`M ${x} ${y + corner} L ${x} ${y} L ${x + corner} ${y}`}
+                        stroke="#34d399"
+                        strokeWidth="10"
+                        strokeLinecap="round"
+                        fill="none"
+                      />
+                      {/* Top-Right */}
+                      <path
+                        d={`M ${x + width - corner} ${y} L ${x + width} ${y} L ${x + width} ${y + corner}`}
+                        stroke="#34d399"
+                        strokeWidth="10"
+                        strokeLinecap="round"
+                        fill="none"
+                      />
+                      {/* Bottom-Left */}
+                      <path
+                        d={`M ${x} ${y + height - corner} L ${x} ${y + height} L ${x + corner} ${y + height}`}
+                        stroke="#34d399"
+                        strokeWidth="10"
+                        strokeLinecap="round"
+                        fill="none"
+                      />
+                      {/* Bottom-Right */}
+                      <path
+                        d={`M ${x + width - corner} ${y + height} L ${x + width} ${y + height} L ${x + width} ${y + height - corner}`}
+                        stroke="#34d399"
+                        strokeWidth="10"
+                        strokeLinecap="round"
+                        fill="none"
+                      />
+
+                      {/* Floating AI Confidence Label Pill */}
+                      <g transform={`translate(${x + width / 2}, ${y - 12})`}>
+                        <rect
+                          x="-140"
+                          y="-42"
+                          width="280"
+                          height="48"
+                          rx="24"
+                          fill={isActive ? '#059669' : '#0f172a'}
+                          stroke={isActive ? '#34d399' : '#334155'}
+                          strokeWidth="3"
+                          filter="drop-shadow(0px 4px 6px rgba(0,0,0,0.4))"
+                        />
+                        <text
+                          x="0"
+                          y="-12"
+                          textAnchor="middle"
+                          fill="#ffffff"
+                          fontSize="22"
+                          fontWeight="bold"
+                          fontFamily="ui-monospace, monospace"
+                        >
+                          {item.label} {(item.confidence * 100).toFixed(0)}%
+                        </text>
+                      </g>
+
+                      {/* Portion Badge at Bottom Right of Box */}
+                      <g transform={`translate(${x + width - 130}, ${y + height - 16})`}>
+                        <rect
+                          x="0"
+                          y="-36"
+                          width="120"
+                          height="40"
+                          rx="10"
+                          fill={isActive ? '#047857' : '#000000'}
+                          fillOpacity="0.85"
+                          stroke="#10b981"
+                          strokeWidth="2"
+                        />
+                        <text
+                          x="60"
+                          y="-10"
+                          textAnchor="middle"
+                          fill="#a7f3d0"
+                          fontSize="20"
+                          fontWeight="bold"
+                          fontFamily="ui-monospace, monospace"
+                        >
+                          {item.weight}
+                        </text>
+                      </g>
+                    </g>
+                  );
+                })}
               </g>
-
-              {/* Sliced Green Chili on Top */}
-              <path
-                d="M 280,145 Q 295,155 310,140"
-                stroke="#2ed573"
-                strokeWidth="4"
-                strokeLinecap="round"
-                fill="none"
-              />
-              <path
-                d="M 285,147 Q 295,155 305,143"
-                stroke="#7bed9f"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </g>
-
-            {/* 4. PALONG SHAK BHAJI (Top Center Mound) */}
-            <g id="shak-dish" className="cursor-pointer" onClick={() => setActiveId('shak')}>
-              {/* Sauteed Dark Leafy Cluster */}
-              <ellipse cx="195" cy="80" rx="45" ry="32" fill="url(#shak-gradient)" />
-              <ellipse cx="180" cy="75" rx="20" ry="15" fill="#1b5e20" />
-              <ellipse cx="210" cy="82" rx="22" ry="16" fill="#2e7d32" />
-              {/* Fried Crispy Red Chili (Shukno Morich) Garnish */}
-              <path
-                d="M 185,82 Q 195,78 205,86"
-                stroke="#b71540"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-              {/* Browned Garlic Slivers */}
-              <rect x="175" y="82" width="5" height="2" rx="1" fill="#f5cd79" transform="rotate(30 175 82)" />
-              <rect x="205" y="76" width="6" height="2.5" rx="1" fill="#f5cd79" transform="rotate(-20 205 76)" />
-            </g>
+            )}
           </svg>
-
-          {/* COMPUTER VISION HUD OVERLAYS */}
-          {showHud && (
-            <div className="absolute inset-0 pointer-events-none z-20">
-              {/* Continuous Laser Radar Sweep */}
-              <div
-                className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_#10b981] opacity-70 animate-[scan_3.2s_ease-in-out_infinite]"
-              />
-
-              {/* Bounding Boxes for each detected food */}
-              {DETECTED_ITEMS.map((item) => {
-                const isActive = item.id === activeId;
-                const { top, left, width, height } = item.box;
-
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => setActiveId(item.id)}
-                    style={{
-                      top: `${top}%`,
-                      left: `${left}%`,
-                      width: `${width}%`,
-                      height: `${height}%`,
-                    }}
-                    className={`absolute pointer-events-auto cursor-pointer transition-all duration-200 rounded-lg ${
-                      isActive
-                        ? 'border-2 border-emerald-500 bg-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.35)]'
-                        : 'border border-emerald-500/50 hover:border-emerald-400 hover:bg-emerald-500/10'
-                    }`}
-                  >
-                    {/* Corner Reticle Brackets (YOLO/SAM aesthetic) */}
-                    <span className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-emerald-400" />
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-emerald-400" />
-                    <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-emerald-400" />
-                    <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-emerald-400" />
-
-                    {/* AI Label & Confidence Pill */}
-                    <div
-                      className={`absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded text-[9px] font-mono font-bold flex items-center gap-1 transition-transform shadow-md ${
-                        isActive
-                          ? 'bg-emerald-600 text-white scale-105'
-                          : 'bg-slate-900/80 text-emerald-300 dark:bg-forest-root/90'
-                      }`}
-                    >
-                      <Crosshair className="w-2.5 h-2.5" />
-                      <span>{item.label}</span>
-                      <span className="opacity-80">{(item.confidence * 100).toFixed(0)}%</span>
-                    </div>
-
-                    {/* Center Portion Tag */}
-                    <div
-                      className={`absolute bottom-1 right-1 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold ${
-                        isActive ? 'bg-emerald-600 text-white' : 'bg-black/60 text-emerald-200'
-                      }`}
-                    >
-                      {item.weight}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       </div>
 
@@ -375,10 +329,10 @@ export const PlateScannerGraphic: React.FC = () => {
       {/* Inline styles for laser scan animation */}
       <style>{`
         @keyframes scan {
-          0% { top: 6%; opacity: 0; }
-          15% { opacity: 0.8; }
-          85% { opacity: 0.8; }
-          100% { top: 92%; opacity: 0; }
+          0% { y: 400px; opacity: 0; }
+          15% { opacity: 0.85; }
+          85% { opacity: 0.85; }
+          100% { y: 2050px; opacity: 0; }
         }
       `}</style>
     </div>
