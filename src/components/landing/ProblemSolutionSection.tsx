@@ -112,7 +112,7 @@ export const ProblemSolutionSection: React.FC = () => {
                 <span className="text-xs uppercase font-bold tracking-widest text-emerald-400">
                   The Connected Solution
                 </span>
-                <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
                   NutriLens connects the plate to the next practical food decision.
                 </h3>
                 <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed">
