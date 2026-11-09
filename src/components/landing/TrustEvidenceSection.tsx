@@ -5,7 +5,6 @@ import {
   FileCheck2,
   Database,
   Eye,
-  AlertTriangle,
   Receipt,
   CheckCircle2,
   RotateCw,
@@ -287,14 +286,6 @@ export const TrustEvidenceSection: React.FC = () => {
               </div>
             </CursorGrid>
           </BorderGlow>
-        </div>
-
-        {/* Health Disclaimer Notice */}
-        <div className="max-w-5xl mx-auto p-5 rounded-2xl bg-slate-100 dark:bg-forest-card/60 border border-slate-200 dark:border-forest-border text-xs text-slate-600 dark:text-slate-400 flex items-start gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">
-            <span className="font-bold text-slate-900 dark:text-white">Health Disclaimer:</span> NutriLens provides general food and nutrition information. It is not a medical diagnostic service and does not replace individualized advice from a qualified healthcare professional.
-          </p>
         </div>
 
       </div>
