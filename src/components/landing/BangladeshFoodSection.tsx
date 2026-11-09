@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ShieldAlert, BookOpen, Scale, Sparkles } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { BlurText } from '../animations/BlurText';
 import { GlowCard } from '../ui/spotlight-card';
 
@@ -104,13 +104,7 @@ export const BangladeshFoodSection: React.FC = () => {
 
         </div>
 
-        {/* Boundary & Scope Disclosure Box */}
-        <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-slate-700 dark:text-slate-300 flex items-start gap-3">
-          <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">
-            <span className="font-bold text-slate-900 dark:text-white">Documented Boundaries:</span> NutriLens does not claim 100% regional recipe coverage or guaranteed allergen identification from images alone. Hidden cooking oil, added sugar, and table salt cannot be confirmed visually and are modeled via standardized FAO recipe assumptions until user adjustments are applied.
-          </p>
-        </div>
+
 
       </div>
     </section>
