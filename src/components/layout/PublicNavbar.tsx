@@ -5,7 +5,6 @@ import { Menu, X, ArrowRight } from 'lucide-react';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { LangToggle } from '../common/LangToggle';
 import { Button } from '../common/Button';
-import { AnnouncementBar } from '../landing/AnnouncementBar';
 import { SpecularButton } from '../animations/SpecularButton';
 
 export const PublicNavbar: React.FC = () => {
@@ -14,9 +13,6 @@ export const PublicNavbar: React.FC = () => {
 
   return (
     <>
-      {/* Non-intrusive Product Announcement */}
-      <AnnouncementBar />
-
       <header className="sticky top-0 z-40 w-full bg-surface-lightRoot/85 dark:bg-forest-root/85 backdrop-blur-md border-b border-slate-200/60 dark:border-forest-border/60 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 h-16 flex items-center justify-between">
           

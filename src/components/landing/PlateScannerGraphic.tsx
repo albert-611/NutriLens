@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Database, Store, Eye } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface FoodItem {
   id: string;
@@ -111,7 +112,7 @@ export const PlateScannerGraphic: React.FC = () => {
           
           {/* Responsive SVG Container locked to image coordinate system */}
           <svg
-            viewBox="40 380 1776 1776"
+            viewBox="-95 270 2000 2000"
             className="w-full h-full select-none"
           >
             <defs>
@@ -129,14 +130,13 @@ export const PlateScannerGraphic: React.FC = () => {
               </filter>
             </defs>
 
-            {/* Real Photographic Bangladeshi Plate Image */}
+            {/* Real Photographic Bangladeshi Plate Image (Fits uncropped in container) */}
             <image
               href="/images/demo-plate.png"
               x="0"
               y="0"
               width="1856"
               height="2304"
-              preserveAspectRatio="xMidYMid slice"
             />
 
             {/* Computer Vision HUD Overlays */}
@@ -144,10 +144,10 @@ export const PlateScannerGraphic: React.FC = () => {
               <g id="hud-layer">
                 {/* Continuous Animated Laser Radar Sweep */}
                 <rect
-                  x="40"
-                  y="380"
-                  width="1776"
-                  height="16"
+                  x="-95"
+                  y="270"
+                  width="2000"
+                  height="18"
                   fill="url(#laser-grad)"
                   className="animate-[scan_3.5s_ease-in-out_infinite]"
                 />
@@ -273,41 +273,50 @@ export const PlateScannerGraphic: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating Active Item Nutrition & Bazar Card */}
-      <div className="z-10 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-3.5 shadow-lg transition-all duration-200">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100">
-                {activeItem.name}
+      {/* Floating Active Item Nutrition & Bazar Card with Fluid Smooth Transitions */}
+      <div className="z-10 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-3.5 shadow-lg transition-all duration-200 overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeItem.id}
+            initial={{ opacity: 0, y: 7, filter: 'blur(3px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -7, filter: 'blur(3px)' }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="flex items-start justify-between"
+          >
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <p className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100">
+                  {activeItem.name}
+                </p>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium ml-3.5">
+                {activeItem.nameBn}
+              </p>
+
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold mt-1 ml-3.5 flex items-center gap-2">
+                <span>Portion: {activeItem.weight}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1 font-sans font-bold tabular-nums">
+                  <Store className="w-3 h-3 text-emerald-600" />
+                  Est. Bazar: {activeItem.cost}
+                </span>
               </p>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium ml-3.5">
-              {activeItem.nameBn}
-            </p>
 
-            <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold mt-1 ml-3.5 flex items-center gap-2">
-              <span>Portion: {activeItem.weight}</span>
-              <span>•</span>
-              <span className="flex items-center gap-1 font-sans font-bold tabular-nums">
-                <Store className="w-3 h-3 text-emerald-600" />
-                Est. Bazar: {activeItem.cost}
+            <div className="text-right shrink-0">
+              <span className="text-sm font-extrabold text-slate-900 dark:text-white block font-sans">
+                {activeItem.calories}
               </span>
-            </p>
-          </div>
-
-          <div className="text-right">
-            <span className="text-sm font-extrabold text-slate-900 dark:text-white">
-              {activeItem.calories}
-            </span>
-            <div className="text-[10px] font-sans font-semibold text-slate-500 dark:text-slate-400 mt-0.5 space-x-1 tabular-nums">
-              <span>P: {activeItem.protein}</span>
-              <span>•</span>
-              <span>C: {activeItem.carbs}</span>
+              <div className="text-[10px] font-sans font-semibold text-slate-500 dark:text-slate-400 mt-0.5 space-x-1 tabular-nums">
+                <span>P: {activeItem.protein}</span>
+                <span>•</span>
+                <span>C: {activeItem.carbs}</span>
+              </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </AnimatePresence>
 
         {/* Provenance Footer */}
         <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-forest-border/50 flex items-center justify-between text-[10px]">
@@ -321,10 +330,10 @@ export const PlateScannerGraphic: React.FC = () => {
       {/* Inline styles for laser scan animation */}
       <style>{`
         @keyframes scan {
-          0% { y: 400px; opacity: 0; }
+          0% { y: 280px; opacity: 0; }
           15% { opacity: 0.85; }
           85% { opacity: 0.85; }
-          100% { y: 2050px; opacity: 0; }
+          100% { y: 2260px; opacity: 0; }
         }
       `}</style>
     </div>

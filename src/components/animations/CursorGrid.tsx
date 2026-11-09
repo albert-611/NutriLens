@@ -22,6 +22,7 @@ export interface CursorGridProps {
   cellGap?: number;
   spotlight?: number;
   clickPulse?: boolean;
+  hoverDrops?: boolean;
   pulseSpeed?: number;
   ambient?: number;
   edgeFade?: number;
@@ -38,6 +39,7 @@ interface Pulse {
   y: number;
   startTime: number;
   maxRadius: number;
+  intensity?: number;
 }
 
 const parseHex = (hex: string): [number, number, number] => {
@@ -84,6 +86,7 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
   cellGap = 0,
   spotlight = 0.6,
   clickPulse = true,
+  hoverDrops = true,
   pulseSpeed = 1.5,
   ambient = 0,
   edgeFade = 0,
@@ -123,6 +126,23 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
     let levels = new Float32Array(0);
     let targets = new Float32Array(0);
     let touched = new Float64Array(0);
+
+    let lastDropX = -9999;
+    let lastDropY = -9999;
+    let lastDropTime = 0;
+
+    const spawnRipple = (x: number, y: number, now: number, maxRadius?: number, intensity: number = 0.85) => {
+      if (reduceMotion) return;
+      pulses.push({
+        x,
+        y,
+        startTime: now,
+        maxRadius: maxRadius || Math.min(view.width, view.height) * 0.65,
+        intensity,
+      });
+      if (pulses.length > 18) pulses.shift();
+      wake();
+    };
 
     const resize = () => {
       view.width = Math.max(1, container.clientWidth);
@@ -209,13 +229,19 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
 
       let hasActiveAnimation = false;
 
-      // 1. Update Pulses
+      // Idle water droplet when mouse rests inside on laptop/desktop
+      if (pointer.inside && hoverDrops && !reduceMotion && (now - lastDropTime > 900)) {
+        lastDropTime = now;
+        spawnRipple(pointer.x, pointer.y, now, Math.min(view.width, view.height) * 0.45, 0.6);
+      }
+
+      // 1. Update Pulses (Water Drop Ripples)
       if (pulses.length > 0) {
         hasActiveAnimation = true;
         for (let i = pulses.length - 1; i >= 0; i--) {
           const p = pulses[i];
           const elapsed = (now - p.startTime) / 1000;
-          const currentRadius = elapsed * pulseSpeed * 320;
+          const currentRadius = elapsed * pulseSpeed * 340;
           const alpha = Math.max(0, 1 - currentRadius / p.maxRadius);
 
           if (alpha <= 0.01 || currentRadius >= p.maxRadius) {
@@ -223,11 +249,12 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
             continue;
           }
 
-          // Light up intersecting cells
-          const minCol = Math.max(0, Math.floor((p.x - currentRadius - cellSize - grid.offX) / cellSize));
-          const maxCol = Math.min(grid.cols - 1, Math.floor((p.x + currentRadius + cellSize - grid.offX) / cellSize));
-          const minRow = Math.max(0, Math.floor((p.y - currentRadius - cellSize - grid.offY) / cellSize));
-          const maxRow = Math.min(grid.rows - 1, Math.floor((p.y + currentRadius + cellSize - grid.offY) / cellSize));
+          // Light up intersecting cells with a smooth sinusoidal ripple wave
+          const waveWidth = cellSize * 2.2;
+          const minCol = Math.max(0, Math.floor((p.x - currentRadius - waveWidth - grid.offX) / cellSize));
+          const maxCol = Math.min(grid.cols - 1, Math.floor((p.x + currentRadius + waveWidth - grid.offX) / cellSize));
+          const minRow = Math.max(0, Math.floor((p.y - currentRadius - waveWidth - grid.offY) / cellSize));
+          const maxRow = Math.min(grid.rows - 1, Math.floor((p.y + currentRadius + waveWidth - grid.offY) / cellSize));
 
           for (let row = minRow; row <= maxRow; row++) {
             for (let col = minCol; col <= maxCol; col++) {
@@ -235,8 +262,9 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
               const cy = grid.offY + row * cellSize + cellSize / 2;
               const dist = Math.hypot(p.x - cx, p.y - cy);
               const diff = Math.abs(dist - currentRadius);
-              if (diff < cellSize * 1.5) {
-                const waveIntensity = (1 - diff / (cellSize * 1.5)) * alpha;
+              if (diff < waveWidth) {
+                // Smooth sinusoidal water droplet ripple wave
+                const waveIntensity = Math.sin((1 - diff / waveWidth) * Math.PI) * alpha * (p.intensity || 0.85);
                 lightCell(row * grid.cols + col, waveIntensity, now);
               }
             }
@@ -382,20 +410,28 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
       }
       pointer.x = x;
       pointer.y = y;
-      energize(x, y, performance.now());
+      const now = performance.now();
+      energize(x, y, now);
+
+      // Laptop / desktop view: mouse hover creates flowing water droplet ripple waves
+      if (hoverDrops && e.pointerType !== 'touch' && !reduceMotion) {
+        const dist = Math.hypot(x - lastDropX, y - lastDropY);
+        const timeDiff = now - lastDropTime;
+        if (dist > 36 || (timeDiff > 160 && dist > 10)) {
+          lastDropX = x;
+          lastDropY = y;
+          lastDropTime = now;
+          spawnRipple(x, y, now, Math.min(view.width, view.height) * 0.55, 0.75);
+        }
+      }
+
       wake();
     };
 
     const onPointerDown = (e: PointerEvent) => {
       const { x, y, inside } = getLocalPos(e);
       if (!inside || !clickPulse || reduceMotion) return;
-      pulses.push({
-        x,
-        y,
-        startTime: performance.now(),
-        maxRadius: Math.max(view.width, view.height) * 0.9,
-      });
-      wake();
+      spawnRipple(x, y, performance.now(), Math.max(view.width, view.height) * 0.95, 1.0);
     };
 
     const onPointerLeave = () => {
@@ -447,6 +483,7 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
     cellGap,
     spotlight,
     clickPulse,
+    hoverDrops,
     pulseSpeed,
     dpr,
   ]);

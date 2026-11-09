@@ -22,22 +22,54 @@ export const LandingPage: React.FC = () => {
     // Scoped GSAP animation context for safe lifecycle cleanup
     const ctx = gsap.context(() => {
       const sections = pageRef.current?.querySelectorAll('section');
-      sections?.forEach((sec) => {
+      sections?.forEach((sec, idx) => {
+        // Hero section immediate entrance
+        if (idx === 0) {
+          gsap.fromTo(
+            sec,
+            { opacity: 0, y: 20 },
+            { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }
+          );
+          return;
+        }
+
+        // Section reveal animation when scrolled into view
         gsap.fromTo(
           sec,
-          { opacity: 0.85, y: 16 },
+          { opacity: 0, y: 44 },
           {
             opacity: 1,
             y: 0,
-            duration: 0.5,
-            ease: 'power2.out',
+            duration: 0.85,
+            ease: 'power3.out',
             scrollTrigger: {
               trigger: sec,
-              start: 'top 85%',
+              start: 'top 82%',
               toggleActions: 'play none none none',
             },
           }
         );
+
+        // Child content cards subtle staggered entrance
+        const innerCards = sec.querySelectorAll(':scope > div > .grid > div, :scope > div > div > .grid > div');
+        if (innerCards && innerCards.length > 0) {
+          gsap.fromTo(
+            innerCards,
+            { opacity: 0, y: 26 },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.6,
+              stagger: 0.08,
+              ease: 'power2.out',
+              scrollTrigger: {
+                trigger: sec,
+                start: 'top 75%',
+                toggleActions: 'play none none none',
+              },
+            }
+          );
+        }
       });
     }, pageRef);
 
