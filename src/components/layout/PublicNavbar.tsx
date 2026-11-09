@@ -11,6 +11,7 @@ export const PublicNavbar: React.FC = () => {
   const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isFooterNear, setIsFooterNear] = useState(false);
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -22,10 +23,22 @@ export const PublicNavbar: React.FC = () => {
   useEffect(() => {
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 280);
+
+      // Disappear whenever footer hits 60vh from downward (bottom of viewport)
+      const footer = document.querySelector('footer');
+      if (footer) {
+        const footerRect = footer.getBoundingClientRect();
+        setIsFooterNear(footerRect.top <= window.innerHeight * 0.6);
+      }
     };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll, { passive: true });
     handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
   }, []);
 
   const scrollToTop = () => {
@@ -39,11 +52,17 @@ export const PublicNavbar: React.FC = () => {
     <>
       {/* Scroll-synchronized progress bar pinned to the top of the viewport */}
       <motion.div
-        className="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.7)] origin-left z-[60] pointer-events-none"
+        className={`fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.7)] origin-left z-[60] pointer-events-none transition-all duration-300 ease-in-out ${
+          isFooterNear ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'
+        }`}
         style={{ scaleX }}
       />
 
-      <header className="sticky top-0 z-50 w-full bg-white/90 dark:bg-forest-root/90 border-b border-slate-200/70 dark:border-forest-border/60 transition-colors duration-200 shadow-xs">
+      <header
+        className={`sticky top-0 z-50 w-full bg-white/85 dark:bg-forest-root/85 backdrop-blur-md border-b border-slate-200/70 dark:border-forest-border/60 shadow-xs transition-all duration-300 ease-in-out ${
+          isFooterNear ? '-translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 h-16 flex items-center justify-between">
           
           {/* Brand Logo & Wordmark */}
