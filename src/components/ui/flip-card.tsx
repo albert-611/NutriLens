@@ -26,16 +26,6 @@ export type FlipCardProps = {
   children?: React.ReactNode
 }
 
-function mapRange(
-  value: number,
-  minA: number,
-  maxA: number,
-  minB: number,
-  maxB: number
-) {
-  return minB + ((value - minA) * (maxB - minB)) / (maxA - minA)
-}
-
 function DefaultLogo() {
   return (
     <svg
@@ -79,59 +69,8 @@ export function FlipCard({
 }: FlipCardProps) {
   const [internalFlipped, setInternalFlipped] = React.useState(defaultFlipped)
 
-  const cardRef = React.useRef<HTMLDivElement>(null)
-  const frontRef = React.useRef<HTMLDivElement>(null)
-  const backRef = React.useRef<HTMLDivElement>(null)
-
-  const pointerPositionRef = React.useRef<{ x: number; y: number } | null>(null)
-  const isPointerInsideRef = React.useRef(false)
-
   const isControlled = typeof isFlipped === "boolean"
   const flipped = isControlled ? isFlipped : internalFlipped
-
-  const resetTilt = React.useCallback(() => {
-    if (frontRef.current) {
-      frontRef.current.style.transform = "rotateX(0deg) rotateY(0deg)"
-    }
-
-    if (backRef.current) {
-      backRef.current.style.transform = "rotateY(180deg)"
-    }
-  }, [])
-
-  const applyTilt = React.useCallback(
-    (clientX: number, clientY: number, targetFlipped = flipped) => {
-      const card = cardRef.current
-      const activeSide = targetFlipped ? backRef.current : frontRef.current
-
-      if (!card || !activeSide) return
-
-      const rect = card.getBoundingClientRect()
-      const mouseX = clientX - rect.left
-      const mouseY = clientY - rect.top
-
-      const rotateY = mapRange(mouseX, 0, rect.width, -15, 15)
-      const rotateX = mapRange(mouseY, 0, rect.height, 15, -15)
-
-      activeSide.style.transform = targetFlipped
-        ? `rotateY(180deg) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
-        : `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`
-    },
-    [flipped]
-  )
-
-  React.useEffect(() => {
-    const pointerPosition = pointerPositionRef.current
-
-    if (!isPointerInsideRef.current || !pointerPosition) {
-      resetTilt()
-      return
-    }
-
-    requestAnimationFrame(() => {
-      applyTilt(pointerPosition.x, pointerPosition.y, flipped)
-    })
-  }, [flipped, applyTilt, resetTilt])
 
   const updateFlipped = React.useCallback(
     (nextValue: boolean) => {
@@ -149,51 +88,9 @@ export function FlipCard({
     updateFlipped(!flipped)
   }, [canFlip, flipped, updateFlipped])
 
-  const handleClick = React.useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      pointerPositionRef.current = {
-        x: event.clientX,
-        y: event.clientY,
-      }
-
-      toggleFlip()
-    },
-    [toggleFlip]
-  )
-
-  const handleMouseMove = React.useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      pointerPositionRef.current = {
-        x: event.clientX,
-        y: event.clientY,
-      }
-
-      isPointerInsideRef.current = true
-
-      applyTilt(event.clientX, event.clientY, flipped)
-    },
-    [applyTilt, flipped]
-  )
-
-  const handleMouseEnter = React.useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      pointerPositionRef.current = {
-        x: event.clientX,
-        y: event.clientY,
-      }
-
-      isPointerInsideRef.current = true
-
-      applyTilt(event.clientX, event.clientY, flipped)
-    },
-    [applyTilt, flipped]
-  )
-
-  const handleMouseLeave = React.useCallback(() => {
-    isPointerInsideRef.current = false
-    pointerPositionRef.current = null
-    resetTilt()
-  }, [resetTilt])
+  const handleClick = React.useCallback(() => {
+    toggleFlip()
+  }, [toggleFlip])
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -209,19 +106,15 @@ export function FlipCard({
 
   return (
     <div
-      ref={cardRef}
       role="button"
       tabIndex={canFlip ? 0 : -1}
       aria-pressed={flipped}
       aria-disabled={!canFlip}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      onMouseEnter={handleMouseEnter}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
       style={{ perspective: 1000 }}
       className={cn(
-        "relative mx-auto h-[380px] w-full max-w-[340px] cursor-pointer rounded-2xl text-card-foreground outline-none transition-transform duration-500 ease-in-out focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 select-none group",
+        "relative mx-auto h-[380px] w-full max-w-[340px] cursor-pointer rounded-2xl text-card-foreground outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 select-none group",
         !canFlip && "cursor-not-allowed opacity-70",
         className
       )}
@@ -233,12 +126,11 @@ export function FlipCard({
           transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
         }}
         className={cn(
-          "relative h-full w-full rounded-2xl transition-transform duration-500 ease-in-out [transform-style:preserve-3d]"
+          "relative h-full w-full rounded-2xl transition-transform duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] [transform-style:preserve-3d]"
         )}
       >
         {/* FRONT FACE */}
         <div
-          ref={frontRef}
           style={{
             backfaceVisibility: "hidden",
             WebkitBackfaceVisibility: "hidden",
@@ -246,7 +138,7 @@ export function FlipCard({
             pointerEvents: flipped ? "none" : "auto",
           }}
           className={cn(
-            "absolute inset-0 flex h-full w-full flex-col rounded-2xl border border-slate-200 dark:border-forest-border bg-white dark:bg-forest-card text-card-foreground shadow-sm transition-[transform,filter,border-color] duration-250 ease-out hover:border-emerald-500/50 dark:hover:border-emerald-500/50 [backface-visibility:hidden]",
+            "absolute inset-0 flex h-full w-full flex-col rounded-2xl border border-slate-200 dark:border-forest-border bg-white dark:bg-forest-card text-card-foreground shadow-sm hover:shadow-md hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all duration-300 [backface-visibility:hidden]",
             hasRichFront ? "p-6 sm:p-7 justify-between" : "items-center justify-center p-6"
           )}
         >
@@ -327,7 +219,6 @@ export function FlipCard({
 
         {/* BACK FACE */}
         <div
-          ref={backRef}
           style={{
             backfaceVisibility: "hidden",
             WebkitBackfaceVisibility: "hidden",
@@ -336,7 +227,7 @@ export function FlipCard({
             zIndex: flipped ? 2 : 0,
             pointerEvents: flipped ? "auto" : "none",
           }}
-          className="absolute inset-0 flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-emerald-500/60 bg-gradient-to-br from-emerald-950 via-[#072418] to-forest-root text-white shadow-xl transition-[transform,filter] duration-250 ease-out [backface-visibility:hidden] [transform:rotateY(180deg)]"
+          className="absolute inset-0 flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border-2 border-emerald-500/60 bg-gradient-to-br from-emerald-950 via-[#072418] to-forest-root text-white shadow-xl [backface-visibility:hidden] [transform:rotateY(180deg)]"
         >
           {backImage ? (
             <div className="relative h-36 w-full shrink-0 overflow-hidden border-b border-emerald-500/20 bg-slate-900">
