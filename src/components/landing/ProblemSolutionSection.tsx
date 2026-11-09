@@ -146,7 +146,7 @@ export const ProblemSolutionSection: React.FC = () => {
             animated={false}
             colors={['#10B981', '#34D399', '#6EE7B7']}
             fillOpacity={0.25}
-            className="w-full text-white shadow-2xl bg-gradient-to-br from-emerald-950 via-[#071d14] to-forest-root"
+            className="w-full text-white shadow-2xl bg-gradient-to-br from-emerald-950 via-[#071d14] to-forest-root rounded-[24px] overflow-hidden"
           >
             <CursorGrid
               cellSize={60}
@@ -160,7 +160,7 @@ export const ProblemSolutionSection: React.FC = () => {
               gridOpacity={0.08}
               spotlight={0.6}
               clickPulse
-              className="rounded-[inherit]"
+              className="rounded-[24px] overflow-hidden"
             >
               <div className="p-6 sm:p-10 space-y-6">
                 <div className="max-w-3xl space-y-2">

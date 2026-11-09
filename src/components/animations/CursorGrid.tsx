@@ -227,6 +227,14 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
       ctx.setTransform(view.ratio, 0, 0, view.ratio, 0, 0);
       ctx.clearRect(0, 0, view.width, view.height);
 
+      // Clip canvas drawing strictly to rounded boundary to prevent any corner line leaks
+      ctx.save();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(0, 0, view.width, view.height, 24);
+        ctx.clip();
+      }
+
       let hasActiveAnimation = false;
 
       // Idle water droplet when mouse rests inside on laptop/desktop
@@ -375,11 +383,13 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
           // Lines or Dashed
           for (let col = 0; col <= grid.cols; col++) {
             const x = Math.round(grid.offX + col * cellSize) + 0.5;
+            if (x < 2 || x > view.width - 2) continue;
             ctx.moveTo(x, 0);
             ctx.lineTo(x, view.height);
           }
           for (let row = 0; row <= grid.rows; row++) {
             const y = Math.round(grid.offY + row * cellSize) + 0.5;
+            if (y < 2 || y > view.height - 2) continue;
             ctx.moveTo(0, y);
             ctx.lineTo(view.width, y);
           }
@@ -432,6 +442,9 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
         }
         ctx.restore();
       }
+
+      // Restore outer clipping path
+      ctx.restore();
 
       if (hasActiveAnimation) {
         rafId = requestAnimationFrame(render);
@@ -541,7 +554,7 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
     >
       <canvas
         ref={canvasRef}
-        className="pointer-events-none absolute inset-0 block h-full w-full"
+        className="pointer-events-none absolute inset-0 block h-full w-full rounded-[inherit] overflow-hidden"
         aria-hidden="true"
         style={{ background: 'transparent' }}
       />

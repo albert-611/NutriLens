@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   ShieldCheck,
@@ -8,7 +8,8 @@ import {
   AlertTriangle,
   Receipt,
   CheckCircle2,
-  ChevronDown,
+  RotateCw,
+  RotateCcw,
 } from 'lucide-react';
 import { BlurText } from '../animations/BlurText';
 import { MotionCard } from '../animations/MotionCard';
@@ -47,6 +48,15 @@ const PRINCIPLES = [
 ];
 
 export const TrustEvidenceSection: React.FC = () => {
+  const [flippedCards, setFlippedCards] = useState<Record<number, boolean>>({});
+
+  const toggleFlip = (index: number) => {
+    setFlippedCards((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
+
   return (
     <section id="trust" className="py-20 sm:py-28 bg-slate-50/70 dark:bg-forest-card/30 border-y border-slate-200/70 dark:border-forest-border/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
@@ -78,77 +88,103 @@ export const TrustEvidenceSection: React.FC = () => {
           </p>
         </div>
 
-        {/* 4 Trust Principles */}
+        {/* 4 Trust Principles with 3D Flip Card Effect */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {PRINCIPLES.map((p, idx) => {
             const Icon = p.icon;
+            const isFlipped = Boolean(flippedCards[idx]);
+
             return (
-              <MotionCard
+              <div
                 key={idx}
-                hoverLift={-8}
-                hoverScale={1.02}
-                className="relative p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-colors duration-200 group cursor-pointer"
+                className="relative w-full h-[330px] sm:h-[340px] [perspective:1200px] cursor-pointer group select-none"
+                onClick={() => toggleFlip(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleFlip(idx);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Flip card for ${p.title}`}
               >
-                {({ isOpen }) => (
-                  <>
+                <motion.div
+                  className="relative w-full h-full [transform-style:preserve-3d] transition-transform duration-500"
+                  animate={{ rotateY: isFlipped ? 180 : 0 }}
+                  transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
+                >
+                  {/* FRONT FACE */}
+                  <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] [-webkit-backface-visibility:hidden] p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-colors duration-200">
                     <div className="space-y-4">
-                      <motion.div layout="position" className="flex items-center justify-between">
+                      <div className="flex items-center justify-between">
                         <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:scale-105 transition-all duration-200">
                           <Icon className="w-5 h-5" />
                         </div>
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-sans">
                           {p.tag}
                         </span>
-                      </motion.div>
+                      </div>
 
-                      <motion.h3
-                        layout="position"
-                        className="font-bold text-base text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
-                      >
+                      <h3 className="font-bold text-base text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors leading-snug">
                         {p.title}
-                      </motion.h3>
+                      </h3>
 
-                      <motion.p
-                        layout="position"
-                        className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed"
-                      >
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                         {p.desc}
-                      </motion.p>
-
-                      {isOpen && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.2 }}
-                          className="pt-3 mt-3 border-t border-slate-100 dark:border-forest-border/80"
-                        >
-                          <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed bg-emerald-50 dark:bg-emerald-950/40 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800/40">
-                            {p.expanded}
-                          </p>
-                        </motion.div>
-                      )}
+                      </p>
                     </div>
 
-                    <motion.div
-                      layout="position"
-                      className="pt-4 mt-4 border-t border-slate-100 dark:border-forest-border/60 flex items-center justify-between text-xs font-semibold text-slate-400 dark:text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
-                    >
-                      <span>{isOpen ? 'Show Less' : 'Click to Expand'}</span>
-                      <ChevronDown
-                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                          isOpen ? 'rotate-180 text-emerald-500' : ''
-                        }`}
-                      />
-                    </motion.div>
-                  </>
-                )}
-              </MotionCard>
+                    <div className="pt-3 border-t border-slate-100 dark:border-forest-border/60 flex items-center justify-between text-xs font-semibold text-slate-400 dark:text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      <span className="flex items-center gap-1.5 font-sans">
+                        <RotateCw className="w-3.5 h-3.5 text-emerald-500" />
+                        Click to Flip
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        Answer →
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* BACK FACE */}
+                  <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] [-webkit-backface-visibility:hidden] [transform:rotateY(180deg)] p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-emerald-950 via-[#072418] to-forest-root border-2 border-emerald-500/60 shadow-xl flex flex-col justify-between text-white">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
+                          <Icon className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-sans">
+                          Evidence Answer
+                        </span>
+                      </div>
+
+                      <h3 className="font-bold text-sm sm:text-base text-white tracking-tight">
+                        {p.title}
+                      </h3>
+
+                      <p className="text-xs sm:text-[13px] text-emerald-100/90 leading-relaxed">
+                        {p.expanded}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-emerald-500/20 flex items-center justify-between text-xs font-semibold text-emerald-300">
+                      <span className="flex items-center gap-1.5 font-sans">
+                        <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
+                        Click to Flip Back
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                        Return ←
+                      </span>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
             );
           })}
         </div>
 
         {/* Evidence Receipt Breakdown Box (Green Box with Interactive Cursor Grid) */}
-        <div className="max-w-5xl mx-auto relative">
+        <div className="max-w-5xl mx-auto relative rounded-[24px] overflow-hidden">
           <BorderGlow
             edgeSensitivity={30}
             glowColor="158 84 60"
@@ -161,7 +197,7 @@ export const TrustEvidenceSection: React.FC = () => {
             animated={false}
             colors={['#10B981', '#34D399', '#6EE7B7']}
             fillOpacity={0.25}
-            className="w-full text-white shadow-2xl bg-gradient-to-br from-emerald-950 via-[#071d14] to-forest-root"
+            className="w-full text-white shadow-2xl bg-gradient-to-br from-emerald-950 via-[#071d14] to-forest-root rounded-[24px] overflow-hidden"
           >
             <CursorGrid
               cellSize={60}
@@ -175,7 +211,7 @@ export const TrustEvidenceSection: React.FC = () => {
               gridOpacity={0.08}
               spotlight={0.6}
               clickPulse
-              className="rounded-[inherit]"
+              className="rounded-[24px] overflow-hidden"
             >
               <div className="p-6 sm:p-9 space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
