@@ -95,9 +95,9 @@
       calc(var(--spotlight-size, 320px) * 0.75) calc(var(--spotlight-size, 320px) * 0.75) at
       calc(var(--x, 0) * 1px)
       calc(var(--y, 0) * 1px),
-      var(--glow-primary, rgba(16, 185, 129, 0.95)) 0%,
-      var(--glow-secondary, rgba(52, 211, 153, 0.55)) 38%,
-      rgba(110, 231, 183, 0.18) 65%,
+      var(--glow-primary, rgba(16, 185, 129, 0.45)) 0%,
+      var(--glow-secondary, rgba(52, 211, 153, 0.25)) 38%,
+      rgba(110, 231, 183, 0.08) 65%,
       transparent 100%
     );
   }
@@ -107,8 +107,8 @@
       calc(var(--spotlight-size, 320px) * 0.45) calc(var(--spotlight-size, 320px) * 0.45) at
       calc(var(--x, 0) * 1px)
       calc(var(--y, 0) * 1px),
-      var(--glow-highlight, rgba(110, 231, 183, 1)) 0%,
-      var(--glow-secondary, rgba(52, 211, 153, 0.7)) 45%,
+      var(--glow-highlight, rgba(110, 231, 183, 0.55)) 0%,
+      var(--glow-secondary, rgba(52, 211, 153, 0.3)) 45%,
       transparent 100%
     );
   }
@@ -117,10 +117,10 @@
     position: absolute;
     inset: 0;
     will-change: filter;
-    opacity: var(--outer, 0.5);
+    opacity: var(--outer, 0.25);
     border-radius: calc(var(--radius, 24) * 1px);
-    border-width: calc(var(--border-size, 2px) * 12);
-    filter: blur(calc(var(--border-size, 2px) * 8));
+    border-width: calc(var(--border-size, 2px) * 8);
+    filter: blur(calc(var(--border-size, 2px) * 6));
     background: none;
     pointer-events: none;
     border: none;

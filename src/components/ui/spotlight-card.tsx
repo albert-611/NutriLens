@@ -17,8 +17,8 @@ export interface GlowCardProps extends React.HTMLAttributes<HTMLDivElement> {
 const glowColorMap = {
   blue: { base: 220, spread: 200, primary: 'rgba(59, 130, 246, 0.95)', secondary: 'rgba(96, 165, 250, 0.6)', highlight: 'rgba(147, 197, 253, 1)' },
   purple: { base: 280, spread: 300, primary: 'rgba(168, 85, 247, 0.95)', secondary: 'rgba(192, 132, 252, 0.6)', highlight: 'rgba(216, 180, 254, 1)' },
-  // Exact Green Box Palette: #10B981 (Emerald 500), #34D399 (Emerald 400), #6EE7B7 (Emerald 300)
-  green: { base: 158, spread: 0, primary: 'rgba(16, 185, 129, 0.95)', secondary: 'rgba(52, 211, 153, 0.6)', highlight: 'rgba(110, 231, 183, 1)' },
+  // Exact Green Box Palette with Soft Low-Intensity Tuning:
+  green: { base: 158, spread: 0, primary: 'rgba(16, 185, 129, 0.45)', secondary: 'rgba(52, 211, 153, 0.25)', highlight: 'rgba(110, 231, 183, 0.55)' },
   red: { base: 0, spread: 200, primary: 'rgba(239, 68, 68, 0.95)', secondary: 'rgba(248, 113, 113, 0.6)', highlight: 'rgba(252, 165, 165, 1)' },
   orange: { base: 30, spread: 200, primary: 'rgba(249, 115, 22, 0.95)', secondary: 'rgba(251, 146, 60, 0.6)', highlight: 'rgba(253, 186, 116, 1)' }
 };
@@ -128,9 +128,9 @@ const GlowCard: React.FC<GlowCardProps> = ({
         calc(var(--spotlight-size, 320px) * 0.75) calc(var(--spotlight-size, 320px) * 0.75) at
         calc(var(--x, 0) * 1px)
         calc(var(--y, 0) * 1px),
-        var(--glow-primary, rgba(16, 185, 129, 0.95)) 0%,
-        var(--glow-secondary, rgba(52, 211, 153, 0.55)) 38%,
-        rgba(110, 231, 183, 0.18) 65%,
+        var(--glow-primary, rgba(16, 185, 129, 0.45)) 0%,
+        var(--glow-secondary, rgba(52, 211, 153, 0.25)) 38%,
+        rgba(110, 231, 183, 0.08) 65%,
         transparent 100%
       );
     }
@@ -140,8 +140,8 @@ const GlowCard: React.FC<GlowCardProps> = ({
         calc(var(--spotlight-size, 320px) * 0.45) calc(var(--spotlight-size, 320px) * 0.45) at
         calc(var(--x, 0) * 1px)
         calc(var(--y, 0) * 1px),
-        var(--glow-highlight, rgba(110, 231, 183, 1)) 0%,
-        var(--glow-secondary, rgba(52, 211, 153, 0.7)) 45%,
+        var(--glow-highlight, rgba(110, 231, 183, 0.55)) 0%,
+        var(--glow-secondary, rgba(52, 211, 153, 0.3)) 45%,
         transparent 100%
       );
     }
@@ -150,10 +150,10 @@ const GlowCard: React.FC<GlowCardProps> = ({
       position: absolute;
       inset: 0;
       will-change: filter;
-      opacity: var(--outer, 0.5);
+      opacity: var(--outer, 0.25);
       border-radius: calc(var(--radius, 24) * 1px);
-      border-width: calc(var(--border-size, 2px) * 12);
-      filter: blur(calc(var(--border-size, 2px) * 8));
+      border-width: calc(var(--border-size, 2px) * 8);
+      filter: blur(calc(var(--border-size, 2px) * 6));
       background: none;
       pointer-events: none;
       border: none;
