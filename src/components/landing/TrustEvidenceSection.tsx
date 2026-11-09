@@ -97,9 +97,11 @@ export const TrustEvidenceSection: React.FC = () => {
 
             return (
               <div key={idx} className="w-full">
-                <div
-                  className="relative w-full h-[330px] sm:h-[350px] cursor-pointer group select-none"
-                  style={{ perspective: 1000 }}
+                <GlowCard
+                  glowColor="green"
+                  customSize
+                  radius={24}
+                  className="relative w-full h-[330px] sm:h-[350px] cursor-pointer group select-none rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm overflow-hidden"
                   onClick={() => toggleFlip(idx)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -111,102 +113,104 @@ export const TrustEvidenceSection: React.FC = () => {
                   tabIndex={0}
                   aria-label={`Flip card for ${p.title}`}
                 >
-                  <motion.div
-                    className="relative w-full h-full"
-                    style={{
-                      transformStyle: 'preserve-3d',
-                      WebkitTransformStyle: 'preserve-3d',
-                    }}
-                    initial={false}
-                    animate={{ rotateY: isFlipped ? 180 : 0 }}
-                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                  <div
+                    className="w-full h-full"
+                    style={{ perspective: 1000 }}
                   >
-                    {/* FRONT FACE */}
-                    <GlowCard
-                      glowColor="green"
-                      customSize
-                      radius={24}
-                      className="absolute inset-0 w-full h-full p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-colors duration-200"
+                    <motion.div
+                      className="relative w-full h-full"
                       style={{
-                        backfaceVisibility: 'hidden',
-                        WebkitBackfaceVisibility: 'hidden',
-                        zIndex: isFlipped ? 0 : 2,
-                        pointerEvents: isFlipped ? 'none' : 'auto',
+                        transformStyle: 'preserve-3d',
+                        WebkitTransformStyle: 'preserve-3d',
                       }}
+                      initial={false}
+                      animate={{ rotateY: isFlipped ? 180 : 0 }}
+                      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                     >
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:scale-105 transition-all duration-200">
-                            <Icon className="w-5 h-5" />
+                      {/* FRONT FACE */}
+                      <div
+                        className="absolute inset-0 w-full h-full p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card flex flex-col justify-between hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-colors duration-200"
+                        style={{
+                          backfaceVisibility: 'hidden',
+                          WebkitBackfaceVisibility: 'hidden',
+                          zIndex: isFlipped ? 0 : 2,
+                          pointerEvents: isFlipped ? 'none' : 'auto',
+                        }}
+                      >
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:scale-105 transition-all duration-200">
+                              <Icon className="w-5 h-5" />
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-sans">
+                              {p.tag}
+                            </span>
                           </div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-sans">
-                            {p.tag}
-                          </span>
+
+                          <h3 className="font-bold text-base text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors leading-snug">
+                            {p.title}
+                          </h3>
+
+                          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {p.desc}
+                          </p>
                         </div>
 
-                        <h3 className="font-bold text-base text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors leading-snug">
-                          {p.title}
-                        </h3>
-
-                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                          {p.desc}
-                        </p>
-                      </div>
-
-                      <div className="pt-3 border-t border-slate-100 dark:border-forest-border/60 flex items-center justify-between text-xs font-semibold text-slate-400 dark:text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                        <span className="flex items-center gap-1.5 font-sans">
-                          <RotateCw className="w-3.5 h-3.5 text-emerald-500" />
-                          Click to Flip
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                          Answer →
-                        </span>
-                      </div>
-                    </GlowCard>
-
-                    {/* BACK FACE */}
-                    <div
-                      className="absolute inset-0 w-full h-full p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-emerald-950 via-[#072418] to-forest-root border-2 border-emerald-500/60 shadow-xl flex flex-col justify-between text-white"
-                      style={{
-                        backfaceVisibility: 'hidden',
-                        WebkitBackfaceVisibility: 'hidden',
-                        transform: 'rotateY(180deg)',
-                        WebkitTransform: 'rotateY(180deg)',
-                        zIndex: isFlipped ? 2 : 0,
-                        pointerEvents: isFlipped ? 'auto' : 'none',
-                      }}
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
-                            <Icon className="w-5 h-5 text-emerald-400" />
-                          </div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-sans">
-                            Evidence Answer
+                        <div className="pt-3 border-t border-slate-100 dark:border-forest-border/60 flex items-center justify-between text-xs font-semibold text-slate-400 dark:text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          <span className="flex items-center gap-1.5 font-sans">
+                            <RotateCw className="w-3.5 h-3.5 text-emerald-500" />
+                            Click to Flip
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                            Answer →
                           </span>
                         </div>
-
-                        <h3 className="font-bold text-sm sm:text-base text-white tracking-tight">
-                          {p.title}
-                        </h3>
-
-                        <p className="text-xs sm:text-[13px] text-emerald-100/90 leading-relaxed">
-                          {p.expanded}
-                        </p>
                       </div>
 
-                      <div className="pt-3 border-t border-emerald-500/20 flex items-center justify-between text-xs font-semibold text-emerald-300">
-                        <span className="flex items-center gap-1.5 font-sans">
-                          <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
-                          Click to Flip Back
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                          Return ←
-                        </span>
+                      {/* BACK FACE */}
+                      <div
+                        className="absolute inset-0 w-full h-full p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-emerald-950 via-[#072418] to-forest-root border-2 border-emerald-500/60 shadow-xl flex flex-col justify-between text-white"
+                        style={{
+                          backfaceVisibility: 'hidden',
+                          WebkitBackfaceVisibility: 'hidden',
+                          transform: 'rotateY(180deg)',
+                          WebkitTransform: 'rotateY(180deg)',
+                          zIndex: isFlipped ? 2 : 0,
+                          pointerEvents: isFlipped ? 'auto' : 'none',
+                        }}
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
+                              <Icon className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-sans">
+                              Evidence Answer
+                            </span>
+                          </div>
+
+                          <h3 className="font-bold text-sm sm:text-base text-white tracking-tight">
+                            {p.title}
+                          </h3>
+
+                          <p className="text-xs sm:text-[13px] text-emerald-100/90 leading-relaxed">
+                            {p.expanded}
+                          </p>
+                        </div>
+
+                        <div className="pt-3 border-t border-emerald-500/20 flex items-center justify-between text-xs font-semibold text-emerald-300">
+                          <span className="flex items-center gap-1.5 font-sans">
+                            <RotateCcw className="w-3.5 h-3.5 text-emerald-400" />
+                            Click to Flip Back
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                            Return ←
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                </div>
+                    </motion.div>
+                  </div>
+                </GlowCard>
               </div>
             );
           })}

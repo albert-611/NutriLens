@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, ReactNode } from 'react';
 
-export interface GlowCardProps {
+export interface GlowCardProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
   className?: string;
   glowColor?: 'blue' | 'purple' | 'green' | 'red' | 'orange';
@@ -12,7 +12,6 @@ export interface GlowCardProps {
   borderWidth?: number | string;
   spotlightSize?: number | string;
   style?: React.CSSProperties;
-  onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 const glowColorMap = {
@@ -42,7 +41,7 @@ const GlowCard: React.FC<GlowCardProps> = ({
   borderWidth = 2,
   spotlightSize = 320,
   style = {},
-  onClick
+  ...rest
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -173,8 +172,8 @@ const GlowCard: React.FC<GlowCardProps> = ({
       <div
         ref={cardRef}
         data-glow
-        onClick={onClick}
         style={getInlineStyles()}
+        {...rest}
         className={`
           ${getSizeClasses()}
           ${!customSize ? 'aspect-[3/4] p-4 gap-4 grid grid-rows-[1fr_auto] shadow-[0_1rem_2rem_-1rem_black] backdrop-blur-[5px]' : ''}
