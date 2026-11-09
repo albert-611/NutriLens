@@ -56,6 +56,7 @@ export const PublicFooter: React.FC = () => {
   const currentYear = new Date().getFullYear();
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const footerRef = useRef<HTMLElement>(null);
+  const giantTextRef = useRef<HTMLDivElement>(null);
 
   // Close modal on Escape key
   useEffect(() => {
@@ -76,26 +77,46 @@ export const PublicFooter: React.FC = () => {
     };
   }, [activeModal]);
 
-  // Subtle GSAP scroll-triggered entrance animation
+  // Subtle GSAP scroll-triggered entrance animations
   useEffect(() => {
-    if (prefersReducedMotion() || !footerRef.current) return;
+    if (prefersReducedMotion()) return;
 
     const ctx = gsap.context(() => {
-      gsap.fromTo(
-        footerRef.current,
-        { opacity: 0.9, y: 16 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.6,
-          ease: 'power2.out',
-          scrollTrigger: {
-            trigger: footerRef.current,
-            start: 'top 92%',
-            toggleActions: 'play none none none',
-          },
-        }
-      );
+      if (footerRef.current) {
+        gsap.fromTo(
+          footerRef.current,
+          { opacity: 0.9, y: 16 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.6,
+            ease: 'power2.out',
+            scrollTrigger: {
+              trigger: footerRef.current,
+              start: 'top 92%',
+              toggleActions: 'play none none none',
+            },
+          }
+        );
+      }
+
+      if (giantTextRef.current) {
+        gsap.fromTo(
+          giantTextRef.current,
+          { y: 50, opacity: 0.15 },
+          {
+            y: 0,
+            opacity: 1,
+            duration: 1.1,
+            ease: 'power3.out',
+            scrollTrigger: {
+              trigger: giantTextRef.current,
+              start: 'top 96%',
+              toggleActions: 'play none none none',
+            },
+          }
+        );
+      }
     }, footerRef);
 
     return () => ctx.revert();
@@ -112,9 +133,10 @@ export const PublicFooter: React.FC = () => {
         style={{
           backgroundImage: "url('/images/footer-gradient.jpg')",
           backgroundPosition: 'center top',
+          backgroundColor: '#001A0D',
         }}
       >
-        <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 pt-20 sm:pt-28 pb-12 sm:pb-16 flex-1 flex flex-col justify-between space-y-12 sm:space-y-16">
+        <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 pt-16 sm:pt-22 pb-6 flex-1 flex flex-col justify-between space-y-10 sm:space-y-12">
           
           {/* Main 5-Column Navigation Grid */}
           <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-12 gap-8 lg:gap-10">
@@ -351,18 +373,18 @@ export const PublicFooter: React.FC = () => {
 
           </div>
 
-          {/* Bottom Section: Copyright & Team Development Credit */}
-          <div className="pt-8 border-t border-white/20 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white">
+          {/* Above Oversized Typography: Copyright & Team Development Credit */}
+          <div className="pt-6 border-t border-white/20 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white">
             
             {/* Copyright */}
-            <p className="text-white font-medium text-center md:text-left font-sans">
+            <p className="text-white/90 font-medium text-center md:text-left font-sans">
               © 2026 <span className="font-bold text-white">NutriLens</span>. All rights reserved.
             </p>
 
             {/* Development Credit - iNFiTE LOOP */}
             <div className="flex flex-col sm:flex-row items-center gap-2 text-white font-medium text-center sm:text-left">
               <div className="inline-flex items-center gap-2">
-                <span className="text-white">Designed &amp; Developed by</span>
+                <span className="text-white/90">Designed &amp; Developed by</span>
                 <a
                   href="https://github.com/iNFiTE-LOOP"
                   target="_blank"
@@ -374,13 +396,40 @@ export const PublicFooter: React.FC = () => {
                 </a>
               </div>
               <span className="hidden sm:inline text-white/40">•</span>
-              <span className="text-[11px] text-white/90 font-medium">
+              <span className="text-[11px] text-white/80 font-medium">
                 Building intelligent digital experiences.
               </span>
             </div>
 
           </div>
 
+        </div>
+
+        {/* Oversized Editorial Brand Typography Area */}
+        <div className="relative w-full overflow-hidden flex flex-col items-center justify-end pt-2 pb-0 mt-auto select-none pointer-events-none">
+          {/* Subtle Green Ambient Lighting Glow */}
+          <div
+            aria-hidden="true"
+            className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[92vw] max-w-6xl h-44 sm:h-64 bg-radial from-emerald-500/25 via-emerald-600/10 to-transparent rounded-full blur-3xl pointer-events-none"
+          />
+
+          {/* Giant Brand Typography with natural bottom crop & reveal */}
+          <div
+            ref={giantTextRef}
+            className="w-full flex justify-center items-end overflow-hidden leading-none z-10"
+          >
+            <h1
+              className="text-[clamp(3.8rem,18.8vw,23rem)] font-black tracking-[-0.055em] leading-[0.74] translate-y-[15%] uppercase text-center whitespace-nowrap"
+              style={{
+                fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
+                color: '#02180d',
+                textShadow: '0 0 50px rgba(16, 185, 129, 0.28), 0 0 100px rgba(5, 150, 105, 0.16)',
+                WebkitTextStroke: '1px rgba(16, 185, 129, 0.22)',
+              }}
+            >
+              NutriLens
+            </h1>
+          </div>
         </div>
       </footer>
 
