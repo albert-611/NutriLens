@@ -35,7 +35,7 @@ const PROBLEMS = [
     tag: 'Budget Gap',
     expanded: 'Nutrition advice cannot be acted upon if it ignores grocery budgets. NutriLens pairs nutritional analysis with observed daily bazar prices in Savar and Ashulia to propose affordable, accessible alternatives within your actual pantry budget.',
     backTag: 'Daily Wet Market Grounding',
-    backTitle: 'Savar & Ashulia Price Lineage',
+    backTitle: 'Your Local Market Price Lineage',
     backImage: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=600&q=80',
     backImageAlt: 'Local wet market fresh produce and ingredients',
   },
