@@ -108,13 +108,13 @@ export const PublicFooter: React.FC = () => {
       <footer
         ref={footerRef}
         aria-label="Site Footer"
-        className="relative text-xs overflow-hidden bg-cover bg-no-repeat text-slate-900"
+        className="relative min-h-[100vh] flex flex-col justify-between text-xs overflow-hidden bg-cover bg-no-repeat text-slate-900"
         style={{
           backgroundImage: "url('/images/footer-gradient.jpg')",
-          backgroundPosition: 'center 22%',
+          backgroundPosition: 'center top',
         }}
       >
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 pt-20 sm:pt-28 pb-14 sm:pb-20 space-y-12 sm:space-y-16">
+        <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 pt-20 sm:pt-28 pb-12 sm:pb-16 flex-1 flex flex-col justify-between space-y-12 sm:space-y-16">
           
           {/* Main 5-Column Navigation Grid */}
           <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-12 gap-8 lg:gap-10">
