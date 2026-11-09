@@ -108,9 +108,10 @@ export const PublicFooter: React.FC = () => {
       <footer
         ref={footerRef}
         aria-label="Site Footer"
-        className="border-t border-slate-200/90 dark:border-forest-border/80 bg-slate-100/80 dark:bg-[#07130e] text-slate-600 dark:text-slate-400 text-xs transition-colors duration-200 overflow-hidden"
+        className="relative text-xs overflow-hidden bg-cover bg-top bg-no-repeat"
+        style={{ backgroundImage: "url('/images/footer-gradient.jpg')" }}
       >
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 py-14 sm:py-20 space-y-12 sm:space-y-16">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 pt-20 sm:pt-28 pb-14 sm:pb-20 space-y-12 sm:space-y-16">
           
           {/* Main 5-Column Navigation Grid */}
           <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-12 gap-8 lg:gap-10">
@@ -118,14 +119,14 @@ export const PublicFooter: React.FC = () => {
             {/* 1. Brand Column (Span 4 on Desktop) */}
             <div className="col-span-2 md:col-span-6 lg:col-span-4 space-y-4">
               <Link to="/#home" className="inline-flex items-center gap-3 group">
-                <div className="w-10 h-10 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border flex items-center justify-center p-1.5 shadow-sm group-hover:border-emerald-500 transition-colors duration-200">
+                <div className="w-10 h-10 rounded-xl bg-white/95 backdrop-blur-md border border-white/30 flex items-center justify-center p-1.5 shadow-sm group-hover:border-emerald-300 transition-colors duration-200">
                   <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full" />
                 </div>
                 <div>
-                  <span className="font-extrabold text-lg text-slate-900 dark:text-white tracking-tight font-sans block">
+                  <span className="font-extrabold text-lg text-white tracking-tight font-sans block">
                     NutriLens
                   </span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider block -mt-0.5">
+                  <span className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider block -mt-0.5">
                     Nutrition Intelligence
                   </span>
                 </div>
@@ -133,23 +134,23 @@ export const PublicFooter: React.FC = () => {
 
               {/* Tagline & Positioning */}
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                <p className="text-xs font-semibold text-white">
                   Make smarter food choices. Live healthier.
                 </p>
-                <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-xs max-w-sm">
+                <p className="text-emerald-100/90 leading-relaxed text-xs max-w-sm">
                   Your intelligent nutrition companion. Discover what&apos;s on your plate, understand what your food provides, and make informed nutritional decisions every day.
                 </p>
               </div>
 
               {/* Verified Source Pill */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-200/70 dark:bg-forest-card/70 border border-slate-300/60 dark:border-forest-border/80 text-[11px] text-slate-700 dark:text-slate-300">
-                <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/25 backdrop-blur-md border border-white/20 text-[11px] text-emerald-100">
+                <Database className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>Anchored in FAO FCTB (2013)</span>
               </div>
 
               {/* Social Media Links */}
               <div className="pt-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-200/80 mb-2.5">
                   Connect With Us
                 </p>
                 <div className="flex items-center gap-2.5">
@@ -158,7 +159,7 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="NutriLens and iNFiTE LOOP on GitHub"
-                    className="w-8 h-8 rounded-lg bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border/80 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/40 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-black/25 backdrop-blur-md border border-white/20 flex items-center justify-center text-emerald-100 hover:text-white hover:border-emerald-400 hover:bg-black/40 hover:scale-105 transition-all duration-150"
                   >
                     <Github className="w-4 h-4" />
                   </a>
@@ -167,7 +168,7 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="iNFiTE LOOP on LinkedIn"
-                    className="w-8 h-8 rounded-lg bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border/80 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/40 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-black/25 backdrop-blur-md border border-white/20 flex items-center justify-center text-emerald-100 hover:text-white hover:border-emerald-400 hover:bg-black/40 hover:scale-105 transition-all duration-150"
                   >
                     <Linkedin className="w-4 h-4" />
                   </a>
@@ -176,14 +177,14 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="NutriLens on X"
-                    className="w-8 h-8 rounded-lg bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border/80 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/40 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-black/25 backdrop-blur-md border border-white/20 flex items-center justify-center text-emerald-100 hover:text-white hover:border-emerald-400 hover:bg-black/40 hover:scale-105 transition-all duration-150"
                   >
                     <Twitter className="w-4 h-4" />
                   </a>
                   <a
                     href="mailto:team@infiteloop.tech"
                     aria-label="Email iNFiTE LOOP Team"
-                    className="w-8 h-8 rounded-lg bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border/80 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/40 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-black/25 backdrop-blur-md border border-white/20 flex items-center justify-center text-emerald-100 hover:text-white hover:border-emerald-400 hover:bg-black/40 hover:scale-105 transition-all duration-150"
                   >
                     <Mail className="w-4 h-4" />
                   </a>
@@ -193,14 +194,14 @@ export const PublicFooter: React.FC = () => {
 
             {/* 2. Platform Column (Span 2 on Desktop) */}
             <div className="col-span-1 md:col-span-3 lg:col-span-2 space-y-3.5">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px] font-sans">
+              <h3 className="font-bold text-white uppercase tracking-wider text-[11px] font-sans">
                 Platform
               </h3>
               <ul className="space-y-2 text-xs">
                 <li>
                   <a
                     href="#home"
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 inline-block py-0.5"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Home
                   </a>
@@ -208,7 +209,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <a
                     href="#features"
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 inline-block py-0.5"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Features
                   </a>
@@ -216,7 +217,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <a
                     href="#how-it-works"
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 inline-block py-0.5"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     How It Works
                   </a>
@@ -224,7 +225,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <a
                     href="#bangladesh-first"
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 inline-block py-0.5"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     About Us
                   </a>
@@ -234,14 +235,14 @@ export const PublicFooter: React.FC = () => {
 
             {/* 3. Explore Column (Span 2 on Desktop) */}
             <div className="col-span-1 md:col-span-3 lg:col-span-2 space-y-3.5">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px] font-sans">
+              <h3 className="font-bold text-white uppercase tracking-wider text-[11px] font-sans">
                 Explore
               </h3>
               <ul className="space-y-2 text-xs">
                 <li>
                   <Link
                     to="/app/analyze"
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 inline-block py-0.5"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Food Recognition
                   </Link>
@@ -249,7 +250,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <Link
                     to="/app/report"
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 inline-block py-0.5"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Nutrition Analysis
                   </Link>
@@ -257,7 +258,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <Link
                     to="/app/meal-rescue"
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 inline-block py-0.5"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     AI Recommendations
                   </Link>
@@ -265,7 +266,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <Link
                     to="/app"
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 inline-block py-0.5"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Dashboard
                   </Link>
@@ -275,7 +276,7 @@ export const PublicFooter: React.FC = () => {
 
             {/* 4. Resources Column (Span 2 on Desktop) */}
             <div className="col-span-1 md:col-span-3 lg:col-span-2 space-y-3.5">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px] font-sans">
+              <h3 className="font-bold text-white uppercase tracking-wider text-[11px] font-sans">
                 Resources
               </h3>
               <ul className="space-y-2 text-xs">
@@ -283,7 +284,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('faq')}
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     FAQ
                   </button>
@@ -292,7 +293,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('contact')}
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Contact
                   </button>
@@ -301,7 +302,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('docs')}
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Documentation
                   </button>
@@ -311,7 +312,7 @@ export const PublicFooter: React.FC = () => {
 
             {/* 5. Legal Column (Span 2 on Desktop) */}
             <div className="col-span-1 md:col-span-3 lg:col-span-2 space-y-3.5">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px] font-sans">
+              <h3 className="font-bold text-white uppercase tracking-wider text-[11px] font-sans">
                 Legal
               </h3>
               <ul className="space-y-2 text-xs">
@@ -319,7 +320,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('privacy')}
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Privacy Policy
                   </button>
@@ -328,7 +329,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('terms')}
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Terms of Service
                   </button>
@@ -337,7 +338,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('disclaimer')}
-                    className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-emerald-100/80 hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Nutrition Disclaimer
                   </button>
@@ -348,29 +349,29 @@ export const PublicFooter: React.FC = () => {
           </div>
 
           {/* Bottom Section: Copyright & Team Development Credit */}
-          <div className="pt-8 border-t border-slate-200/90 dark:border-forest-border/70 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+          <div className="pt-8 border-t border-white/15 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
             
             {/* Copyright */}
-            <p className="text-slate-500 dark:text-slate-400 text-center md:text-left font-sans">
-              © 2026 <span className="font-semibold text-slate-800 dark:text-slate-200">NutriLens</span>. All rights reserved.
+            <p className="text-emerald-200/75 text-center md:text-left font-sans">
+              © 2026 <span className="font-semibold text-white">NutriLens</span>. All rights reserved.
             </p>
 
             {/* Development Credit - iNFiTE LOOP */}
-            <div className="flex flex-col sm:flex-row items-center gap-2 text-slate-500 dark:text-slate-400 text-center sm:text-left">
+            <div className="flex flex-col sm:flex-row items-center gap-2 text-emerald-200/75 text-center sm:text-left">
               <div className="inline-flex items-center gap-2">
                 <span>Designed &amp; Developed by</span>
                 <a
                   href="https://github.com/iNFiTE-LOOP"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-slate-800 dark:text-slate-200 tracking-wide inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 shadow-xs transition-all duration-150 group"
+                  className="font-bold text-white tracking-wide inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/30 backdrop-blur-md border border-white/20 hover:border-emerald-400 hover:text-emerald-300 shadow-xs transition-all duration-150 group"
                 >
-                  <InfinityIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:rotate-180 transition-transform duration-500" />
+                  <InfinityIcon className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-180 transition-transform duration-500" />
                   <span>iNFiTE LOOP</span>
                 </a>
               </div>
-              <span className="hidden sm:inline text-slate-300 dark:text-slate-700">•</span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="hidden sm:inline text-white/30">•</span>
+              <span className="text-[11px] text-emerald-200/70">
                 Building intelligent digital experiences.
               </span>
             </div>
