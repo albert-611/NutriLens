@@ -349,29 +349,29 @@ export const PublicFooter: React.FC = () => {
           </div>
 
           {/* Bottom Section: Copyright & Team Development Credit */}
-          <div className="pt-8 border-t border-slate-950/20 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+          <div className="pt-8 border-t border-white/20 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white">
             
             {/* Copyright */}
-            <p className="text-slate-900 font-medium text-center md:text-left font-sans">
-              © 2026 <span className="font-bold text-slate-950">NutriLens</span>. All rights reserved.
+            <p className="text-white font-medium text-center md:text-left font-sans">
+              © 2026 <span className="font-bold text-white">NutriLens</span>. All rights reserved.
             </p>
 
             {/* Development Credit - iNFiTE LOOP */}
-            <div className="flex flex-col sm:flex-row items-center gap-2 text-slate-900 font-medium text-center sm:text-left">
+            <div className="flex flex-col sm:flex-row items-center gap-2 text-white font-medium text-center sm:text-left">
               <div className="inline-flex items-center gap-2">
-                <span>Designed &amp; Developed by</span>
+                <span className="text-white">Designed &amp; Developed by</span>
                 <a
                   href="https://github.com/iNFiTE-LOOP"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-slate-950 tracking-wide inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/20 hover:border-white/50 hover:bg-black/30 hover:text-white shadow-xs transition-all duration-150 group"
+                  className="font-bold text-white tracking-wide inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/30 backdrop-blur-md border border-white/25 hover:border-white hover:bg-black/50 hover:text-white shadow-xs transition-all duration-150 group"
                 >
-                  <InfinityIcon className="w-3.5 h-3.5 text-slate-950 group-hover:text-white group-hover:rotate-180 transition-all duration-500" />
+                  <InfinityIcon className="w-3.5 h-3.5 text-white group-hover:rotate-180 transition-all duration-500" />
                   <span>iNFiTE LOOP</span>
                 </a>
               </div>
-              <span className="hidden sm:inline text-slate-950/40">•</span>
-              <span className="text-[11px] text-slate-900 font-medium">
+              <span className="hidden sm:inline text-white/40">•</span>
+              <span className="text-[11px] text-white/90 font-medium">
                 Building intelligent digital experiences.
               </span>
             </div>
