@@ -64,6 +64,7 @@ export const LandingPage: React.FC = () => {
               duration: 0.65,
               stagger: 0.08,
               ease: 'back.out(1.15)',
+              clearProps: 'transform',
               scrollTrigger: {
                 trigger: sec,
                 start: 'top 55%',
