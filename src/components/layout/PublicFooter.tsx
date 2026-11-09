@@ -108,8 +108,11 @@ export const PublicFooter: React.FC = () => {
       <footer
         ref={footerRef}
         aria-label="Site Footer"
-        className="relative text-xs overflow-hidden bg-cover bg-top bg-no-repeat text-slate-900"
-        style={{ backgroundImage: "url('/images/footer-gradient.jpg')" }}
+        className="relative text-xs overflow-hidden bg-cover bg-no-repeat text-slate-900"
+        style={{
+          backgroundImage: "url('/images/footer-gradient.jpg')",
+          backgroundPosition: 'center 22%',
+        }}
       >
         <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 pt-20 sm:pt-28 pb-14 sm:pb-20 space-y-12 sm:space-y-16">
           
@@ -143,7 +146,7 @@ export const PublicFooter: React.FC = () => {
               </div>
 
               {/* Verified Source Pill */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-950/10 backdrop-blur-md border border-slate-950/15 text-[11px] font-semibold text-slate-950">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-transparent border border-slate-950/20 text-[11px] font-semibold text-slate-950">
                 <Database className="w-3.5 h-3.5 text-emerald-950 shrink-0" />
                 <span>Anchored in FAO FCTB (2013)</span>
               </div>
@@ -159,7 +162,7 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="NutriLens and iNFiTE LOOP on GitHub"
-                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/30 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-transparent border border-slate-950/20 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
                   >
                     <Github className="w-4 h-4" />
                   </a>
@@ -168,7 +171,7 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="iNFiTE LOOP on LinkedIn"
-                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/30 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-transparent border border-slate-950/20 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
                   >
                     <Linkedin className="w-4 h-4" />
                   </a>
@@ -177,14 +180,14 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="NutriLens on X"
-                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/30 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-transparent border border-slate-950/20 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
                   >
                     <Twitter className="w-4 h-4" />
                   </a>
                   <a
                     href="mailto:team@infiteloop.tech"
                     aria-label="Email iNFiTE LOOP Team"
-                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/30 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-transparent border border-slate-950/20 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
                   >
                     <Mail className="w-4 h-4" />
                   </a>
@@ -364,7 +367,7 @@ export const PublicFooter: React.FC = () => {
                   href="https://github.com/iNFiTE-LOOP"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-white tracking-wide inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/30 backdrop-blur-md border border-white/25 hover:border-white hover:bg-black/50 hover:text-white shadow-xs transition-all duration-150 group"
+                  className="font-bold text-white tracking-wide inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-transparent border border-white/30 hover:border-white hover:bg-white/10 hover:text-white shadow-xs transition-all duration-150 group"
                 >
                   <InfinityIcon className="w-3.5 h-3.5 text-white group-hover:rotate-180 transition-all duration-500" />
                   <span>iNFiTE LOOP</span>

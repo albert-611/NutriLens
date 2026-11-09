@@ -29,7 +29,7 @@ export const BazarToPlateSection: React.FC = () => {
   const isInView = useInView(tableRef, { once: true, amount: 0.25 });
 
   return (
-    <section id="local-bazar" className="py-20 sm:py-28 bg-slate-50/70 dark:bg-forest-card/30 border-y border-slate-200/70 dark:border-forest-border/50">
+    <section id="local-bazar" className="py-20 sm:py-28 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
         
         {/* Section Header */}
