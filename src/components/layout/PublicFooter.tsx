@@ -159,7 +159,7 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="NutriLens and iNFiTE LOOP on GitHub"
-                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-black hover:border-slate-950/40 hover:bg-slate-950/20 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/30 hover:scale-105 transition-all duration-150"
                   >
                     <Github className="w-4 h-4" />
                   </a>
@@ -168,7 +168,7 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="iNFiTE LOOP on LinkedIn"
-                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-black hover:border-slate-950/40 hover:bg-slate-950/20 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/30 hover:scale-105 transition-all duration-150"
                   >
                     <Linkedin className="w-4 h-4" />
                   </a>
@@ -177,14 +177,14 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="NutriLens on X"
-                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-black hover:border-slate-950/40 hover:bg-slate-950/20 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/30 hover:scale-105 transition-all duration-150"
                   >
                     <Twitter className="w-4 h-4" />
                   </a>
                   <a
                     href="mailto:team@infiteloop.tech"
                     aria-label="Email iNFiTE LOOP Team"
-                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-black hover:border-slate-950/40 hover:bg-slate-950/20 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/15 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/30 hover:scale-105 transition-all duration-150"
                   >
                     <Mail className="w-4 h-4" />
                   </a>
@@ -201,7 +201,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <a
                     href="#home"
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 inline-block py-0.5"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Home
                   </a>
@@ -209,7 +209,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <a
                     href="#features"
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 inline-block py-0.5"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Features
                   </a>
@@ -217,7 +217,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <a
                     href="#how-it-works"
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 inline-block py-0.5"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     How It Works
                   </a>
@@ -225,7 +225,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <a
                     href="#bangladesh-first"
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 inline-block py-0.5"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     About Us
                   </a>
@@ -242,7 +242,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <Link
                     to="/app/analyze"
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 inline-block py-0.5"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Food Recognition
                   </Link>
@@ -250,7 +250,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <Link
                     to="/app/report"
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 inline-block py-0.5"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Nutrition Analysis
                   </Link>
@@ -258,7 +258,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <Link
                     to="/app/meal-rescue"
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 inline-block py-0.5"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     AI Recommendations
                   </Link>
@@ -266,7 +266,7 @@ export const PublicFooter: React.FC = () => {
                 <li>
                   <Link
                     to="/app"
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 inline-block py-0.5"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 inline-block py-0.5"
                   >
                     Dashboard
                   </Link>
@@ -284,7 +284,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('faq')}
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     FAQ
                   </button>
@@ -293,7 +293,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('contact')}
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Contact
                   </button>
@@ -302,7 +302,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('docs')}
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Documentation
                   </button>
@@ -320,7 +320,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('privacy')}
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Privacy Policy
                   </button>
@@ -329,7 +329,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('terms')}
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Terms of Service
                   </button>
@@ -338,7 +338,7 @@ export const PublicFooter: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('disclaimer')}
-                    className="text-slate-900 font-medium hover:text-black hover:font-semibold transition-colors duration-150 text-left py-0.5 focus:outline-none"
+                    className="text-slate-950 font-semibold hover:text-white transition-colors duration-150 text-left py-0.5 focus:outline-none"
                   >
                     Nutrition Disclaimer
                   </button>
@@ -364,9 +364,9 @@ export const PublicFooter: React.FC = () => {
                   href="https://github.com/iNFiTE-LOOP"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-bold text-slate-950 tracking-wide inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/20 hover:border-slate-950 hover:bg-slate-950/20 shadow-xs transition-all duration-150 group"
+                  className="font-bold text-slate-950 tracking-wide inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/10 backdrop-blur-md border border-slate-950/20 hover:border-white/50 hover:bg-black/30 hover:text-white shadow-xs transition-all duration-150 group"
                 >
-                  <InfinityIcon className="w-3.5 h-3.5 text-slate-950 group-hover:rotate-180 transition-transform duration-500" />
+                  <InfinityIcon className="w-3.5 h-3.5 text-slate-950 group-hover:text-white group-hover:rotate-180 transition-all duration-500" />
                   <span>iNFiTE LOOP</span>
                 </a>
               </div>
