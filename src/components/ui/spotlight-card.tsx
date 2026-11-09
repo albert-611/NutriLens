@@ -16,11 +16,12 @@ export interface GlowCardProps {
 }
 
 const glowColorMap = {
-  blue: { base: 220, spread: 200 },
-  purple: { base: 280, spread: 300 },
-  green: { base: 145, spread: 45 },
-  red: { base: 0, spread: 200 },
-  orange: { base: 30, spread: 200 }
+  blue: { base: 220, spread: 200, primary: 'rgba(59, 130, 246, 0.95)', secondary: 'rgba(96, 165, 250, 0.6)', highlight: 'rgba(147, 197, 253, 1)' },
+  purple: { base: 280, spread: 300, primary: 'rgba(168, 85, 247, 0.95)', secondary: 'rgba(192, 132, 252, 0.6)', highlight: 'rgba(216, 180, 254, 1)' },
+  // Exact Green Box Palette: #10B981 (Emerald 500), #34D399 (Emerald 400), #6EE7B7 (Emerald 300)
+  green: { base: 158, spread: 0, primary: 'rgba(16, 185, 129, 0.95)', secondary: 'rgba(52, 211, 153, 0.6)', highlight: 'rgba(110, 231, 183, 1)' },
+  red: { base: 0, spread: 200, primary: 'rgba(239, 68, 68, 0.95)', secondary: 'rgba(248, 113, 113, 0.6)', highlight: 'rgba(252, 165, 165, 1)' },
+  orange: { base: 30, spread: 200, primary: 'rgba(249, 115, 22, 0.95)', secondary: 'rgba(251, 146, 60, 0.6)', highlight: 'rgba(253, 186, 116, 1)' }
 };
 
 const sizeMap = {
@@ -62,7 +63,7 @@ const GlowCard: React.FC<GlowCardProps> = ({
     return () => window.removeEventListener('pointermove', syncPointer);
   }, []);
 
-  const { base, spread } = glowColorMap[glowColor] || glowColorMap.green;
+  const { base, spread, primary, secondary, highlight } = glowColorMap[glowColor] || glowColorMap.green;
 
   // Determine sizing
   const getSizeClasses = () => {
@@ -76,6 +77,9 @@ const GlowCard: React.FC<GlowCardProps> = ({
     const baseStyles: React.CSSProperties & Record<string, string | number> = {
       '--base': base,
       '--spread': spread,
+      '--glow-primary': primary,
+      '--glow-secondary': secondary,
+      '--glow-highlight': highlight,
       '--radius': String(radius),
       '--border': String(borderWidth),
       '--backdrop': 'transparent',
@@ -125,9 +129,11 @@ const GlowCard: React.FC<GlowCardProps> = ({
         calc(var(--spotlight-size, 320px) * 0.75) calc(var(--spotlight-size, 320px) * 0.75) at
         calc(var(--x, 0) * 1px)
         calc(var(--y, 0) * 1px),
-        hsl(var(--hue, 145) calc(var(--saturation, 100) * 1%) calc(var(--lightness, 50) * 1%) / var(--border-spot-opacity, 0.9)), transparent 100%
+        var(--glow-primary, rgba(16, 185, 129, 0.95)) 0%,
+        var(--glow-secondary, rgba(52, 211, 153, 0.55)) 38%,
+        rgba(110, 231, 183, 0.18) 65%,
+        transparent 100%
       );
-      filter: brightness(1.75);
     }
     
     [data-glow]::after {
@@ -135,7 +141,9 @@ const GlowCard: React.FC<GlowCardProps> = ({
         calc(var(--spotlight-size, 320px) * 0.45) calc(var(--spotlight-size, 320px) * 0.45) at
         calc(var(--x, 0) * 1px)
         calc(var(--y, 0) * 1px),
-        hsl(var(--hue, 145) 100% 75% / var(--border-light-opacity, 0.85)), transparent 100%
+        var(--glow-highlight, rgba(110, 231, 183, 1)) 0%,
+        var(--glow-secondary, rgba(52, 211, 153, 0.7)) 45%,
+        transparent 100%
       );
     }
     
@@ -184,3 +192,4 @@ const GlowCard: React.FC<GlowCardProps> = ({
 
 export { GlowCard, GlowCard as SpotlightCard };
 export default GlowCard;
+

@@ -95,9 +95,11 @@
       calc(var(--spotlight-size, 320px) * 0.75) calc(var(--spotlight-size, 320px) * 0.75) at
       calc(var(--x, 0) * 1px)
       calc(var(--y, 0) * 1px),
-      hsl(var(--hue, 145) calc(var(--saturation, 100) * 1%) calc(var(--lightness, 50) * 1%) / var(--border-spot-opacity, 0.9)), transparent 100%
+      var(--glow-primary, rgba(16, 185, 129, 0.95)) 0%,
+      var(--glow-secondary, rgba(52, 211, 153, 0.55)) 38%,
+      rgba(110, 231, 183, 0.18) 65%,
+      transparent 100%
     );
-    filter: brightness(1.75);
   }
   
   [data-glow]::after {
@@ -105,7 +107,9 @@
       calc(var(--spotlight-size, 320px) * 0.45) calc(var(--spotlight-size, 320px) * 0.45) at
       calc(var(--x, 0) * 1px)
       calc(var(--y, 0) * 1px),
-      hsl(var(--hue, 145) 100% 75% / var(--border-light-opacity, 0.85)), transparent 100%
+      var(--glow-highlight, rgba(110, 231, 183, 1)) 0%,
+      var(--glow-secondary, rgba(52, 211, 153, 0.7)) 45%,
+      transparent 100%
     );
   }
   
