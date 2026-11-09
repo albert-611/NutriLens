@@ -422,9 +422,7 @@ export const PublicFooter: React.FC = () => {
               className="text-[clamp(3.8rem,18.8vw,23rem)] font-black tracking-[-0.055em] leading-[0.74] translate-y-[15%] uppercase text-center whitespace-nowrap"
               style={{
                 fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
-                color: '#02180d',
-                textShadow: '0 0 50px rgba(16, 185, 129, 0.28), 0 0 100px rgba(5, 150, 105, 0.16)',
-                WebkitTextStroke: '1px rgba(16, 185, 129, 0.22)',
+                color: '#03140b',
               }}
             >
               NutriLens
