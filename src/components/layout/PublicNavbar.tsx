@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Menu, X, ArrowRight } from 'lucide-react';
+import { motion, useScroll, useSpring } from 'motion/react';
 import { LangToggle } from '../common/LangToggle';
 import { Button } from '../common/Button';
 import { SpecularButton } from '../animations/SpecularButton';
@@ -10,9 +11,21 @@ export const PublicNavbar: React.FC = () => {
   const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 140,
+    damping: 30,
+    restDelta: 0.001,
+  });
+
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-surface-lightRoot/85 dark:bg-forest-root/85 backdrop-blur-md border-b border-slate-200/60 dark:border-forest-border/60 transition-colors duration-200">
+        {/* Scroll-synchronized progress bar at the very top of the nav bar */}
+        <motion.div
+          className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.7)] origin-left z-50 pointer-events-none"
+          style={{ scaleX }}
+        />
         <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 h-16 flex items-center justify-between">
           
           {/* Brand Logo & Wordmark */}
