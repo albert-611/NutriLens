@@ -18,8 +18,6 @@ interface Feature {
   icon: React.ElementType;
   title: string;
   desc: string;
-  status: 'available' | 'demo';
-  statusLabel: string;
   tag: string;
 }
 
@@ -29,8 +27,6 @@ const FEATURES: Feature[] = [
     icon: Sparkles,
     title: 'Bangla Plate Intelligence',
     desc: 'Recognizes supported familiar Bangladesh meals (parboiled rice, lentil curries, freshwater fish, leafy greens), supports dual Bangla/English aliases, and maps to reviewed food records.',
-    status: 'available',
-    statusLabel: 'Available in Prototype',
     tag: 'Multimodal Vision',
   },
   {
@@ -38,8 +34,6 @@ const FEATURES: Feature[] = [
     icon: Store,
     title: 'Bazar-to-Plate AI',
     desc: 'Connects household food preferences and daily budget with localized wet market observations in Savar and Ashulia to compare practical meal costs.',
-    status: 'demo',
-    statusLabel: 'Demo Experience',
     tag: 'Price Intelligence',
   },
   {
@@ -47,8 +41,6 @@ const FEATURES: Feature[] = [
     icon: Target,
     title: 'Nutrient Gap Optimizer',
     desc: 'Highlights meal-level improvements against declared personal goals (e.g. protein target or iron boost) without generating clinical diagnoses.',
-    status: 'available',
-    statusLabel: 'Available in Prototype',
     tag: 'Target Optimization',
   },
   {
@@ -56,8 +48,6 @@ const FEATURES: Feature[] = [
     icon: UtensilsCrossed,
     title: 'Constraint-Aware Meal Rescue',
     desc: 'Helps compare feasible meal alternatives using maximum budget, culinary preference, ingredient exclusions, preparation time, and available pantry items.',
-    status: 'available',
-    statusLabel: 'Available in Prototype',
     tag: 'Constraint Engine',
   },
   {
@@ -65,8 +55,6 @@ const FEATURES: Feature[] = [
     icon: Repeat,
     title: 'Cuisine-Preserving Substitution',
     desc: 'Suggests culturally authentic ingredient swaps (such as farm eggs or lentils for expensive beef) rather than suggesting alien Western recipes.',
-    status: 'available',
-    statusLabel: 'Available in Prototype',
     tag: 'Cultural Preservation',
   },
   {
@@ -74,8 +62,6 @@ const FEATURES: Feature[] = [
     icon: ShoppingBag,
     title: 'Smart Shopping Basket',
     desc: 'Consolidates recipe ingredients into purchase quantities, offsets declared pantry staples, and rounds into local wet market trade units (e.g., hali, powa, kg).',
-    status: 'available',
-    statusLabel: 'Available in Prototype',
     tag: 'Local Trade Units',
   },
   {
@@ -83,8 +69,6 @@ const FEATURES: Feature[] = [
     icon: Receipt,
     title: 'Evidence Receipt',
     desc: 'Every calculation is fully inspectable: see the exact FAO FCTB 2013 food code, portion weight, preparation state, formula version, and market observation timestamp.',
-    status: 'available',
-    statusLabel: 'Available in Prototype',
     tag: 'Audit Provenance',
   },
   {
@@ -92,8 +76,6 @@ const FEATURES: Feature[] = [
     icon: MessageSquare,
     title: 'RAG Nutrition Assistant',
     desc: 'Answers user questions grounded strictly in reviewed Bangladeshi nutritional literature and recipe documents, complete with source-cited chunk references.',
-    status: 'demo',
-    statusLabel: 'Demo Experience',
     tag: 'Grounded RAG',
   },
 ];
@@ -131,34 +113,23 @@ export const IntelligenceFeaturesSection: React.FC = () => {
         </div>
 
         {/* 8 Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-6">
           {FEATURES.map((feat) => {
             const Icon = feat.icon;
-            const isAvailable = feat.status === 'available';
 
             return (
               <MotionCard
                 key={feat.id}
                 hoverLift={-6}
                 hoverScale={1.02}
-                className="p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-colors duration-200 group"
+                className="relative p-6 pt-9 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-colors duration-200 group"
               >
-                <div className="space-y-4">
-                  <motion.div layout="position" className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-200">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border font-sans ${
-                        isAvailable
-                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25'
-                          : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25'
-                      }`}
-                    >
-                      {feat.statusLabel}
-                    </span>
-                  </motion.div>
+                {/* Icon crossing 50% in the middle of the top */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-[#0c2419] border-2 border-white dark:border-forest-card flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-md group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200 z-10">
+                  <Icon className="w-5 h-5" />
+                </div>
 
+                <div className="space-y-3 pt-2">
                   <motion.h3 layout="position" className="text-base font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                     {feat.title}
                   </motion.h3>
