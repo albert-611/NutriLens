@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BlurText } from '../animations/BlurText';
+import { GlowCard } from '../ui/spotlight-card';
 
 interface PreviewTab {
   id: string;
@@ -201,7 +202,12 @@ export const ProductPreviewSection: React.FC = () => {
         </div>
 
         {/* Active Tab Preview Display */}
-        <div className="max-w-3xl mx-auto rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-10 shadow-lg space-y-6">
+        <GlowCard
+          glowColor="green"
+          customSize
+          radius={24}
+          className="max-w-3xl mx-auto rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-10 shadow-lg space-y-6"
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-slate-100 dark:border-forest-border/60">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block mb-1 font-sans">
@@ -227,7 +233,7 @@ export const ProductPreviewSection: React.FC = () => {
           <div className="p-4 sm:p-6 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border">
             {currentTab.previewContent}
           </div>
-        </div>
+        </GlowCard>
 
       </div>
     </section>

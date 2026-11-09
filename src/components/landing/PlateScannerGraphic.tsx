@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Database, Store, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { GlowCard } from '../ui/spotlight-card';
 
 interface FoodItem {
   id: string;
@@ -273,8 +274,13 @@ export const PlateScannerGraphic: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating Active Item Nutrition & Bazar Card with Fluid Smooth Transitions */}
-      <div className="z-10 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-3.5 shadow-lg transition-all duration-200 overflow-hidden">
+      {/* Floating Active Item Nutrition & Bazar Card with Fluid Smooth Transitions and Green Glow */}
+      <GlowCard
+        glowColor="green"
+        customSize
+        radius={16}
+        className="z-10 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-3.5 shadow-lg transition-all duration-200 overflow-hidden"
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={activeItem.id}
@@ -325,7 +331,7 @@ export const PlateScannerGraphic: React.FC = () => {
             FAO FCTB (2013) Standard Recipe
           </span>
         </div>
-      </div>
+      </GlowCard>
 
       {/* Inline styles for laser scan animation */}
       <style>{`

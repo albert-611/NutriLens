@@ -1,6 +1,7 @@
 import React from 'react';
 import { Check, ShieldAlert, BookOpen, Scale, Sparkles } from 'lucide-react';
 import { BlurText } from '../animations/BlurText';
+import { GlowCard } from '../ui/spotlight-card';
 
 const HIGHLIGHTS = [
   {
@@ -81,8 +82,11 @@ export const BangladeshFoodSection: React.FC = () => {
           {/* Right: Key Pillars Grid */}
           <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5">
             {HIGHLIGHTS.map((item, idx) => (
-              <div
+              <GlowCard
                 key={idx}
+                glowColor="green"
+                customSize
+                radius={16}
                 className="p-6 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-2 hover:border-emerald-500/40 transition-colors"
               >
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -94,7 +98,7 @@ export const BangladeshFoodSection: React.FC = () => {
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                   {item.desc}
                 </p>
-              </div>
+              </GlowCard>
             ))}
           </div>
 

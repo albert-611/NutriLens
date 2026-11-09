@@ -3,6 +3,7 @@ import { Camera, CheckSquare, BarChart3, ShoppingBag, ArrowRight } from 'lucide-
 import { motion } from 'motion/react';
 import { BlurText } from '../animations/BlurText';
 import { MotionCard } from '../animations/MotionCard';
+import { GlowCard } from '../ui/spotlight-card';
 
 const STEPS = [
   {
@@ -80,45 +81,52 @@ export const HowItWorksSection: React.FC = () => {
                 key={idx}
                 hoverLift={-8}
                 hoverScale={1.02}
-                className="relative p-6 sm:p-7 pt-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-colors duration-200 group"
+                className="h-full rounded-3xl"
               >
-                {/* Solid Circle Step Number Crossing 50% of the Upper Border */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-emerald-600 text-white font-extrabold text-sm flex items-center justify-center shadow-md border-2 border-white dark:border-forest-card z-10 font-sans tracking-tight">
-                  {s.step}
-                </div>
-
-                {/* Card Content */}
-                <div className="space-y-4">
-                  {/* Category Pill Badge at the Middle of the Top */}
-                  <motion.div layout="position" className="flex justify-center">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-sans">
-                      {s.badge}
-                    </span>
-                  </motion.div>
-
-                  {/* Icon and Heading Side by Side */}
-                  <motion.div layout="position" className="flex items-center gap-3 pt-1">
-                    <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-forest-card/80 border border-slate-200 dark:border-forest-border flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-200 shrink-0">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug">
-                      {s.title}
-                    </h3>
-                  </motion.div>
-
-                  {/* Description */}
-                  <motion.p layout="position" className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {s.desc}
-                  </motion.p>
-                </div>
-
-                {/* Footnote */}
-                <motion.div
-                  layout="position"
-                  className="pt-4 mt-6 border-t border-slate-100 dark:border-forest-border/60 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
+                <GlowCard
+                  glowColor="green"
+                  customSize
+                  radius={24}
+                  className="h-full relative p-6 sm:p-7 pt-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-colors duration-200 group"
                 >
-                  {s.footnote}
-                </motion.div>
+                  {/* Solid Circle Step Number Crossing 50% of the Upper Border */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-emerald-600 text-white font-extrabold text-sm flex items-center justify-center shadow-md border-2 border-white dark:border-forest-card z-10 font-sans tracking-tight">
+                    {s.step}
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="space-y-4">
+                    {/* Category Pill Badge at the Middle of the Top */}
+                    <motion.div layout="position" className="flex justify-center">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-sans">
+                        {s.badge}
+                      </span>
+                    </motion.div>
+
+                    {/* Icon and Heading Side by Side */}
+                    <motion.div layout="position" className="flex items-center gap-3 pt-1">
+                      <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-forest-card/80 border border-slate-200 dark:border-forest-border flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-200 shrink-0">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug">
+                        {s.title}
+                      </h3>
+                    </motion.div>
+
+                    {/* Description */}
+                    <motion.p layout="position" className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {s.desc}
+                    </motion.p>
+                  </div>
+
+                  {/* Footnote */}
+                  <motion.div
+                    layout="position"
+                    className="pt-4 mt-6 border-t border-slate-100 dark:border-forest-border/60 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
+                  >
+                    {s.footnote}
+                  </motion.div>
+                </GlowCard>
               </MotionCard>
             );
           })}

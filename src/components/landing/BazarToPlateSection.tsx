@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useInView } from 'motion/react';
 import { Button } from '../common/Button';
 import { BlurText } from '../animations/BlurText';
+import { GlowCard } from '../ui/spotlight-card';
 
 interface MarketComparison {
   food: string;
@@ -59,8 +60,12 @@ export const BazarToPlateSection: React.FC = () => {
         </div>
 
         {/* Market Pricing Stage */}
-        <div className="max-w-4xl mx-auto rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-8 shadow-sm space-y-6">
-          
+        <GlowCard
+          glowColor="green"
+          customSize
+          radius={24}
+          className="max-w-4xl mx-auto rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-8 shadow-sm space-y-6"
+        >
           {/* Market Selection Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-forest-border/60">
             <div>
@@ -217,7 +222,7 @@ export const BazarToPlateSection: React.FC = () => {
               <span>SIMULATED DEMO DATA</span>
             </div>
           </div>
-        </div>
+        </GlowCard>
 
         {/* CTA to Bazar View in App */}
         <div className="text-center pt-2">

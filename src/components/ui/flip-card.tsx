@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { GlowCard } from "./spotlight-card"
 
 export type FlipCardProps = {
   cardNumber?: number | string
@@ -130,7 +131,10 @@ export function FlipCard({
         )}
       >
         {/* FRONT FACE */}
-        <div
+        <GlowCard
+          glowColor="green"
+          customSize
+          radius={16}
           style={{
             backfaceVisibility: "hidden",
             WebkitBackfaceVisibility: "hidden",
@@ -215,7 +219,7 @@ export function FlipCard({
               </div>
             </>
           )}
-        </div>
+        </GlowCard>
 
         {/* BACK FACE */}
         <div

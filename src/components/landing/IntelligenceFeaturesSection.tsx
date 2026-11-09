@@ -12,6 +12,7 @@ import {
 import { motion } from 'motion/react';
 import { BlurText } from '../animations/BlurText';
 import { MotionCard } from '../animations/MotionCard';
+import { GlowCard } from '../ui/spotlight-card';
 
 interface Feature {
   id: string;
@@ -122,26 +123,33 @@ export const IntelligenceFeaturesSection: React.FC = () => {
                 key={feat.id}
                 hoverLift={-6}
                 hoverScale={1.02}
-                className="relative p-6 pt-9 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-colors duration-200 group"
+                className="h-full rounded-3xl"
               >
-                {/* Icon crossing 50% in the middle of the top */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-[#0c2419] border-2 border-white dark:border-forest-card flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-md group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200 z-10">
-                  <Icon className="w-5 h-5" />
-                </div>
+                <GlowCard
+                  glowColor="green"
+                  customSize
+                  radius={24}
+                  className="h-full relative p-6 pt-9 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-colors duration-200 group"
+                >
+                  {/* Icon crossing 50% in the middle of the top */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-[#0c2419] border-2 border-white dark:border-forest-card flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-md group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200 z-10">
+                    <Icon className="w-5 h-5" />
+                  </div>
 
-                <div className="space-y-3 pt-2">
-                  <motion.h3 layout="position" className="text-base font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    {feat.title}
-                  </motion.h3>
+                  <div className="space-y-3 pt-2">
+                    <motion.h3 layout="position" className="text-base font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      {feat.title}
+                    </motion.h3>
 
-                  <motion.p layout="position" className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {feat.desc}
-                  </motion.p>
-                </div>
+                    <motion.p layout="position" className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {feat.desc}
+                    </motion.p>
+                  </div>
 
-                <motion.div layout="position" className="pt-4 mt-5 border-t border-slate-100 dark:border-forest-border/60 text-[11px] font-semibold text-slate-500 dark:text-slate-400 font-sans tracking-wide">
-                  {feat.tag}
-                </motion.div>
+                  <motion.div layout="position" className="pt-4 mt-5 border-t border-slate-100 dark:border-forest-border/60 text-[11px] font-semibold text-slate-500 dark:text-slate-400 font-sans tracking-wide">
+                    {feat.tag}
+                  </motion.div>
+                </GlowCard>
               </MotionCard>
             );
           })}

@@ -15,6 +15,7 @@ import { BlurText } from '../animations/BlurText';
 import { MotionCard } from '../animations/MotionCard';
 import { BorderGlow } from '../animations/BorderGlow';
 import { CursorGrid } from '../animations/CursorGrid';
+import { GlowCard } from '../ui/spotlight-card';
 
 const PRINCIPLES = [
   {
@@ -121,7 +122,10 @@ export const TrustEvidenceSection: React.FC = () => {
                     transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                   >
                     {/* FRONT FACE */}
-                    <div
+                    <GlowCard
+                      glowColor="green"
+                      customSize
+                      radius={24}
                       className="absolute inset-0 w-full h-full p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col justify-between hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-colors duration-200"
                       style={{
                         backfaceVisibility: 'hidden',
@@ -158,7 +162,7 @@ export const TrustEvidenceSection: React.FC = () => {
                           Answer →
                         </span>
                       </div>
-                    </div>
+                    </GlowCard>
 
                     {/* BACK FACE */}
                     <div
