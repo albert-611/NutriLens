@@ -126,10 +126,10 @@ export const PublicFooter: React.FC = () => {
                   <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full" />
                 </div>
                 <div>
-                  <span className="font-extrabold text-lg text-white/95 lg:text-slate-950 tracking-tight font-sans block">
+                  <span className="font-extrabold text-lg text-slate-950 tracking-tight font-sans block">
                     NutriLens
                   </span>
-                  <span className="text-[10px] text-emerald-300 lg:text-emerald-950 font-extrabold uppercase tracking-wider block -mt-0.5">
+                  <span className="text-[10px] text-emerald-950 font-extrabold uppercase tracking-wider block -mt-0.5">
                     Nutrition Intelligence
                   </span>
                 </div>
@@ -137,23 +137,23 @@ export const PublicFooter: React.FC = () => {
 
               {/* Tagline & Positioning */}
               <div className="space-y-2">
-                <p className="text-xs font-bold text-white/90 lg:text-slate-950">
+                <p className="text-xs font-bold text-slate-950">
                   Make smarter food choices. Live healthier.
                 </p>
-                <p className="text-white/80 lg:text-slate-900 font-medium leading-relaxed text-xs max-w-sm">
+                <p className="text-slate-900 font-medium leading-relaxed text-xs max-w-sm">
                   Your intelligent nutrition companion. Discover what&apos;s on your plate, understand what your food provides, and make informed nutritional decisions every day.
                 </p>
               </div>
 
               {/* Verified Source Pill */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-transparent border border-white/25 lg:border-slate-950/20 text-[11px] font-semibold text-white/85 lg:text-slate-950">
-                <Database className="w-3.5 h-3.5 text-emerald-300 lg:text-emerald-950 shrink-0" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-transparent border border-slate-950/20 text-[11px] font-semibold text-slate-950">
+                <Database className="w-3.5 h-3.5 text-emerald-950 shrink-0" />
                 <span>Anchored in FAO FCTB (2013)</span>
               </div>
 
               {/* Social Media Links */}
               <div className="pt-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-white/90 lg:text-slate-950 mb-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-950 mb-2.5">
                   Connect With Us
                 </p>
                 <div className="flex items-center gap-2.5">
@@ -162,7 +162,7 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="NutriLens and iNFiTE LOOP on GitHub"
-                    className="w-8 h-8 rounded-lg bg-transparent border border-white/25 lg:border-slate-950/20 flex items-center justify-center text-white/85 lg:text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-transparent border border-slate-950/20 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
                   >
                     <Github className="w-4 h-4" />
                   </a>
@@ -171,7 +171,7 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="iNFiTE LOOP on LinkedIn"
-                    className="w-8 h-8 rounded-lg bg-transparent border border-white/25 lg:border-slate-950/20 flex items-center justify-center text-white/85 lg:text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-transparent border border-slate-950/20 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
                   >
                     <Linkedin className="w-4 h-4" />
                   </a>
@@ -180,14 +180,14 @@ export const PublicFooter: React.FC = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="NutriLens on X"
-                    className="w-8 h-8 rounded-lg bg-transparent border border-white/25 lg:border-slate-950/20 flex items-center justify-center text-white/85 lg:text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-transparent border border-slate-950/20 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
                   >
                     <Twitter className="w-4 h-4" />
                   </a>
                   <a
                     href="mailto:team@infiteloop.tech"
                     aria-label="Email iNFiTE LOOP Team"
-                    className="w-8 h-8 rounded-lg bg-transparent border border-white/25 lg:border-slate-950/20 flex items-center justify-center text-white/85 lg:text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
+                    className="w-8 h-8 rounded-lg bg-transparent border border-slate-950/20 flex items-center justify-center text-slate-950 hover:text-white hover:border-white/50 hover:bg-black/20 hover:scale-105 transition-all duration-150"
                   >
                     <Mail className="w-4 h-4" />
                   </a>
