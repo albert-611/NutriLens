@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Menu, X, ArrowRight } from 'lucide-react';
-import { motion, useScroll, useSpring } from 'motion/react';
+import { Menu, X, ArrowRight, ArrowUp } from 'lucide-react';
+import { motion, useScroll, useSpring, AnimatePresence } from 'motion/react';
 import { LangToggle } from '../common/LangToggle';
 import { Button } from '../common/Button';
 import { SpecularButton } from '../animations/SpecularButton';
@@ -10,6 +10,7 @@ import { SpecularButton } from '../animations/SpecularButton';
 export const PublicNavbar: React.FC = () => {
   const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -17,6 +18,22 @@ export const PublicNavbar: React.FC = () => {
     damping: 30,
     restDelta: 0.001,
   });
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 280);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  };
 
   return (
     <>
@@ -26,7 +43,7 @@ export const PublicNavbar: React.FC = () => {
         style={{ scaleX }}
       />
 
-      <header className="sticky top-0 z-50 w-full bg-surface-lightRoot/92 dark:bg-forest-root/92 backdrop-blur-md border-b border-slate-200/60 dark:border-forest-border/60 transition-colors duration-200 shadow-xs">
+      <header className="sticky top-0 z-50 w-full bg-white/90 dark:bg-forest-root/90 border-b border-slate-200/70 dark:border-forest-border/60 transition-colors duration-200 shadow-xs">
         <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 h-16 flex items-center justify-between">
           
           {/* Brand Logo & Wordmark */}
@@ -178,6 +195,24 @@ export const PublicNavbar: React.FC = () => {
           </div>
         )}
       </header>
+
+      {/* Smooth Scroll-To-Top Arrow Button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            type="button"
+            onClick={scrollToTop}
+            initial={{ opacity: 0, scale: 0.7, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.7, y: 16 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50 p-3.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-950/25 border border-emerald-400/40 hover:scale-110 active:scale-95 transition-all duration-150 flex items-center justify-center group focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 cursor-pointer"
+            aria-label="Scroll to top"
+          >
+            <ArrowUp className="w-5 h-5 stroke-[2.5] group-hover:-translate-y-0.5 transition-transform duration-200" />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </>
   );
 };
