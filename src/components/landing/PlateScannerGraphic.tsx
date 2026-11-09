@@ -107,12 +107,12 @@ export const PlateScannerGraphic: React.FC = () => {
       </div>
 
       {/* Plate Stage with Real User Photo */}
-      <div className="relative w-full aspect-square my-2 p-1 sm:p-2 flex items-center justify-center">
+      <div className="relative w-full aspect-square my-2 flex items-center justify-center">
         <div className="relative w-full h-full rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden border-2 border-slate-200 dark:border-forest-border bg-slate-900/5 dark:bg-[#06140e] flex items-center justify-center">
           
           {/* Responsive SVG Container locked to image coordinate system */}
           <svg
-            viewBox="-145 220 2100 2100"
+            viewBox="-95 270 2000 2000"
             className="w-full h-full select-none"
           >
             <defs>
@@ -144,9 +144,9 @@ export const PlateScannerGraphic: React.FC = () => {
               <g id="hud-layer">
                 {/* Continuous Animated Laser Radar Sweep */}
                 <rect
-                  x="-145"
-                  y="220"
-                  width="2100"
+                  x="-95"
+                  y="270"
+                  width="2000"
                   height="18"
                   fill="url(#laser-grad)"
                   className="animate-[scan_3.5s_ease-in-out_infinite]"
@@ -204,7 +204,7 @@ export const PlateScannerGraphic: React.FC = () => {
                         strokeLinecap="round"
                         fill="none"
                       />
-                      {/* Bottom-Right Reticle */}
+                      {/* Bottom-Right */}
                       <path
                         d={`M ${x + width - corner} ${y + height} L ${x + width} ${y + height} L ${x + width} ${y + height - corner}`}
                         stroke="#34d399"
@@ -212,6 +212,58 @@ export const PlateScannerGraphic: React.FC = () => {
                         strokeLinecap="round"
                         fill="none"
                       />
+
+                      {/* Floating AI Confidence Label Pill */}
+                      <g transform={`translate(${x + width / 2}, ${y - 12})`}>
+                        <rect
+                          x="-140"
+                          y="-42"
+                          width="280"
+                          height="48"
+                          rx="24"
+                          fill={isActive ? '#059669' : '#0f172a'}
+                          stroke={isActive ? '#34d399' : '#334155'}
+                          strokeWidth="3"
+                          filter="drop-shadow(0px 4px 6px rgba(0,0,0,0.4))"
+                        />
+                        <text
+                          x="0"
+                          y="-12"
+                          textAnchor="middle"
+                          fill="#ffffff"
+                          fontSize="22"
+                          fontWeight="bold"
+                          fontFamily="ui-monospace, monospace"
+                        >
+                          {item.label} {(item.confidence * 100).toFixed(0)}%
+                        </text>
+                      </g>
+
+                      {/* Portion Badge at Bottom Right of Box */}
+                      <g transform={`translate(${x + width - 130}, ${y + height - 16})`}>
+                        <rect
+                          x="0"
+                          y="-36"
+                          width="120"
+                          height="40"
+                          rx="10"
+                          fill={isActive ? '#047857' : '#000000'}
+                          fillOpacity="0.85"
+                          stroke="#10b981"
+                          strokeWidth="2"
+                        />
+                        <text
+                          x="60"
+                          y="-10"
+                          textAnchor="middle"
+                          fill="#a7f3d0"
+                          fontSize="20"
+                          fontWeight="bold"
+                          fontFamily="ui-monospace, monospace"
+                        >
+                          {item.weight}
+                        </text>
+                      </g>
                     </g>
                   );
                 })}
@@ -233,14 +285,11 @@ export const PlateScannerGraphic: React.FC = () => {
             className="flex items-start justify-between"
           >
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <p className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100">
                   {activeItem.name}
                 </p>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 text-[10px] font-bold font-sans tracking-wide">
-                  {activeItem.label} {(activeItem.confidence * 100).toFixed(0)}%
-                </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium ml-3.5">
                 {activeItem.nameBn}
@@ -281,10 +330,10 @@ export const PlateScannerGraphic: React.FC = () => {
       {/* Inline styles for laser scan animation */}
       <style>{`
         @keyframes scan {
-          0% { y: 230px; opacity: 0; }
+          0% { y: 280px; opacity: 0; }
           15% { opacity: 0.85; }
           85% { opacity: 0.85; }
-          100% { y: 2300px; opacity: 0; }
+          100% { y: 2260px; opacity: 0; }
         }
       `}</style>
     </div>
