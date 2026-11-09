@@ -8,6 +8,17 @@ export default {
   theme: {
     extend: {
       colors: {
+        border: 'var(--border-subtle)',
+        foreground: 'var(--text-primary)',
+        background: 'var(--bg-root)',
+        card: {
+          DEFAULT: 'var(--bg-card)',
+          foreground: 'var(--text-primary)',
+        },
+        muted: {
+          DEFAULT: 'var(--bg-card-hover)',
+          foreground: 'var(--text-muted)',
+        },
         forest: {
           50: '#f0fdf4',
           100: '#dcfce7',
