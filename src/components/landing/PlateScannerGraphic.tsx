@@ -31,7 +31,7 @@ const DETECTED_ITEMS: FoodItem[] = [
     carbs: '2.1 g',
     fat: '14.2 g',
     cost: '৳ 57.60',
-    box: { x: 940, y: 630, width: 700, height: 690 },
+    box: { x: 975, y: 630, width: 700, height: 690 },
   },
   {
     id: 'dal',
@@ -45,7 +45,7 @@ const DETECTED_ITEMS: FoodItem[] = [
     carbs: '21.4 g',
     fat: '2.2 g',
     cost: '৳ 18.00',
-    box: { x: 120, y: 580, width: 630, height: 590 },
+    box: { x: 155, y: 580, width: 630, height: 590 },
   },
   {
     id: 'shak',
@@ -59,7 +59,7 @@ const DETECTED_ITEMS: FoodItem[] = [
     carbs: '3.8 g',
     fat: '4.1 g',
     cost: '৳ 6.50',
-    box: { x: 690, y: 490, width: 440, height: 420 },
+    box: { x: 725, y: 490, width: 440, height: 420 },
   },
   {
     id: 'rice',
@@ -73,7 +73,7 @@ const DETECTED_ITEMS: FoodItem[] = [
     carbs: '57.2 g',
     fat: '0.6 g',
     cost: '৳ 13.60',
-    box: { x: 280, y: 1190, width: 1260, height: 790 },
+    box: { x: 315, y: 1190, width: 1260, height: 790 },
   },
 ];
 
@@ -112,7 +112,7 @@ export const PlateScannerGraphic: React.FC = () => {
           
           {/* Responsive SVG Container locked to image coordinate system */}
           <svg
-            viewBox="-95 270 2000 2000"
+            viewBox="-60 270 2000 2000"
             className="w-full h-full select-none"
           >
             <defs>
@@ -144,7 +144,7 @@ export const PlateScannerGraphic: React.FC = () => {
               <g id="hud-layer">
                 {/* Continuous Animated Laser Radar Sweep */}
                 <rect
-                  x="-95"
+                  x="-60"
                   y="270"
                   width="2000"
                   height="18"
