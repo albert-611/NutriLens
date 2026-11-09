@@ -120,7 +120,7 @@ const GlowCard: React.FC<GlowCardProps> = ({
       -webkit-mask-composite: xor;
       mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
       mask-composite: exclude;
-      z-index: 2;
+      z-index: 10;
     }
     
     [data-glow]::before {

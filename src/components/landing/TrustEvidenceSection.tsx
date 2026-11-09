@@ -95,12 +95,17 @@ export const TrustEvidenceSection: React.FC = () => {
             const isFlipped = Boolean(flippedCards[idx]);
 
             return (
-              <div key={idx} className="w-full">
+              <MotionCard
+                key={idx}
+                hoverLift={-6}
+                hoverScale={1.02}
+                className="h-full rounded-3xl"
+              >
                 <GlowCard
                   glowColor="green"
                   customSize
                   radius={24}
-                  className="relative w-full h-[330px] sm:h-[350px] cursor-pointer group select-none rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm overflow-hidden"
+                  className="relative w-full h-[330px] sm:h-[350px] cursor-pointer group select-none rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-colors duration-200"
                   onClick={() => toggleFlip(idx)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -128,11 +133,11 @@ export const TrustEvidenceSection: React.FC = () => {
                     >
                       {/* FRONT FACE */}
                       <div
-                        className="absolute inset-0 w-full h-full p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card flex flex-col justify-between hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-colors duration-200"
+                        className="absolute inset-0 w-full h-full p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card flex flex-col justify-between transition-colors duration-200"
                         style={{
                           backfaceVisibility: 'hidden',
                           WebkitBackfaceVisibility: 'hidden',
-                          zIndex: isFlipped ? 0 : 2,
+                          zIndex: isFlipped ? 0 : 1,
                           pointerEvents: isFlipped ? 'none' : 'auto',
                         }}
                       >
@@ -174,7 +179,7 @@ export const TrustEvidenceSection: React.FC = () => {
                           WebkitBackfaceVisibility: 'hidden',
                           transform: 'rotateY(180deg)',
                           WebkitTransform: 'rotateY(180deg)',
-                          zIndex: isFlipped ? 2 : 0,
+                          zIndex: isFlipped ? 1 : 0,
                           pointerEvents: isFlipped ? 'auto' : 'none',
                         }}
                       >
@@ -210,7 +215,7 @@ export const TrustEvidenceSection: React.FC = () => {
                     </motion.div>
                   </div>
                 </GlowCard>
-              </div>
+              </MotionCard>
             );
           })}
         </div>
