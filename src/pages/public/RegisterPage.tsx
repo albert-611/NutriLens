@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, DEMO_USERS } from '../../context/AuthContext';
 import { Button } from '../../components/common/Button';
-import { ThemeToggle } from '../../components/common/ThemeToggle';
 import { LangToggle } from '../../components/common/LangToggle';
 import { ArrowLeft, UserCheck, Lock, Mail, User, Store } from 'lucide-react';
 
@@ -50,7 +49,6 @@ export const RegisterPage: React.FC = () => {
         </Link>
         <div className="flex items-center gap-2">
           <LangToggle />
-          <ThemeToggle />
         </div>
       </div>
 

@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth, DEMO_USERS } from '../../context/AuthContext';
 import { Button } from '../../components/common/Button';
-import { ThemeToggle } from '../../components/common/ThemeToggle';
 import { LangToggle } from '../../components/common/LangToggle';
 import { ArrowLeft, UserCheck, Lock, Mail } from 'lucide-react';
 
@@ -54,7 +53,6 @@ export const LoginPage: React.FC = () => {
         </Link>
         <div className="flex items-center gap-2">
           <LangToggle />
-          <ThemeToggle />
         </div>
       </div>
 

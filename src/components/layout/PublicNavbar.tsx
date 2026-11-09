@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Menu, X, ArrowRight } from 'lucide-react';
-import { ThemeToggle } from '../common/ThemeToggle';
 import { LangToggle } from '../common/LangToggle';
 import { Button } from '../common/Button';
 import { SpecularButton } from '../animations/SpecularButton';
@@ -50,7 +49,6 @@ export const PublicNavbar: React.FC = () => {
           {/* Action Controls & Authentication */}
           <div className="hidden sm:flex items-center gap-3">
             <LangToggle />
-            <ThemeToggle />
             
             <Link to="/login">
               <Button
@@ -87,7 +85,6 @@ export const PublicNavbar: React.FC = () => {
           {/* Mobile Menu Button */}
           <div className="flex items-center gap-2 sm:hidden">
             <LangToggle />
-            <ThemeToggle />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-forest-card focus:outline-none focus:ring-2 focus:ring-emerald-500"

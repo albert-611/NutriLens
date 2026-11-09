@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
 import { useLocale } from '../../context/LocaleContext';
 import {
   User,
@@ -12,8 +11,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   Languages,
-  Moon,
-  Sun,
   Save,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
@@ -22,7 +19,6 @@ import { formatCurrency } from '../../lib/formatters';
 export const ProfilePage: React.FC = () => {
   const { t } = useTranslation();
   const { profile, updateProfile, isDemoUser, user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const { locale, setLocale } = useLocale();
 
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
@@ -215,20 +211,6 @@ export const ProfilePage: React.FC = () => {
                   বাং
                 </button>
               </div>
-            </div>
-
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60">
-              <div>
-                <p className="font-semibold text-xs text-slate-900 dark:text-white">Appearance Theme</p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Current: {theme === 'dark' ? 'Forest Dark' : 'Modern Light'}</p>
-              </div>
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="p-2 rounded-xl bg-slate-200 dark:bg-forest-card hover:bg-slate-300 dark:hover:bg-forest-cardHover transition-colors"
-              >
-                {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-              </button>
             </div>
           </div>
         </div>
