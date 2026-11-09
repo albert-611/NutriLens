@@ -108,13 +108,8 @@ export const PublicFooter: React.FC = () => {
       <footer
         ref={footerRef}
         aria-label="Site Footer"
-        className="relative text-xs overflow-hidden bg-cover bg-no-repeat text-slate-900"
-        style={{
-          backgroundImage: "linear-gradient(to bottom, #ffffff 0%, rgba(255, 255, 255, 0.7) 4%, transparent 16%, rgba(2, 10, 6, 0.4) 60%, rgba(2, 10, 6, 0.92) 100%), url('/images/footer-gradient.png')",
-          backgroundPosition: 'center bottom',
-          backgroundSize: 'cover',
-          backgroundColor: '#020a06',
-        }}
+        className="relative text-xs overflow-hidden bg-cover bg-top bg-no-repeat text-slate-900"
+        style={{ backgroundImage: "url('/images/footer-gradient.jpg')" }}
       >
         <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 pt-20 sm:pt-28 pb-14 sm:pb-20 space-y-12 sm:space-y-16">
           
