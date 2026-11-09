@@ -230,27 +230,28 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
       let hasActiveAnimation = false;
 
       // Idle water droplet when mouse rests inside on laptop/desktop
-      if (pointer.inside && hoverDrops && !reduceMotion && (now - lastDropTime > 900)) {
+      if (pointer.inside && hoverDrops && !reduceMotion && (now - lastDropTime > 800)) {
         lastDropTime = now;
-        spawnRipple(pointer.x, pointer.y, now, Math.min(view.width, view.height) * 0.45, 0.6);
+        spawnRipple(pointer.x, pointer.y, now, Math.max(view.width, view.height) * 0.65, 0.75);
       }
 
-      // 1. Update Pulses (Water Drop Ripples)
+      // 1. Calculate & Update Pulses (Water Droplet Ripples)
       if (pulses.length > 0) {
         hasActiveAnimation = true;
         for (let i = pulses.length - 1; i >= 0; i--) {
           const p = pulses[i];
           const elapsed = (now - p.startTime) / 1000;
-          const currentRadius = elapsed * pulseSpeed * 340;
-          const alpha = Math.max(0, 1 - currentRadius / p.maxRadius);
+          const currentRadius = elapsed * pulseSpeed * 220;
+          const progress = currentRadius / p.maxRadius;
+          const alpha = Math.max(0, (1 - progress) * (p.intensity || 1));
 
           if (alpha <= 0.01 || currentRadius >= p.maxRadius) {
             pulses.splice(i, 1);
             continue;
           }
 
-          // Light up intersecting cells with a smooth sinusoidal ripple wave
-          const waveWidth = cellSize * 2.2;
+          // Light up intersecting grid cells under the wave crest
+          const waveWidth = cellSize * 2.0;
           const minCol = Math.max(0, Math.floor((p.x - currentRadius - waveWidth - grid.offX) / cellSize));
           const maxCol = Math.min(grid.cols - 1, Math.floor((p.x + currentRadius + waveWidth - grid.offX) / cellSize));
           const minRow = Math.max(0, Math.floor((p.y - currentRadius - waveWidth - grid.offY) / cellSize));
@@ -263,8 +264,8 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
               const dist = Math.hypot(p.x - cx, p.y - cy);
               const diff = Math.abs(dist - currentRadius);
               if (diff < waveWidth) {
-                // Smooth sinusoidal water droplet ripple wave
-                const waveIntensity = Math.sin((1 - diff / waveWidth) * Math.PI) * alpha * (p.intensity || 0.85);
+                // Sinusoidal water wave crest cell highlight
+                const waveIntensity = Math.sin((1 - diff / waveWidth) * Math.PI) * alpha * 0.9;
                 lightCell(row * grid.cols + col, waveIntensity, now);
               }
             }
@@ -388,6 +389,50 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
         ctx.restore();
       }
 
+      // 5. Draw Vivid Glowing Water Droplet Wave Rings Over Grid
+      if (pulses.length > 0) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(52, 211, 153, 0.75)';
+        for (let i = 0; i < pulses.length; i++) {
+          const p = pulses[i];
+          const elapsed = (now - p.startTime) / 1000;
+          const currentRadius = elapsed * pulseSpeed * 220;
+          const progress = currentRadius / p.maxRadius;
+          const alpha = Math.max(0, (1 - progress) * (p.intensity || 1));
+
+          if (alpha <= 0.01 || currentRadius >= p.maxRadius) continue;
+
+          // Primary outer water wave crest
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, currentRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(52, 211, 153, ${alpha * 0.9})`;
+          ctx.lineWidth = Math.max(1.8, 3.5 * (1 - progress));
+          ctx.shadowBlur = 10;
+          ctx.stroke();
+
+          // Secondary trailing water wave crest
+          if (currentRadius > 20) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, currentRadius - 18, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(110, 231, 183, ${alpha * 0.55})`;
+            ctx.lineWidth = Math.max(1.2, 2.2 * (1 - progress));
+            ctx.shadowBlur = 6;
+            ctx.stroke();
+          }
+
+          // Tertiary faint water wave crest
+          if (currentRadius > 44) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, currentRadius - 36, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(167, 243, 208, ${alpha * 0.3})`;
+            ctx.lineWidth = 1;
+            ctx.shadowBlur = 4;
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
       if (hasActiveAnimation) {
         rafId = requestAnimationFrame(render);
       }
@@ -417,11 +462,11 @@ export const CursorGrid: React.FC<CursorGridProps> = ({
       if (hoverDrops && e.pointerType !== 'touch' && !reduceMotion) {
         const dist = Math.hypot(x - lastDropX, y - lastDropY);
         const timeDiff = now - lastDropTime;
-        if (dist > 36 || (timeDiff > 160 && dist > 10)) {
+        if (dist > 30 || (timeDiff > 130 && dist > 8)) {
           lastDropX = x;
           lastDropY = y;
           lastDropTime = now;
-          spawnRipple(x, y, now, Math.min(view.width, view.height) * 0.55, 0.75);
+          spawnRipple(x, y, now, Math.max(view.width, view.height) * 0.75, 0.85);
         }
       }
 

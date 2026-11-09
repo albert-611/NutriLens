@@ -33,38 +33,40 @@ export const LandingPage: React.FC = () => {
           return;
         }
 
-        // Section reveal animation when scrolled into view
+        // Pop-up reveal animation from downward when section hits 40vh into viewport
         gsap.fromTo(
           sec,
-          { opacity: 0, y: 44 },
+          { opacity: 0, y: 65, scale: 0.95 },
           {
             opacity: 1,
             y: 0,
-            duration: 0.85,
-            ease: 'power3.out',
+            scale: 1,
+            duration: 0.8,
+            ease: 'back.out(1.2)',
             scrollTrigger: {
               trigger: sec,
-              start: 'top 82%',
+              start: 'top 60%', // Triggers when top of section crosses 40vh from bottom of viewport
               toggleActions: 'play none none none',
             },
           }
         );
 
-        // Child content cards subtle staggered entrance
+        // Child content cards staggered pop-up entrance
         const innerCards = sec.querySelectorAll(':scope > div > .grid > div, :scope > div > div > .grid > div');
         if (innerCards && innerCards.length > 0) {
           gsap.fromTo(
             innerCards,
-            { opacity: 0, y: 26 },
+            { opacity: 0, y: 35, scale: 0.96 },
             {
               opacity: 1,
               y: 0,
-              duration: 0.6,
+              scale: 1,
+              duration: 0.65,
               stagger: 0.08,
-              ease: 'power2.out',
+              ease: 'back.out(1.15)',
               scrollTrigger: {
                 trigger: sec,
-                start: 'top 75%',
+                start: 'top 55%',
                 toggleActions: 'play none none none',
               },
             }

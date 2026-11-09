@@ -82,8 +82,8 @@ export const HeroSection: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
               <Link to="/app" className="w-full sm:w-auto">
                 <SpecularButton
-                  size="lg"
-                  radius={16}
+                  size="md"
+                  radius={14}
                   tint="#10b981"
                   tintOpacity={1}
                   textColor="#ffffff"
@@ -105,11 +105,11 @@ export const HeroSection: React.FC = () => {
               </Link>
               <a href="#how-it-works" className="w-full sm:w-auto">
                 <SpecularButton
-                  size="lg"
-                  radius={16}
+                  size="md"
+                  radius={14}
                   tint="#ffffff"
                   tintOpacity={1}
-                  textColor="#000000"
+                  textColor="#064e3b"
                   lineColor="#10b981"
                   baseColor="#059669"
                   intensity={1.2}
@@ -120,10 +120,10 @@ export const HeroSection: React.FC = () => {
                   glow={1.5}
                   followMouse
                   proximity={250}
-                  className="w-full sm:w-auto border border-emerald-500/50 hover:border-emerald-400 !text-black font-bold shadow-lg shadow-black/5"
+                  className="w-full sm:w-auto border border-emerald-500/50 hover:border-emerald-400 !text-[#064e3b] dark:!text-emerald-300 font-bold shadow-lg shadow-black/5"
                 >
-                  <span className="text-black">See How It Works</span>
-                  <ChevronDown className="w-4 h-4 shrink-0 text-black" />
+                  <span className="text-[#064e3b] dark:text-emerald-300">See How It Works</span>
+                  <ChevronDown className="w-4 h-4 shrink-0 text-[#064e3b] dark:text-emerald-300" />
                 </SpecularButton>
               </a>
             </div>
