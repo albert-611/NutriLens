@@ -260,3 +260,4 @@ export function clearDraftAnalysis(): void {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
   } catch (e) {}
 }
+

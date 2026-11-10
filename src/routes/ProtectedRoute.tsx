@@ -4,10 +4,14 @@ import { useAuth } from '../context/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowIncompleteOnboarding?: boolean;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, loading } = useAuth();
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  allowIncompleteOnboarding = false,
+}) => {
+  const { user, loading, onboardingCompleted } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -23,6 +27,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // If user has not completed onboarding and is trying to access /app/* pages
+  if (!allowIncompleteOnboarding && !onboardingCompleted) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;

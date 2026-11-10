@@ -1,7 +1,26 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import type { Profile } from '../contracts';
+import type {
+  Profile,
+  NutritionPreferences,
+  FoodRestriction,
+  BudgetPreferences,
+  OnboardingData,
+} from '../contracts';
+import {
+  signUpUser,
+  signInUser,
+  sendPasswordRecoveryEmail,
+  updateUserPassword,
+  fetchUserProfile,
+  fetchNutritionPreferences,
+  fetchFoodRestrictions,
+  fetchBudgetPreferences,
+  saveOnboardingData,
+  deleteUserAccount,
+  ensureProfileExists,
+} from '../services/authService';
 
 export interface DemoUserOption {
   id: string;
@@ -21,8 +40,14 @@ export const DEMO_USERS: DemoUserOption[] = [
       id: '00000000-0000-0000-0000-000000000001',
       market_id: '22222222-2222-2222-2222-222222222201',
       display_name: 'Tariqul Islam',
+      full_name: 'Tariqul Islam',
+      age: 22,
+      country: 'Bangladesh',
+      city: 'Savar',
       age_adult_confirmed: true,
+      onboarding_completed: true,
       language: 'bn',
+      preferred_language: 'bn',
       unit_preference: 'metric',
       cuisine_preferences: ['bangladeshi'],
       dietary_exclusions: [],
@@ -46,8 +71,14 @@ export const DEMO_USERS: DemoUserOption[] = [
       id: '00000000-0000-0000-0000-000000000002',
       market_id: '22222222-2222-2222-2222-222222222202',
       display_name: 'Nasima Akter',
+      full_name: 'Nasima Akter',
+      age: 34,
+      country: 'Bangladesh',
+      city: 'Ashulia',
       age_adult_confirmed: true,
+      onboarding_completed: true,
       language: 'bn',
+      preferred_language: 'bn',
       unit_preference: 'metric',
       cuisine_preferences: ['bangladeshi'],
       dietary_exclusions: [],
@@ -71,8 +102,14 @@ export const DEMO_USERS: DemoUserOption[] = [
       id: '00000000-0000-0000-0000-000000000003',
       market_id: '22222222-2222-2222-2222-222222222201',
       display_name: 'Tanvir Ahmed',
+      full_name: 'Tanvir Ahmed',
+      age: 28,
+      country: 'Bangladesh',
+      city: 'Savar',
       age_adult_confirmed: true,
+      onboarding_completed: true,
       language: 'en',
+      preferred_language: 'en',
       unit_preference: 'metric',
       cuisine_preferences: ['bangladeshi'],
       dietary_exclusions: [],
@@ -93,13 +130,22 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   session: Session | null;
+  nutritionPreferences: NutritionPreferences | null;
+  foodRestrictions: FoodRestriction[];
+  budgetPreferences: BudgetPreferences | null;
   loading: boolean;
-  signIn: (email: string, password?: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password?: string, fullName?: string) => Promise<{ error: Error | null }>;
-  signOut: () => Promise<void>;
-  selectDemoUser: (demoUserId: string) => void;
+  onboardingCompleted: boolean;
   isDemoUser: boolean;
-  updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  signIn: (email: string, password?: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<void>;
+  resetPasswordForEmail: (email: string) => Promise<{ error: Error | null }>;
+  updatePassword: (password: string) => Promise<{ error: Error | null }>;
+  updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
+  completeOnboarding: (data: OnboardingData) => Promise<{ error: Error | null }>;
+  deleteAccount: () => Promise<{ error: Error | null }>;
+  selectDemoUser: (demoUserId: string) => void;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -108,12 +154,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [nutritionPreferences, setNutritionPreferences] = useState<NutritionPreferences | null>(null);
+  const [foodRestrictions, setFoodRestrictions] = useState<FoodRestriction[]>([]);
+  const [budgetPreferences, setBudgetPreferences] = useState<BudgetPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDemoUser, setIsDemoUser] = useState(false);
 
+  const loadUserData = useCallback(async (userId: string) => {
+    try {
+      const [prof, nut, rest, bud] = await Promise.all([
+        fetchUserProfile(userId),
+        fetchNutritionPreferences(userId),
+        fetchFoodRestrictions(userId),
+        fetchBudgetPreferences(userId),
+      ]);
+
+      if (prof) {
+        setProfile(prof);
+      }
+      setNutritionPreferences(nut);
+      setFoodRestrictions(rest);
+      setBudgetPreferences(bud);
+    } catch (err) {
+      console.warn('Error loading user data:', err);
+    }
+  }, []);
+
+  const refreshUserData = useCallback(async () => {
+    if (user?.id) {
+      await loadUserData(user.id);
+    }
+  }, [user?.id, loadUserData]);
+
   useEffect(() => {
-    // Check local storage for active demo user session if live Supabase is not signed in
-    const checkAuth = async () => {
+    const initializeAuth = async () => {
       setLoading(true);
       try {
         if (isSupabaseConfigured) {
@@ -121,13 +195,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (data.session) {
             setSession(data.session);
             setUser(data.session.user);
-            await fetchProfile(data.session.user.id);
+            setIsDemoUser(false);
+            await loadUserData(data.session.user.id);
             setLoading(false);
             return;
           }
         }
 
-        // Check if demo user was previously selected
+        // Check if demo user was saved
         const savedDemoId = localStorage.getItem('nutrilens_active_demo_user');
         if (savedDemoId) {
           const demo = DEMO_USERS.find((d) => d.id === savedDemoId) || DEMO_USERS[0];
@@ -140,7 +215,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    checkAuth();
+    initializeAuth();
 
     if (isSupabaseConfigured) {
       const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
@@ -148,9 +223,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(newSession?.user ?? null);
         if (newSession?.user) {
           setIsDemoUser(false);
-          await fetchProfile(newSession.user.id);
+          await loadUserData(newSession.user.id);
         } else {
           setProfile(null);
+          setNutritionPreferences(null);
+          setFoodRestrictions([]);
+          setBudgetPreferences(null);
         }
       });
 
@@ -158,23 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authListener.subscription.unsubscribe();
       };
     }
-  }, []);
-
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (!error && data) {
-        setProfile(data as Profile);
-      }
-    } catch {
-      // Ignore network errors in local dev
-    }
-  };
+  }, [loadUserData]);
 
   const setDemoUserSession = (demo: DemoUserOption) => {
     const mockUser = {
@@ -198,66 +260,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password?: string) => {
-    if (!isSupabaseConfigured || !password) {
-      // Local fallback: map to matching demo user or Tariqul
+    if (!password) {
       const match = DEMO_USERS.find((d) => d.email.toLowerCase() === email.toLowerCase()) || DEMO_USERS[0];
       setDemoUserSession(match);
       return { error: null };
     }
 
-    try {
-      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { error };
-      if (data.session) {
-        setSession(data.session);
-        setUser(data.user);
-        setIsDemoUser(false);
-        localStorage.removeItem('nutrilens_active_demo_user');
-        await fetchProfile(data.user.id);
-      }
-      return { error: null };
-    } catch (e: any) {
-      return { error: e };
+    const { data, error } = await signInUser(email, password);
+    if (error) return { error };
+
+    if (data?.user) {
+      setUser(data.user);
+      setSession(data.session);
+      setIsDemoUser(false);
+      localStorage.removeItem('nutrilens_active_demo_user');
+      await loadUserData(data.user.id);
     }
+    return { error: null };
   };
 
-  const signUp = async (email: string, password?: string, fullName?: string) => {
-    if (!isSupabaseConfigured || !password) {
-      const newUserProfile: Profile = {
-        id: '00000000-0000-0000-0000-000000000001',
-        market_id: '22222222-2222-2222-2222-222222222201',
-        display_name: fullName || 'New Member',
-        age_adult_confirmed: true,
-        language: 'bn',
-        unit_preference: 'metric',
-        cuisine_preferences: ['bangladeshi'],
-        dietary_exclusions: [],
-        declared_allergens: [],
-        general_goal: 'balanced_wellness',
-        household_size: 1,
-        budget_amount: 200,
-        budget_currency: 'BDT',
-        budget_people: 1,
-        budget_duration_days: 1,
-        available_time_minutes: 30,
-        available_equipment: ['stove', 'pan', 'pot', 'knife'],
-      };
-      setProfile(newUserProfile);
-      setUser({ id: newUserProfile.id, email } as any);
-      setIsDemoUser(true);
-      return { error: null };
-    }
+  const signUp = async (email: string, password: string, fullName: string) => {
+    const { data, error } = await signUpUser(email, password, fullName);
+    if (error) return { error };
 
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } },
-      });
-      return { error };
-    } catch (e: any) {
-      return { error: e };
+    if (data?.user) {
+      setUser(data.user);
+      setSession(data.session);
+      setIsDemoUser(false);
+      localStorage.removeItem('nutrilens_active_demo_user');
+      // Create initial local profile
+      const prof = await ensureProfileExists(data.user.id, fullName);
+      if (prof) setProfile(prof);
     }
+    return { error: null };
   };
 
   const signOut = async () => {
@@ -267,19 +302,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setProfile(null);
     setSession(null);
+    setNutritionPreferences(null);
+    setFoodRestrictions([]);
+    setBudgetPreferences(null);
     setIsDemoUser(false);
     localStorage.removeItem('nutrilens_active_demo_user');
   };
 
+  const resetPasswordForEmail = async (email: string) => {
+    const res = await sendPasswordRecoveryEmail(email);
+    return { error: res.error ?? null };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const res = await updateUserPassword(newPassword);
+    return { error: res.error ?? null };
+  };
+
   const updateProfile = async (updates: Partial<Profile>) => {
-    if (!profile) return;
+    if (!profile) return { error: new Error('No active profile.') };
     const updated = { ...profile, ...updates };
     setProfile(updated);
 
     if (isSupabaseConfigured && !isDemoUser) {
-      await supabase.from('profiles').update(updates).eq('id', profile.id);
+      try {
+        const { error } = await supabase.from('profiles').update(updates).eq('id', profile.id);
+        if (error) return { error };
+      } catch (err: any) {
+        return { error: err };
+      }
     }
+    return { error: null };
   };
+
+  const completeOnboarding = async (data: OnboardingData) => {
+    if (!user) return { error: new Error('User not authenticated.') };
+
+    const { error } = await saveOnboardingData(user.id, data);
+    if (error) return { error };
+
+    // Update local state
+    if (profile) {
+      setProfile({
+        ...profile,
+        full_name: data.fullName,
+        display_name: data.fullName,
+        age: data.age,
+        country: data.country,
+        city: data.city,
+        preferred_language: data.preferredLanguage,
+        language: data.preferredLanguage,
+        market_id: data.marketId || profile.market_id,
+        budget_amount: data.budgetAmount,
+        budget_currency: data.currency,
+        household_size: data.peopleCount,
+        onboarding_completed: true,
+      });
+    }
+
+    await loadUserData(user.id);
+    return { error: null };
+  };
+
+  const deleteAccount = async () => {
+    const { error } = await deleteUserAccount();
+    if (error) return { error };
+
+    await signOut();
+    return { error: null };
+  };
+
+  // Derive onboarding completion status
+  const onboardingCompleted = Boolean(
+    profile?.onboarding_completed || isDemoUser
+  );
 
   return (
     <AuthContext.Provider
@@ -287,13 +383,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         profile,
         session,
+        nutritionPreferences,
+        foodRestrictions,
+        budgetPreferences,
         loading,
+        onboardingCompleted,
+        isDemoUser,
         signIn,
         signUp,
         signOut,
-        selectDemoUser,
-        isDemoUser,
+        resetPasswordForEmail,
+        updatePassword,
         updateProfile,
+        completeOnboarding,
+        deleteAccount,
+        selectDemoUser,
+        refreshUserData,
       }}
     >
       {children}

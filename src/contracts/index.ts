@@ -151,7 +151,13 @@ export const ProfileSchema = z.object({
   id: z.string().uuid(),
   market_id: z.string().uuid().nullable().optional(),
   display_name: z.string().nullable().optional(),
+  full_name: z.string().nullable().optional(),
+  age: z.number().int().min(18).max(120).nullable().optional(),
+  country: z.string().default('Bangladesh'),
+  city: z.string().default('Dhaka'),
+  preferred_language: z.string().default('bn'),
   age_adult_confirmed: z.boolean().default(true),
+  onboarding_completed: z.boolean().default(false),
   language: z.string().default('bn'),
   unit_preference: z.string().default('metric'),
   cuisine_preferences: z.array(z.string()).default(['bangladeshi']),
@@ -159,6 +165,11 @@ export const ProfileSchema = z.object({
   declared_allergens: z.array(z.string()).default([]),
   general_goal: z.enum([
     'balanced_wellness',
+    'improve_overall_nutrition',
+    'increase_protein',
+    'improve_dietary_variety',
+    'manage_food_expenses',
+    'build_healthier_habits',
     'budget_friendly',
     'high_protein',
     'diabetic_friendly_lifestyle',
@@ -175,6 +186,72 @@ export const ProfileSchema = z.object({
   updated_at: z.string().optional(),
 });
 export type Profile = z.infer<typeof ProfileSchema>;
+
+export const NutritionPreferencesSchema = z.object({
+  id: z.string().uuid().optional(),
+  user_id: z.string().uuid(),
+  primary_goal: z.string().default('balanced_wellness'),
+  secondary_goals: z.array(z.string()).default([]),
+  dietary_pattern: z.string().default('no_preference'),
+  preferred_cuisine: z.string().default('bangladeshi'),
+  favorite_food_categories: z.array(z.string()).default([]),
+  foods_to_avoid: z.array(z.string()).default([]),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+export type NutritionPreferences = z.infer<typeof NutritionPreferencesSchema>;
+
+export const FoodRestrictionSchema = z.object({
+  id: z.string().uuid().optional(),
+  user_id: z.string().uuid(),
+  restriction_type: z.enum(['allergy', 'intolerance', 'religious_exclusion', 'ingredient_avoidance']),
+  restriction_value: z.string().min(1),
+  notes: z.string().optional().nullable(),
+  created_at: z.string().optional(),
+});
+export type FoodRestriction = z.infer<typeof FoodRestrictionSchema>;
+
+export const BudgetPreferencesSchema = z.object({
+  id: z.string().uuid().optional(),
+  user_id: z.string().uuid(),
+  market_id: z.string().uuid().nullable().optional(),
+  currency: z.string().default('BDT'),
+  budget_amount: z.number().min(0).default(150),
+  budget_period: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
+  people_count: z.number().int().min(1).default(1),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+export type BudgetPreferences = z.infer<typeof BudgetPreferencesSchema>;
+
+export const OnboardingDataSchema = z.object({
+  // Step 1: Basic Info
+  fullName: z.string().min(2, 'Name must be at least 2 characters'),
+  age: z.number().int().min(18, 'Must be at least 18 years old'),
+  country: z.string().default('Bangladesh'),
+  city: z.string().default('Dhaka'),
+  preferredLanguage: z.enum(['bn', 'en']).default('bn'),
+  // Step 2: Goals
+  primaryGoal: z.string().default('balanced_wellness'),
+  secondaryGoals: z.array(z.string()).default([]),
+  // Step 3: Food Preferences
+  preferredCuisine: z.string().default('bangladeshi'),
+  dietaryPattern: z.string().default('no_preference'),
+  favoriteCategories: z.array(z.string()).default([]),
+  foodsToAvoid: z.array(z.string()).default([]),
+  // Step 4: Restrictions
+  allergies: z.array(z.string()).default([]),
+  intolerances: z.array(z.string()).default([]),
+  religiousExclusions: z.array(z.string()).default([]),
+  dislikedIngredients: z.array(z.string()).default([]),
+  // Step 5: Budget
+  marketId: z.string().uuid().nullable().optional(),
+  currency: z.string().default('BDT'),
+  budgetAmount: z.number().min(0).default(150),
+  budgetPeriod: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
+  peopleCount: z.number().int().min(1).default(1),
+});
+export type OnboardingData = z.infer<typeof OnboardingDataSchema>;
 
 // ==========================================
 // 6. Meal Capture & Nutrition Calculations

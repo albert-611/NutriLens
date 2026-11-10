@@ -23,13 +23,19 @@ export const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { profile } = useAuth();
 
-  const currentGoalLabel = {
+  const goalLabels: Record<string, string> = {
     budget_friendly: 'Budget-Friendly Vitality',
     balanced_wellness: 'Balanced Family Nutrition',
     high_protein: 'High Protein / Active Lifestyle',
+    increase_protein: 'High Protein / Active Lifestyle',
     diabetic_friendly_lifestyle: 'Low-GI Lifestyle',
     heart_conscious: 'Heart Conscious',
-  }[profile?.general_goal || 'balanced_wellness'];
+    improve_overall_nutrition: 'Overall Nutrition Focus',
+    improve_dietary_variety: 'Dietary Variety Focus',
+    manage_food_expenses: 'Food Expense Management',
+    build_healthier_habits: 'Healthier Habits Focus',
+  };
+  const currentGoalLabel = goalLabels[profile?.general_goal || 'balanced_wellness'] || 'Balanced Everyday Nutrition';
 
   const recentMeals = [
     {

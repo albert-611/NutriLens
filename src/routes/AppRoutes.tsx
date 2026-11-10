@@ -3,7 +3,11 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingPage } from '../pages/public/LandingPage';
 import { LoginPage } from '../pages/public/LoginPage';
 import { RegisterPage } from '../pages/public/RegisterPage';
+import { ForgotPasswordPage } from '../pages/public/ForgotPasswordPage';
+import { ResetPasswordPage } from '../pages/public/ResetPasswordPage';
+import { OnboardingPage } from '../pages/public/OnboardingPage';
 import { ProtectedRoute } from './ProtectedRoute';
+import { GuestRoute } from './GuestRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
 import { DashboardPage } from '../pages/app/DashboardPage';
@@ -14,16 +18,52 @@ import { BazarPage } from '../pages/app/BazarPage';
 import { MealRescuePage } from '../pages/app/MealRescuePage';
 import { ShoppingPage } from '../pages/app/ShoppingPage';
 import { ProfilePage } from '../pages/app/ProfilePage';
+import { SettingsPage } from '../pages/app/SettingsPage';
 
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Public Pages */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
 
-      {/* Protected App Pages */}
+      {/* Guest Authentication Pages */}
+      <Route
+        path="/login"
+        element={
+          <GuestRoute>
+            <LoginPage />
+          </GuestRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <GuestRoute>
+            <RegisterPage />
+          </GuestRoute>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <GuestRoute>
+            <ForgotPasswordPage />
+          </GuestRoute>
+        }
+      />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      {/* Onboarding Flow (Requires Authenticated User, Allows Incomplete Onboarding) */}
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute allowIncompleteOnboarding={true}>
+            <OnboardingPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Protected App Pages (Requires Authenticated User with Completed Onboarding) */}
       <Route
         path="/app"
         element={
@@ -40,6 +80,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="meal-rescue" element={<MealRescuePage />} />
         <Route path="shopping" element={<ShoppingPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
 
       {/* Fallback */}

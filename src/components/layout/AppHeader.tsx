@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, LogOut } from 'lucide-react';
 import { LangToggle } from '../common/LangToggle';
+import { ThemeToggle } from '../common/ThemeToggle';
 import { DemoUserSelector } from '../common/DemoUserSelector';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -42,7 +43,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onMobileMenuToggle }) => {
         {/* Quick Demo Persona Switcher */}
         <DemoUserSelector />
 
-        {/* Global Language Toggle */}
+        {/* Global Theme & Language Toggles */}
+        <ThemeToggle />
         <LangToggle />
 
         {/* Logout / Switch Account */}

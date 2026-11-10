@@ -666,3 +666,4 @@ export function getAllFoodCategories(): { id: string; label: string; labelBn: st
     { id: 'fruits', label: 'Fruits', labelBn: 'ফল' },
   ];
 }
+
