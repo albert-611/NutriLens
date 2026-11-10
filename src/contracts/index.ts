@@ -235,3 +235,75 @@ export const ShoppingItemSchema = z.object({
   seller: z.string().optional(),
 });
 export type ShoppingItem = z.infer<typeof ShoppingItemSchema>;
+
+// ==========================================
+// 8. Phase 3: AI Vision & Candidate Recognition
+// ==========================================
+
+export const CandidateItemSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  label_bn: z.string().optional(),
+  candidate_food_ids: z.array(z.string().uuid()).default([]),
+  matched_food_id: z.string().uuid().nullable().optional(),
+  preparation_state: PreparationStateSchema.default('boiled'),
+  estimated_grams: z.number().positive().nullable().default(null),
+  portion_basis: z.enum([
+    'user_entered',
+    'ai_estimated_unconfirmed',
+    'standard_reference_serving',
+    'unknown',
+  ]).default('unknown'),
+  uncertainty_reasons: z.array(z.string()).default([]),
+  questions: z.array(z.string()).default([]),
+  confidence: z.number().min(0).max(1).optional(),
+});
+export type CandidateItem = z.infer<typeof CandidateItemSchema>;
+
+export const AnalyzeMealRequestSchema = z.object({
+  image_data: z.string().optional(), // base64 data URL
+  image_path: z.string().optional(),
+  input_mode: z.enum(['photo', 'manual_search', 'menu_text']).default('photo'),
+  language: z.enum(['bn', 'en']).default('bn'),
+  market_id: z.string().uuid().optional(),
+  manual_query: z.string().optional(),
+});
+export type AnalyzeMealRequest = z.infer<typeof AnalyzeMealRequestSchema>;
+
+export const AnalyzeMealResponseSchema = z.object({
+  analysis_id: z.string().uuid(),
+  schema_version: z.string().default('1.0'),
+  input_mode: z.enum(['photo', 'manual_search', 'menu_text']),
+  candidates: z.array(CandidateItemSchema),
+  review_questions: z.array(z.string()).default([]),
+  detected_cuisine: z.string().default('bangladeshi'),
+  warnings: z.array(z.string()).default([]),
+  created_at: z.string(),
+});
+export type AnalyzeMealResponse = z.infer<typeof AnalyzeMealResponseSchema>;
+
+export const SearchFoodsRequestSchema = z.object({
+  query: z.string().min(1),
+  market_id: z.string().uuid().optional(),
+  language: z.enum(['bn', 'en', 'bn_translit']).default('bn'),
+  category: z.string().optional(),
+  preparation_state: PreparationStateSchema.optional(),
+});
+export type SearchFoodsRequest = z.infer<typeof SearchFoodsRequestSchema>;
+
+export const FoodSearchResultItemSchema = z.object({
+  food_id: z.string().uuid(),
+  canonical_name: z.string(),
+  local_name: z.string(),
+  local_name_bn: z.string(),
+  category: z.string(),
+  preparation_state: PreparationStateSchema,
+  energy_kcal: z.number().nullable(),
+  protein_g: z.number().nullable(),
+  carbohydrate_g: z.number().nullable(),
+  fat_g: z.number().nullable(),
+  fibre_g: z.number().nullable(),
+  standard_serving_grams: z.number().default(100),
+  serving_unit: z.string().default('g'),
+});
+export type FoodSearchResultItem = z.infer<typeof FoodSearchResultItemSchema>;
