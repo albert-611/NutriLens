@@ -100,19 +100,19 @@ export const PublicFooter: React.FC = () => {
         );
       }
 
-      if (giantTextRef.current) {
+      if (giantTextRef.current && footerRef.current) {
         gsap.fromTo(
           giantTextRef.current,
-          { y: 50, opacity: 0.15 },
+          { y: 140, opacity: 0.05 },
           {
             y: 0,
             opacity: 1,
-            duration: 1.1,
+            duration: 1.25,
             ease: 'power3.out',
             scrollTrigger: {
-              trigger: giantTextRef.current,
-              start: 'top 96%',
-              toggleActions: 'play none none none',
+              trigger: footerRef.current,
+              start: 'top 80%', // Triggers drag upward animation whenever scroll hits the footer
+              toggleActions: 'play none none reverse',
             },
           }
         );
@@ -416,7 +416,7 @@ export const PublicFooter: React.FC = () => {
           {/* Giant Brand Typography with natural bottom crop & reveal */}
           <div
             ref={giantTextRef}
-            className="w-full flex justify-center items-end overflow-hidden leading-none z-10"
+            className="w-full flex justify-center items-end overflow-hidden leading-none z-10 will-change-transform"
           >
             <h1
               className="text-[clamp(3.8rem,18.8vw,23rem)] font-black tracking-[-0.055em] leading-[0.74] translate-y-[15%] uppercase text-center whitespace-nowrap"
