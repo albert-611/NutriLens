@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronUp, Sparkles } from 'lucide-react';
+import { ArrowRight, ChevronUp } from 'lucide-react';
 import { Button } from '../common/Button';
 import { BlurText } from '../animations/BlurText';
 import { CursorGrid } from '../animations/CursorGrid';
@@ -45,11 +45,6 @@ export const FinalCTASection: React.FC = () => {
               className="rounded-[inherit]"
             >
               <div className="p-8 sm:p-14 space-y-8 max-w-3xl mx-auto">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold tracking-wider uppercase border border-emerald-500/30 mx-auto">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Ready for Exploration</span>
-                </div>
-
                 <div className="space-y-4 max-w-2xl mx-auto">
                   <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-[1.15]">
                     <BlurText
