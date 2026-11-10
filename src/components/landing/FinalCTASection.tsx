@@ -40,7 +40,8 @@ export const FinalCTASection: React.FC = () => {
               fillOpacity={0.06}
               gridOpacity={0.08}
               spotlight={0.6}
-              clickPulse
+              clickPulse={false}
+              hoverDrops={false}
               className="rounded-[inherit]"
             >
               <div className="p-8 sm:p-14 space-y-8 max-w-3xl mx-auto">

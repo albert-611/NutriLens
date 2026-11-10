@@ -247,7 +247,8 @@ export const TrustEvidenceSection: React.FC = () => {
               fillOpacity={0.06}
               gridOpacity={0.08}
               spotlight={0.6}
-              clickPulse
+              clickPulse={false}
+              hoverDrops={false}
               className="rounded-[24px] overflow-hidden"
             >
               <div className="p-6 sm:p-9 space-y-6">
