@@ -21,6 +21,7 @@ export const LandingPage: React.FC = () => {
 
     // Scoped GSAP animation context for safe lifecycle cleanup
     const ctx = gsap.context(() => {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
       const sections = pageRef.current?.querySelectorAll('section');
       sections?.forEach((sec, idx) => {
         // Hero section immediate entrance
@@ -33,19 +34,22 @@ export const LandingPage: React.FC = () => {
           return;
         }
 
-        // Pop-up reveal animation from downward when section hits 40vh into viewport
+        // Pop-up reveal animation: on mobile triggers at 35vh-40vh from downward (bottom of screen)
+        const sectionStart = isMobile ? 'top 65%' : 'top 60%'; // 35vh from bottom on mobile; 40vh on desktop
+        const cardsStart = isMobile ? 'top 65%' : 'top 55%';
+
         gsap.fromTo(
           sec,
-          { opacity: 0, y: 65, scale: 0.95 },
+          { opacity: 0, y: isMobile ? 32 : 65, scale: isMobile ? 0.98 : 0.95 },
           {
             opacity: 1,
             y: 0,
             scale: 1,
-            duration: 0.8,
+            duration: isMobile ? 0.6 : 0.8,
             ease: 'back.out(1.2)',
             scrollTrigger: {
               trigger: sec,
-              start: 'top 60%', // Triggers when top of section crosses 40vh from bottom of viewport
+              start: sectionStart,
               toggleActions: 'play none none none',
             },
           }
@@ -56,7 +60,7 @@ export const LandingPage: React.FC = () => {
         if (innerCards && innerCards.length > 0) {
           gsap.fromTo(
             innerCards,
-            { opacity: 0, y: 35, scale: 0.96 },
+            { opacity: 0, y: isMobile ? 22 : 35, scale: 0.96 },
             {
               opacity: 1,
               y: 0,
@@ -66,8 +70,8 @@ export const LandingPage: React.FC = () => {
               ease: 'back.out(1.15)',
               clearProps: 'transform',
               scrollTrigger: {
-                trigger: sec,
-                start: 'top 55%',
+                trigger: innerCards[0] || sec,
+                start: cardsStart,
                 toggleActions: 'play none none none',
               },
             }
