@@ -109,3 +109,4 @@ export const TermsDetailModal: React.FC<TermsDetailModalProps> = ({
     </div>
   );
 };
+

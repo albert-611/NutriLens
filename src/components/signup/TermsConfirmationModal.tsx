@@ -87,3 +87,4 @@ export const TermsConfirmationModal: React.FC<TermsConfirmationModalProps> = ({
     </div>
   );
 };
+

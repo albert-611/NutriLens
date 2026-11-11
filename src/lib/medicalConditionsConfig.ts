@@ -157,3 +157,4 @@ export function sanitizeConditionsForSex(
   const available = getAvailableMedicalConditions(newSexInput);
   return selectedConditions.filter((name) => available.includes(name));
 }
+

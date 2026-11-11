@@ -155,3 +155,4 @@ export const NavbarAvatarMenu: React.FC = () => {
     </div>
   );
 };
+

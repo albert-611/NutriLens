@@ -162,3 +162,4 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
     </div>
   );
 };
+
