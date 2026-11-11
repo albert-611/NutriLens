@@ -50,6 +50,8 @@ export const ProfilePage: React.FC = () => {
   // Personal Info
   const [fullName, setFullName] = useState(profile?.full_name || profile?.display_name || '');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url || null);
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
+  const [isPhotoRemoved, setIsPhotoRemoved] = useState<boolean>(false);
   const [username, setUsername] = useState(profile?.username || '');
   const [age, setAge] = useState<number | null>(profile?.age || 24);
   const [biologicalSex, setBiologicalSex] = useState<string>(profile?.biological_sex || 'Prefer not to say');
@@ -109,6 +111,8 @@ export const ProfilePage: React.FC = () => {
     if (profile) {
       setFullName(profile.full_name || profile.display_name || '');
       setAvatarUrl(profile.avatar_url || null);
+      setPendingPhotoFile(null);
+      setIsPhotoRemoved(false);
       setUsername(profile.username || '');
       setAge(profile.age || 24);
       setBiologicalSex(profile.biological_sex || 'Prefer not to say');
@@ -142,10 +146,29 @@ export const ProfilePage: React.FC = () => {
     setSaveSuccess(false);
 
     try {
+      let finalAvatarUrl = avatarUrl;
+
+      // 1. Upload photo if user picked a new file
+      if (pendingPhotoFile) {
+        const uploadRes = await uploadAvatar(pendingPhotoFile);
+        if (uploadRes.error) {
+          setSaving(false);
+          setErrorMessage(uploadRes.error.message || 'Failed to upload photo.');
+          return;
+        }
+        if (uploadRes.url) {
+          finalAvatarUrl = uploadRes.url;
+          setAvatarUrl(uploadRes.url);
+        }
+      } else if (isPhotoRemoved) {
+        finalAvatarUrl = null;
+      }
+
+      // 2. Persist full profile updates
       const updates = {
         full_name: fullName,
         display_name: fullName,
-        avatar_url: avatarUrl,
+        avatar_url: finalAvatarUrl,
         username: username.trim() || undefined,
         age: age || undefined,
         biological_sex: biologicalSex as any,
@@ -176,9 +199,10 @@ export const ProfilePage: React.FC = () => {
       if (error) {
         setErrorMessage(error.message || 'Failed to update profile.');
       } else {
+        setPendingPhotoFile(null);
+        setIsPhotoRemoved(false);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
-        await refreshUserData();
       }
     } catch (err: any) {
       setSaving(false);
@@ -264,28 +288,18 @@ export const ProfilePage: React.FC = () => {
 
             <div className="flex justify-center pb-4 border-b border-slate-100 dark:border-forest-border/60">
               <ProfilePhotoUploader
-                currentPhotoUrl={avatarUrl || profile?.avatar_url || null}
-                onPhotoSelected={async (file, dataUrl) => {
-                  if (dataUrl) setAvatarUrl(dataUrl);
-                  if (!file) return;
-                  setSaving(true);
-                  const res = await uploadAvatar(file);
-                  setSaving(false);
-                  if (res.error) {
-                    setErrorMessage(res.error.message || 'Failed to upload photo');
-                  } else {
-                    if (res.url) setAvatarUrl(res.url);
-                    setSaveSuccess(true);
-                    setTimeout(() => setSaveSuccess(false), 3000);
+                currentPhotoUrl={avatarUrl}
+                onPhotoSelected={(file, dataUrl) => {
+                  setPendingPhotoFile(file);
+                  setIsPhotoRemoved(false);
+                  if (dataUrl) {
+                    setAvatarUrl(dataUrl);
                   }
                 }}
-                onPhotoRemoved={async () => {
+                onPhotoRemoved={() => {
+                  setPendingPhotoFile(null);
+                  setIsPhotoRemoved(true);
                   setAvatarUrl(null);
-                  setSaving(true);
-                  await updateProfile({ avatar_url: null as any });
-                  setSaving(false);
-                  setSaveSuccess(true);
-                  setTimeout(() => setSaveSuccess(false), 3000);
                 }}
                 label="Profile Photo"
               />
