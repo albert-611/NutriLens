@@ -50,6 +50,12 @@ export const NavbarAvatarMenu: React.FC = () => {
   const email = user?.email || (profile as any)?.email || 'member@nutrilens.internal';
   const photoUrl = profile?.avatar_url || (user?.user_metadata as any)?.avatar_url || (user?.user_metadata as any)?.picture;
 
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [photoUrl]);
+
   const initials = React.useMemo(() => {
     const parts = displayName.trim().split(/\s+/);
     if (parts.length >= 2) {
@@ -70,8 +76,14 @@ export const NavbarAvatarMenu: React.FC = () => {
         className="flex items-center gap-2 p-1 pl-1.5 pr-2 rounded-2xl hover:bg-slate-100 dark:hover:bg-forest-card transition-all duration-150 border border-transparent hover:border-slate-200 dark:hover:border-forest-border focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
       >
         <div className="w-8 h-8 rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shrink-0">
-          {photoUrl ? (
-            <img src={photoUrl} alt={displayName} className="w-full h-full object-cover" />
+          {photoUrl && !imgError ? (
+            <img
+              src={photoUrl}
+              alt={displayName}
+              key={photoUrl}
+              onError={() => setImgError(true)}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <span>{initials}</span>
           )}
@@ -96,16 +108,31 @@ export const NavbarAvatarMenu: React.FC = () => {
           className="absolute right-0 mt-2 w-64 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-2xl shadow-slate-900/10 dark:shadow-black/60 p-2 z-50 animate-scaleUp"
         >
           {/* User Overview Section */}
-          <div className="px-3 py-2.5 mb-1 rounded-xl bg-slate-50 dark:bg-forest-root border border-slate-100 dark:border-forest-border/50">
-            <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
-              {displayName}
-            </p>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{email}</p>
-            {isDemoUser && (
-              <span className="mt-1.5 inline-block text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded">
-                Demo Persona
-              </span>
-            )}
+          <div className="flex items-center gap-3 px-3 py-2.5 mb-1 rounded-xl bg-slate-50 dark:bg-forest-root border border-slate-100 dark:border-forest-border/50">
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
+              {photoUrl && !imgError ? (
+                <img
+                  src={photoUrl}
+                  alt={displayName}
+                  key={`menu-${photoUrl}`}
+                  onError={() => setImgError(true)}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{initials}</span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                {displayName}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{email}</p>
+              {isDemoUser && (
+                <span className="mt-1 inline-block text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded">
+                  Demo Persona
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Navigation Items */}

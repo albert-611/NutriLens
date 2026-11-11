@@ -49,6 +49,7 @@ export const ProfilePage: React.FC = () => {
 
   // Personal Info
   const [fullName, setFullName] = useState(profile?.full_name || profile?.display_name || '');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url || null);
   const [username, setUsername] = useState(profile?.username || '');
   const [age, setAge] = useState<number | null>(profile?.age || 24);
   const [biologicalSex, setBiologicalSex] = useState<string>(profile?.biological_sex || 'Prefer not to say');
@@ -107,6 +108,7 @@ export const ProfilePage: React.FC = () => {
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || profile.display_name || '');
+      setAvatarUrl(profile.avatar_url || null);
       setUsername(profile.username || '');
       setAge(profile.age || 24);
       setBiologicalSex(profile.biological_sex || 'Prefer not to say');
@@ -143,6 +145,7 @@ export const ProfilePage: React.FC = () => {
       const updates = {
         full_name: fullName,
         display_name: fullName,
+        avatar_url: avatarUrl,
         username: username.trim() || undefined,
         age: age || undefined,
         biological_sex: biologicalSex as any,
@@ -261,8 +264,9 @@ export const ProfilePage: React.FC = () => {
 
             <div className="flex justify-center pb-4 border-b border-slate-100 dark:border-forest-border/60">
               <ProfilePhotoUploader
-                currentPhotoUrl={profile?.avatar_url || null}
-                onPhotoSelected={async (file) => {
+                currentPhotoUrl={avatarUrl || profile?.avatar_url || null}
+                onPhotoSelected={async (file, dataUrl) => {
+                  if (dataUrl) setAvatarUrl(dataUrl);
                   if (!file) return;
                   setSaving(true);
                   const res = await uploadAvatar(file);
@@ -270,16 +274,18 @@ export const ProfilePage: React.FC = () => {
                   if (res.error) {
                     setErrorMessage(res.error.message || 'Failed to upload photo');
                   } else {
+                    if (res.url) setAvatarUrl(res.url);
                     setSaveSuccess(true);
                     setTimeout(() => setSaveSuccess(false), 3000);
-                    await refreshUserData();
                   }
                 }}
                 onPhotoRemoved={async () => {
+                  setAvatarUrl(null);
                   setSaving(true);
                   await updateProfile({ avatar_url: null as any });
                   setSaving(false);
-                  await refreshUserData();
+                  setSaveSuccess(true);
+                  setTimeout(() => setSaveSuccess(false), 3000);
                 }}
                 label="Profile Photo"
               />

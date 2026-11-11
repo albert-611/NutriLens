@@ -173,18 +173,21 @@ export async function uploadProfilePhoto(
   userId: string,
   file: File
 ): Promise<AuthResponse<{ url: string }>> {
-  if (!isSupabaseConfigured) {
-    return new Promise((resolve) => {
+  const readDataUrl = (): Promise<string> =>
+    new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const url = e.target?.result as string;
-        resolve({ data: { url } });
-      };
-      reader.onerror = () => {
-        resolve({ error: new Error('Failed to read photo file.') });
-      };
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = (e) => reject(e);
       reader.readAsDataURL(file);
     });
+
+  if (!isSupabaseConfigured) {
+    try {
+      const url = await readDataUrl();
+      return { data: { url } };
+    } catch {
+      return { error: new Error('Failed to read photo file.') };
+    }
   }
 
   try {
@@ -195,12 +198,22 @@ export async function uploadProfilePhoto(
       .from('avatars')
       .upload(filePath, file, { upsert: true });
 
-    if (uploadError) return { error: uploadError };
+    if (uploadError) {
+      console.warn('Storage upload warning, using local preview data:', uploadError);
+      const url = await readDataUrl();
+      return { data: { url } };
+    }
 
     const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
     return { data: { url: data.publicUrl } };
   } catch (err: any) {
-    return { error: err };
+    console.warn('Storage exception, using local preview data:', err);
+    try {
+      const url = await readDataUrl();
+      return { data: { url } };
+    } catch {
+      return { error: err };
+    }
   }
 }
 

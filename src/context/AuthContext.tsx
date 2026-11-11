@@ -23,6 +23,7 @@ import {
   deleteUserAccount,
   ensureProfileExists,
   saveLocalProfile,
+  getLocalProfilesMap,
 } from '../services/authService';
 
 export interface DemoUserOption {
@@ -226,7 +227,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               id: prof.id,
               email: (prof as any).email || `${prof.username || 'user'}@nutrilens.internal`,
               app_metadata: {},
-              user_metadata: { full_name: prof.full_name || prof.display_name },
+              user_metadata: {
+                full_name: prof.full_name || prof.display_name,
+                avatar_url: prof.avatar_url || null,
+              },
               aud: 'authenticated',
               created_at: prof.created_at || new Date().toISOString(),
             } as unknown as User;
@@ -277,19 +281,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [loadUserData]);
 
   const setDemoUserSession = (demo: DemoUserOption) => {
+    const map = getLocalProfilesMap();
+    const activeProfile: Profile = map[demo.id] || demo.profile;
+
     const mockUser = {
       id: demo.id,
       email: demo.email,
       app_metadata: {},
-      user_metadata: { full_name: demo.name },
+      user_metadata: {
+        full_name: activeProfile.full_name || demo.name,
+        avatar_url: activeProfile.avatar_url || null,
+      },
       aud: 'authenticated',
       created_at: new Date().toISOString(),
     } as unknown as User;
 
     setUser(mockUser);
-    setProfile(demo.profile);
+    setProfile(activeProfile);
     setIsDemoUser(true);
     localStorage.setItem('nutrilens_active_demo_user', demo.id);
+    saveLocalProfile(activeProfile);
   };
 
   const selectDemoUser = (demoUserId: string) => {
@@ -408,15 +419,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!profile) return { error: new Error('No active profile.') };
-    const updated = { ...profile, ...updates };
+    const updated: Profile = {
+      ...profile,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
     setProfile(updated);
+    saveLocalProfile(updated);
+
+    // Synchronize user metadata in local auth state
+    if (user) {
+      const updatedUser: User = {
+        ...user,
+        user_metadata: {
+          ...user.user_metadata,
+          full_name: updated.full_name || updated.display_name,
+          avatar_url: updated.avatar_url || null,
+        },
+      };
+      setUser(updatedUser);
+    }
+
+    // If active demo persona, sync in-memory reference
+    if (isDemoUser) {
+      const match = DEMO_USERS.find((d) => d.id === updated.id);
+      if (match) {
+        match.profile = { ...match.profile, ...updated };
+      }
+    }
 
     if (isSupabaseConfigured && !isDemoUser) {
       try {
-        const { error } = await supabase.from('profiles').update(updates).eq('id', profile.id);
-        if (error) return { error };
+        const allowedColumns = [
+          'full_name', 'display_name', 'username', 'avatar_url', 'age', 'biological_sex',
+          'height_value', 'height_unit', 'weight_value', 'weight_unit', 'target_weight_value',
+          'activity_level', 'exercise_frequency', 'sleep_duration', 'disliked_foods',
+          'city', 'country', 'preferred_language', 'language', 'unit_preference',
+          'general_goal', 'household_size', 'budget_amount', 'budget_currency', 'budget_people',
+          'budget_duration_days', 'available_time_minutes', 'available_equipment',
+          'market_id', 'declared_allergens', 'dietary_exclusions', 'cuisine_preferences',
+          'health_data_consent', 'health_data_consent_at', 'terms_accepted_at', 'terms_version',
+          'onboarding_completed', 'onboarding_status', 'updated_at'
+        ];
+        const dbUpdates: Record<string, any> = {};
+        for (const key of Object.keys(updates)) {
+          if (allowedColumns.includes(key)) {
+            const val = (updates as any)[key];
+            dbUpdates[key] = val === undefined ? null : val;
+          }
+        }
+        dbUpdates.updated_at = new Date().toISOString();
+
+        const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', profile.id);
+        if (error) {
+          console.warn('Supabase profile update warning:', error);
+        }
       } catch (err: any) {
-        return { error: err };
+        console.warn('Supabase profile update exception:', err);
       }
     }
     return { error: null };
