@@ -15,8 +15,12 @@ import {
   HelpCircle,
   X,
   Edit2,
+  AlertOctagon,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
+import { useAuth } from '../../context/AuthContext';
+import { auditMealForUserRestrictions } from '../../services/allergyService';
 import {
   type CandidateItem,
   type AnalyzeMealResponse,
@@ -53,6 +57,7 @@ export const ConfirmPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile, foodRestrictions } = useAuth();
 
   // 1. Initial State from router or draft storage
   const [analysisData, setAnalysisData] = useState<AnalyzeMealResponse | null>(null);
@@ -66,6 +71,22 @@ export const ConfirmPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FoodSearchResultItem[]>([]);
   const [activeItemToSwap, setActiveItemToSwap] = useState<string | null>(null);
+
+  // Allergy and Intolerance Audit
+  const allergyAudit = React.useMemo(() => {
+    const userAllergies = [
+      ...(profile?.declared_allergens || []),
+      ...foodRestrictions.filter((r) => r.restriction_type === 'allergy').map((r) => r.restriction_value),
+    ];
+    const userIntolerances = [
+      ...foodRestrictions.filter((r) => r.restriction_type === 'intolerance').map((r) => r.restriction_value),
+    ];
+    return auditMealForUserRestrictions(
+      items.map((it) => ({ name: it.name, nameBn: it.nameBn })),
+      userAllergies,
+      userIntolerances
+    );
+  }, [items, profile?.declared_allergens, foodRestrictions]);
 
   useEffect(() => {
     // Attempt to load from location.state
@@ -411,6 +432,45 @@ export const ConfirmPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Allergy Warning Alert Banner */}
+      {allergyAudit.hasAllergyConflict && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500/60 text-rose-800 dark:text-rose-200 space-y-2 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <AlertOctagon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+            <h4 className="font-extrabold text-sm text-rose-900 dark:text-rose-100">
+              Critical Allergen Conflict Detected
+            </h4>
+          </div>
+          <ul className="list-disc list-inside text-xs space-y-1 pl-1">
+            {allergyAudit.allergyWarnings.map((w, i) => (
+              <li key={i} className="font-semibold">
+                {w.message}
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-rose-700 dark:text-rose-300 pt-1 border-t border-rose-200 dark:border-rose-900/60">
+            <strong>Important Safety Notice:</strong> {allergyAudit.safetyDisclaimer}
+          </p>
+        </div>
+      )}
+
+      {/* Intolerance Note Banner */}
+      {allergyAudit.hasIntoleranceConflict && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-500/40 text-amber-800 dark:text-amber-200 space-y-1.5 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <h4 className="font-bold text-xs text-amber-900 dark:text-amber-100">
+              Personal Intolerance Notes
+            </h4>
+          </div>
+          <ul className="list-disc list-inside text-[11px] space-y-0.5 pl-1">
+            {allergyAudit.intoleranceNotes.map((n, i) => (
+              <li key={i}>{n.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Confirmation Items List */}
       <div className="p-5 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-6">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-forest-border/60">
@@ -464,6 +524,16 @@ export const ConfirmPage: React.FC = () => {
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-200/70 dark:bg-forest-card text-slate-600 dark:text-slate-300">
                           {item.externalRecordId}
                         </span>
+                        {allergyAudit.allergyWarnings.some((w) => w.foodName === item.name) && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 font-bold flex items-center gap-1 border border-rose-500/30">
+                            <AlertOctagon className="w-3 h-3 text-rose-500" /> Declared Allergen
+                          </span>
+                        )}
+                        {allergyAudit.intoleranceNotes.some((n) => n.foodName === item.name) && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1 border border-amber-500/30">
+                            <AlertCircle className="w-3 h-3 text-amber-500" /> Intolerance Risk
+                          </span>
+                        )}
                         {item.portionSource === 'ai_estimated_unconfirmed' ? (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold">
                             AI Proposed

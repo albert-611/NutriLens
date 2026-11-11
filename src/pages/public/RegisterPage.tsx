@@ -1,132 +1,298 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { z } from 'zod';
-import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/common/Button';
-import { LangToggle } from '../../components/common/LangToggle';
 import { ThemeToggle } from '../../components/common/ThemeToggle';
+import { LangToggle } from '../../components/common/LangToggle';
+import {
+  MultiSelectDropdown,
+} from '../../components/signup/MultiSelectDropdown';
+import {
+  SingleSelectDropdown,
+} from '../../components/signup/SingleSelectDropdown';
+import {
+  UnitValueInput,
+} from '../../components/signup/UnitValueInput';
+import {
+  PasswordStrengthMeter,
+} from '../../components/signup/PasswordStrengthMeter';
+import {
+  SignupStepIndicator,
+} from '../../components/signup/SignupStepIndicator';
+import {
+  HealthConsentNotice,
+} from '../../components/signup/HealthConsentNotice';
+import {
+  checkUsernameAvailable,
+  registerComprehensiveAccount,
+} from '../../services/registrationService';
+import { useAuth } from '../../context/AuthContext';
 import {
   ArrowLeft,
-  Lock,
-  Mail,
+  ArrowRight,
   User,
-  Eye,
-  EyeOff,
+  HeartPulse,
+  Utensils,
+  Activity,
+  Target,
+  KeyRound,
   CheckCircle2,
   AlertCircle,
-  ShieldCheck,
-  Check,
+  Eye,
+  EyeOff,
+  Edit2,
+  ShieldAlert,
 } from 'lucide-react';
-
-const registerSchema = z
-  .object({
-    fullName: z
-      .string()
-      .trim()
-      .min(2, 'Full name must be at least 2 characters.')
-      .max(60, 'Full name is too long.'),
-    email: z.string().trim().email('Please enter a valid email address.'),
-    password: z
-      .string()
-      .min(8, 'Password must be at least 8 characters long.')
-      .regex(/[0-9]/, 'Password must include at least one number.')
-      .regex(/[a-z]/, 'Password must include at least one lowercase letter.')
-      .regex(/[A-Z]/, 'Password must include at least one uppercase letter.'),
-    confirmPassword: z.string(),
-    agreeTerms: z
-      .boolean()
-      .refine((val) => val === true, 'You must agree to the Terms and Privacy Policy.'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match.',
-    path: ['confirmPassword'],
-  });
 
 export const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
-  const { signUp } = useAuth();
   const navigate = useNavigate();
+  const { refreshUserData } = useAuth();
 
+  const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
+
+  // STEP 1: Personal Information
   const [fullName, setFullName] = useState('');
+  const [age, setAge] = useState<number | null>(24);
+  const [biologicalSex, setBiologicalSex] = useState<string>('Prefer not to say');
+  const [heightValue, setHeightValue] = useState<number | null>(170);
+  const [heightUnit, setHeightUnit] = useState<string>('cm');
+  const [weightValue, setWeightValue] = useState<number | null>(68);
+  const [weightUnit, setWeightUnit] = useState<string>('kg');
+  const [targetWeightValue, setTargetWeightValue] = useState<number | null>(65);
+
+  // STEP 2: Health Information
+  const [medicalConditions, setMedicalConditions] = useState<string[]>([]);
+  const [medicalConditionSpecify, setMedicalConditionSpecify] = useState('');
+  const [diabetesType, setDiabetesType] = useState('Not sure');
+  const [allergies, setAllergies] = useState<string[]>([]);
+  const [allergySpecify, setAllergySpecify] = useState('');
+  const [intolerances, setIntolerances] = useState<string[]>([]);
+  const [intoleranceSpecify, setIntoleranceSpecify] = useState('');
+
+  // STEP 3: Dietary Preferences
+  const [dietaryPreference, setDietaryPreference] = useState('Non-vegetarian');
+  const [dietaryPreferenceSpecify, setDietaryPreferenceSpecify] = useState('');
+  const [foodRestrictions, setFoodRestrictions] = useState<string[]>([]);
+  const [foodRestrictionsSpecify, setFoodRestrictionsSpecify] = useState('');
+  const [religiousRestrictions, setReligiousRestrictions] = useState<string[]>([]);
+  const [religiousRestrictionsSpecify, setReligiousRestrictionsSpecify] = useState('');
+  const [dislikedFoods, setDislikedFoods] = useState('');
+
+  // STEP 4: Lifestyle Information
+  const [activityLevel, setActivityLevel] = useState('Moderately active');
+  const [exerciseFrequency, setExerciseFrequency] = useState('3–4 days per week');
+  const [sleepDuration, setSleepDuration] = useState('6–7 hours');
+
+  // STEP 5: Nutritional Goals
+  const [primaryGoal, setPrimaryGoal] = useState('Maintain current weight');
+  const [primaryGoalSpecify, setPrimaryGoalSpecify] = useState('');
+  const [secondaryGoals, setSecondaryGoals] = useState<string[]>(['Increase protein intake']);
+  const [secondaryGoalsSpecify, setSecondaryGoalsSpecify] = useState('');
+
+  // STEP 6: Account Information
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [agreeTerms, setAgreeTerms] = useState(false);
-
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
 
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // STEP 7: Consent & Agreements
+  const [healthDataConsent, setHealthDataConsent] = useState(true);
+  const [termsConsent, setTermsConsent] = useState(false);
 
-  // Real-time password strength calculation
-  const passwordStrength = useMemo(() => {
-    let score = 0;
-    if (password.length >= 8) score += 1;
-    if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
-    if (/[0-9]/.test(password)) score += 1;
-    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+  // Check if diabetes condition is selected
+  const hasDiabetesSelected = medicalConditions.some(
+    (c) => c.toLowerCase().includes('diabetes') || c.toLowerCase().includes('prediabetes')
+  );
 
-    if (score === 0) return { label: '', color: '', percent: 0 };
-    if (score <= 2) return { label: 'Weak', color: 'bg-rose-500', text: 'text-rose-500', percent: 33 };
-    if (score === 3) return { label: 'Medium', color: 'bg-amber-500', text: 'text-amber-500', percent: 66 };
-    return { label: 'Strong', color: 'bg-emerald-500', text: 'text-emerald-500', percent: 100 };
-  }, [password]);
+  // Clear diabetes type if triggering condition is deselected
+  useEffect(() => {
+    if (!hasDiabetesSelected && diabetesType !== 'Not sure') {
+      setDiabetesType('Not sure');
+    }
+  }, [hasDiabetesSelected]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setServerError(null);
-    setFormErrors({});
+  // Debounced username check
+  useEffect(() => {
+    if (username.trim().length >= 3) {
+      setIsCheckingUsername(true);
+      const timer = setTimeout(async () => {
+        const available = await checkUsernameAvailable(username.trim());
+        setUsernameAvailable(available);
+        setIsCheckingUsername(false);
+      }, 400);
+      return () => clearTimeout(timer);
+    } else {
+      setUsernameAvailable(null);
+      setIsCheckingUsername(false);
+    }
+  }, [username]);
 
-    const validation = registerSchema.safeParse({
-      fullName,
-      email,
-      password,
-      confirmPassword,
-      agreeTerms,
-    });
+  // Validation function per step
+  const validateStep = (step: number): boolean => {
+    const errors: Record<string, string> = {};
 
-    if (!validation.success) {
-      const errors: Record<string, string> = {};
-      validation.error.errors.forEach((err) => {
-        if (err.path[0]) {
-          errors[err.path[0] as string] = err.message;
-        }
-      });
-      setFormErrors(errors);
+    if (step === 1) {
+      if (!fullName.trim() || fullName.trim().length < 2) {
+        errors.fullName = 'Please enter your full name (at least 2 characters).';
+      }
+      if (!age || age < 18 || age > 120) {
+        errors.age = 'NutriLens is for adults aged 18 and older.';
+      }
+      if (heightValue !== null && heightValue !== undefined && heightValue <= 0) {
+        errors.height = 'Height must be a positive number.';
+      }
+      if (weightValue !== null && weightValue !== undefined && weightValue <= 0) {
+        errors.weight = 'Weight must be a positive number.';
+      }
+    }
+
+    if (step === 6) {
+      if (!username.trim() || username.trim().length < 3) {
+        errors.username = 'Username must be at least 3 characters.';
+      } else if (usernameAvailable === false) {
+        errors.username = 'This username is already taken.';
+      }
+      if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+        errors.email = 'Please provide a valid email address.';
+      }
+      if (!password || password.length < 8) {
+        errors.password = 'Password must be at least 8 characters.';
+      } else if (!/[0-9]/.test(password) || !/[a-z]/.test(password) || !/[A-Z]/.test(password)) {
+        errors.password = 'Password must include uppercase, lowercase, and a number.';
+      }
+      if (password !== confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match.';
+      }
+    }
+
+    setStepErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleContinue = () => {
+    setGeneralError(null);
+    if (!validateStep(currentStep)) return;
+
+    if (!completedSteps.includes(currentStep)) {
+      setCompletedSteps([...completedSteps, currentStep]);
+    }
+    setCurrentStep((prev) => Math.min(7, prev + 1));
+  };
+
+  const handleBack = () => {
+    setGeneralError(null);
+    setCurrentStep((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleSkipOptional = () => {
+    setGeneralError(null);
+    if (!completedSteps.includes(currentStep)) {
+      setCompletedSteps([...completedSteps, currentStep]);
+    }
+    setCurrentStep((prev) => Math.min(7, prev + 1));
+  };
+
+  const handleFinalSubmit = async () => {
+    setGeneralError(null);
+
+    if (!termsConsent) {
+      setGeneralError('Please agree to the Terms of Service to create your account.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const { error } = await signUp(email, password, fullName);
+      // Build structured medical conditions
+      const structuredConditions = medicalConditions.map((c) => ({
+        name: c,
+        specify: c.includes('Other') ? medicalConditionSpecify : undefined,
+        diabetesType: hasDiabetesSelected ? diabetesType : undefined,
+      }));
 
-      if (error) {
-        setServerError(error.message || 'Registration failed. Please check your details.');
-        setLoading(false);
+      // Build structured allergies
+      const structuredAllergies = allergies.map((a) => ({
+        name: a,
+        specify: a.includes('Other') ? allergySpecify : undefined,
+      }));
+
+      // Build structured intolerances
+      const structuredIntolerances = intolerances.map((i) => ({
+        name: i,
+        specify: i.includes('Other') ? intoleranceSpecify : undefined,
+      }));
+
+      const signupData = {
+        fullName: fullName.trim(),
+        age: age || 24,
+        biologicalSex: biologicalSex as any,
+        heightValue: heightValue || null,
+        heightUnit: heightUnit as any,
+        weightValue: weightValue || null,
+        weightUnit: weightUnit as any,
+        targetWeightValue: targetWeightValue || null,
+        medicalConditions: structuredConditions,
+        allergies: structuredAllergies,
+        intolerances: structuredIntolerances,
+        dietaryPreference,
+        dietaryPreferenceSpecify,
+        foodRestrictions,
+        foodRestrictionsSpecify,
+        religiousRestrictions,
+        religiousRestrictionsSpecify,
+        dislikedFoods,
+        activityLevel,
+        exerciseFrequency,
+        sleepDuration,
+        primaryGoal,
+        primaryGoalSpecify,
+        secondaryGoals,
+        secondaryGoalsSpecify,
+        username: username.trim(),
+        email: email.trim(),
+        password,
+        confirmPassword,
+        healthDataConsent,
+        termsConsent,
+      };
+
+      const result = await registerComprehensiveAccount(signupData);
+      setLoading(false);
+
+      if (!result.success) {
+        setGeneralError(result.error || 'Failed to complete registration.');
       } else {
-        // Direct to first-time onboarding
-        navigate('/onboarding', { replace: true });
+        await refreshUserData();
+        navigate('/app', { replace: true });
       }
     } catch (err: any) {
-      setServerError(err?.message || 'An unexpected error occurred during signup.');
       setLoading(false);
+      setGeneralError(err?.message || 'An unexpected error occurred during account registration.');
     }
   };
 
+  const hasHealthData =
+    medicalConditions.length > 0 || allergies.length > 0 || intolerances.length > 0;
+
   return (
     <div className="min-h-screen flex flex-col justify-between bg-surface-lightRoot dark:bg-forest-root text-slate-900 dark:text-slate-100 p-4 sm:p-6 transition-colors duration-200">
-      {/* Top Header Bar */}
-      <div className="flex items-center justify-between max-w-lg w-full mx-auto">
+      {/* Top Header */}
+      <div className="flex items-center justify-between max-w-3xl w-full mx-auto">
         <Link
           to="/"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-emerald-500 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Home</span>
+          <span>Landing Page</span>
         </Link>
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -134,224 +300,840 @@ export const RegisterPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Center Registration Card */}
-      <div className="w-full max-w-lg mx-auto my-6 sm:my-8">
-        <div className="rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-8 shadow-xl space-y-6">
-          {/* Logo & Headline */}
-          <div className="text-center space-y-1.5">
-            <div className="w-12 h-12 rounded-2xl bg-forest-card dark:bg-forest-root border border-forest-border mx-auto flex items-center justify-center p-2 shadow-sm">
-              <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full" />
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white font-sans">
-              Create Your NutriLens Account
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Personalized food intelligence grounded in Bangladeshi market realities.
-            </p>
+      {/* Main Registration Container */}
+      <div className="w-full max-w-3xl mx-auto my-6 sm:my-8 space-y-6">
+        {/* Step Progress Bar */}
+        <SignupStepIndicator
+          currentStep={currentStep}
+          onStepClick={(step) => setCurrentStep(step)}
+          completedSteps={completedSteps}
+        />
+
+        {generalError && (
+          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2.5 animate-shake">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+            <span>{generalError}</span>
           </div>
+        )}
 
-          {serverError && (
-            <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2.5 animate-shake">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{serverError}</span>
-            </div>
-          )}
+        {/* Step Card */}
+        <div className="rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-8 shadow-xl min-h-[460px] flex flex-col justify-between">
+          <div>
+            {/* STEP 1: Personal Information */}
+            {currentStep === 1 && (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Step 1 of 7
+                  </span>
+                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    Personal Information
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Establish your basic profile. Full name and adult age (18+) are required.
+                  </p>
+                </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Full Name */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Full Name
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => {
-                    setFullName(e.target.value);
-                    if (formErrors.fullName) setFormErrors((prev) => ({ ...prev, fullName: '' }));
-                  }}
-                  placeholder="e.g. Tariqul Islam"
-                  className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border ${
-                    formErrors.fullName
-                      ? 'border-rose-400 dark:border-rose-600 focus:ring-rose-500'
-                      : 'border-slate-300 dark:border-forest-border focus:ring-emerald-500'
-                  } bg-white dark:bg-forest-root text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors`}
-                />
-              </div>
-              {formErrors.fullName && (
-                <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{formErrors.fullName}</p>
-              )}
-            </div>
-
-            {/* Email Address */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (formErrors.email) setFormErrors((prev) => ({ ...prev, email: '' }));
-                  }}
-                  placeholder="name@example.com"
-                  className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border ${
-                    formErrors.email
-                      ? 'border-rose-400 dark:border-rose-600 focus:ring-rose-500'
-                      : 'border-slate-300 dark:border-forest-border focus:ring-emerald-500'
-                  } bg-white dark:bg-forest-root text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors`}
-                />
-              </div>
-              {formErrors.email && (
-                <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{formErrors.email}</p>
-              )}
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (formErrors.password) setFormErrors((prev) => ({ ...prev, password: '' }));
-                  }}
-                  placeholder="Min 8 chars, 1 number, uppercase & lowercase"
-                  className={`w-full pl-10 pr-10 py-2.5 rounded-xl border ${
-                    formErrors.password
-                      ? 'border-rose-400 dark:border-rose-600 focus:ring-rose-500'
-                      : 'border-slate-300 dark:border-forest-border focus:ring-emerald-500'
-                  } bg-white dark:bg-forest-root text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-
-              {/* Password Strength Indicator */}
-              {password && (
-                <div className="mt-2 space-y-1">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-500">Password strength:</span>
-                    <span className={`font-bold ${passwordStrength.text}`}>
-                      {passwordStrength.label}
-                    </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Full Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="e.g. Tariqul Islam"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    {stepErrors.fullName && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                        {stepErrors.fullName}
+                      </p>
+                    )}
                   </div>
-                  <div className="w-full h-1.5 bg-slate-200 dark:bg-forest-border rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${passwordStrength.color} transition-all duration-300`}
-                      style={{ width: `${passwordStrength.percent}%` }}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Age (Years) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="18"
+                      max="120"
+                      required
+                      value={age !== null ? age : ''}
+                      onChange={(e) => setAge(parseInt(e.target.value) || null)}
+                      placeholder="e.g. 24"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                    />
+                    {stepErrors.age && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                        {stepErrors.age}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <SingleSelectDropdown
+                      label="Biological Sex (Optional)"
+                      options={['Male', 'Female', 'Prefer not to say']}
+                      selectedValue={biologicalSex}
+                      onChange={(val) => setBiologicalSex(val)}
+                      placeholder="Select biological sex"
+                    />
+                  </div>
+
+                  <div>
+                    <UnitValueInput
+                      label="Height (Optional)"
+                      value={heightValue}
+                      onChangeValue={setHeightValue}
+                      unit={heightUnit}
+                      onChangeUnit={setHeightUnit}
+                      units={[
+                        { label: 'cm', value: 'cm' },
+                        { label: 'ft/in', value: 'ft_in' },
+                      ]}
+                      placeholder={heightUnit === 'cm' ? '170' : '5.7'}
+                      min={1}
+                      max={280}
+                    />
+                    {stepErrors.height && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                        {stepErrors.height}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <UnitValueInput
+                      label="Current Weight (Optional)"
+                      value={weightValue}
+                      onChangeValue={setWeightValue}
+                      unit={weightUnit}
+                      onChangeUnit={setWeightUnit}
+                      units={[
+                        { label: 'kg', value: 'kg' },
+                        { label: 'lbs', value: 'lbs' },
+                      ]}
+                      placeholder="68"
+                      min={20}
+                      max={350}
+                    />
+                    {stepErrors.weight && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                        {stepErrors.weight}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <UnitValueInput
+                      label="Target Weight (Optional)"
+                      value={targetWeightValue}
+                      onChangeValue={setTargetWeightValue}
+                      unit={weightUnit}
+                      onChangeUnit={setWeightUnit}
+                      units={[
+                        { label: 'kg', value: 'kg' },
+                        { label: 'lbs', value: 'lbs' },
+                      ]}
+                      placeholder="65"
+                      min={20}
+                      max={350}
+                      helperText="Target weight helps personalize caloric and nutritional density targets."
                     />
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {formErrors.password && (
-                <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{formErrors.password}</p>
-              )}
-            </div>
+            {/* STEP 2: Health Information (Optional) */}
+            {currentStep === 2 && (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      Step 2 of 7
+                    </span>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-forest-border text-slate-600 dark:text-slate-300">
+                      Optional
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    Health Information
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    All fields in this section are voluntary. We never infer conditions, and allergies are stored strictly separate from intolerances.
+                  </p>
+                </div>
 
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value);
-                    if (formErrors.confirmPassword) setFormErrors((prev) => ({ ...prev, confirmPassword: '' }));
-                  }}
-                  placeholder="Re-enter your password"
-                  className={`w-full pl-10 pr-10 py-2.5 rounded-xl border ${
-                    formErrors.confirmPassword
-                      ? 'border-rose-400 dark:border-rose-600 focus:ring-rose-500'
-                      : 'border-slate-300 dark:border-forest-border focus:ring-emerald-500'
-                  } bg-white dark:bg-forest-root text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors`}
+                <div className="space-y-4 pt-1">
+                  {/* Medical Conditions */}
+                  <MultiSelectDropdown
+                    label="Medical Conditions"
+                    options={[
+                      'None',
+                      'Diabetes',
+                      'Prediabetes',
+                      'High blood pressure (hypertension)',
+                      'Low blood pressure (hypotension)',
+                      'Heart disease',
+                      'Kidney disease',
+                      'Liver disease',
+                      'Thyroid disorders',
+                      'PCOS',
+                      'High cholesterol',
+                      'Obesity',
+                      'Anemia',
+                      'Gastrointestinal disorders',
+                      'Other (specify)',
+                    ]}
+                    selectedValues={medicalConditions}
+                    onChange={setMedicalConditions}
+                    otherValue={medicalConditionSpecify}
+                    onOtherChange={setMedicalConditionSpecify}
+                    placeholder="Select medical conditions or None"
+                    helperText="'None' is mutually exclusive with all other conditions."
+                  />
+
+                  {/* Conditional Diabetes Type Dropdown */}
+                  {hasDiabetesSelected && (
+                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-2 animate-fadeIn">
+                      <SingleSelectDropdown
+                        label="Diabetes Classification (Conditional)"
+                        options={[
+                          'Type 1',
+                          'Type 2',
+                          'Gestational diabetes',
+                          'Prediabetes',
+                          'Other',
+                          'Not sure',
+                        ]}
+                        selectedValue={diabetesType}
+                        onChange={setDiabetesType}
+                        placeholder="Select diabetes type"
+                        helperText="Required only when Diabetes or Prediabetes is selected."
+                      />
+                    </div>
+                  )}
+
+                  {/* Food Allergies */}
+                  <MultiSelectDropdown
+                    label="Food Allergies (Strictly Separate from Intolerances)"
+                    options={[
+                      'None',
+                      'Peanuts',
+                      'Tree nuts (almonds, walnuts, cashews)',
+                      'Milk/dairy',
+                      'Eggs',
+                      'Fish',
+                      'Shellfish (shrimp, crab, lobster)',
+                      'Soy',
+                      'Wheat',
+                      'Sesame',
+                      'Other (specify)',
+                    ]}
+                    selectedValues={allergies}
+                    onChange={setAllergies}
+                    otherValue={allergySpecify}
+                    onOtherChange={setAllergySpecify}
+                    placeholder="Select food allergies or None"
+                    helperText="Stored independently. Food analysis surfaces critical warnings for potential allergen matches."
+                  />
+
+                  {/* Food Intolerances */}
+                  <MultiSelectDropdown
+                    label="Food Intolerances & Sensitivities"
+                    options={[
+                      'None',
+                      'Lactose intolerance',
+                      'Gluten intolerance',
+                      'Fructose intolerance',
+                      'Histamine intolerance',
+                      'Caffeine sensitivity',
+                      'Other (specify)',
+                    ]}
+                    selectedValues={intolerances}
+                    onChange={setIntolerances}
+                    otherValue={intoleranceSpecify}
+                    onOtherChange={setIntoleranceSpecify}
+                    placeholder="Select food intolerances or None"
+                    helperText="Intolerances are non-immunological and kept distinct from severe allergic reactions."
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: Dietary Preferences */}
+            {currentStep === 3 && (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Step 3 of 7
+                  </span>
+                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    Dietary Preferences & Restrictions
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Define your cooking patterns, ingredient exclusions, and religious guidelines.
+                  </p>
+                </div>
+
+                <div className="space-y-4 pt-1">
+                  <SingleSelectDropdown
+                    label="Primary Dietary Preference"
+                    options={[
+                      'Non-vegetarian',
+                      'Vegetarian',
+                      'Vegan',
+                      'Pescatarian',
+                      'Flexitarian',
+                      'Other (specify)',
+                    ]}
+                    selectedValue={dietaryPreference}
+                    onChange={setDietaryPreference}
+                    otherValue={dietaryPreferenceSpecify}
+                    onOtherChange={setDietaryPreferenceSpecify}
+                  />
+
+                  <MultiSelectDropdown
+                    label="Food Restrictions"
+                    options={[
+                      'None',
+                      'No red meat',
+                      'No seafood',
+                      'No pork',
+                      'No dairy',
+                      'No eggs',
+                      'No added sugar',
+                      'Low-carbohydrate diet',
+                      'Low-sodium diet',
+                      'Gluten-free diet',
+                      'Other (specify)',
+                    ]}
+                    selectedValues={foodRestrictions}
+                    onChange={setFoodRestrictions}
+                    otherValue={foodRestrictionsSpecify}
+                    onOtherChange={setFoodRestrictionsSpecify}
+                    placeholder="Select food restrictions or None"
+                  />
+
+                  <MultiSelectDropdown
+                    label="Religious & Cultural Dietary Guidelines"
+                    options={[
+                      'None',
+                      'Halal',
+                      'Kosher',
+                      'Hindu dietary restrictions',
+                      'Other (specify)',
+                      'Prefer not to say',
+                    ]}
+                    selectedValues={religiousRestrictions}
+                    onChange={setReligiousRestrictions}
+                    otherValue={religiousRestrictionsSpecify}
+                    onOtherChange={setReligiousRestrictionsSpecify}
+                    placeholder="Select religious restrictions or None"
+                    helperText="'None' and 'Prefer not to say' are mutually exclusive choices."
+                  />
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Foods You Dislike (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={dislikedFoods}
+                      onChange={(e) => setDislikedFoods(e.target.value)}
+                      placeholder="e.g. Bitter gourd (Karela), excess coriander, mustard oil..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Personal tastes are saved separately from biological allergies and intolerances.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4: Lifestyle Information (Optional) */}
+            {currentStep === 4 && (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      Step 4 of 7
+                    </span>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-forest-border text-slate-600 dark:text-slate-300">
+                      Optional
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    Lifestyle & Physical Activity
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Activity and sleep duration guide daily energy and micronutrient requirements.
+                  </p>
+                </div>
+
+                <div className="space-y-4 pt-1">
+                  <SingleSelectDropdown
+                    label="Physical Activity Level"
+                    options={[
+                      'Sedentary (little or no exercise)',
+                      'Lightly active',
+                      'Moderately active',
+                      'Very active',
+                      'Extremely active',
+                    ]}
+                    selectedValue={activityLevel}
+                    onChange={setActivityLevel}
+                  />
+
+                  <SingleSelectDropdown
+                    label="Exercise Frequency"
+                    options={[
+                      'Never',
+                      '1–2 days per week',
+                      '3–4 days per week',
+                      '5–6 days per week',
+                      'Every day',
+                    ]}
+                    selectedValue={exerciseFrequency}
+                    onChange={setExerciseFrequency}
+                  />
+
+                  <SingleSelectDropdown
+                    label="Average Sleep Duration"
+                    options={[
+                      'Less than 4 hours',
+                      '4–5 hours',
+                      '6–7 hours',
+                      '8–9 hours',
+                      'More than 9 hours',
+                    ]}
+                    selectedValue={sleepDuration}
+                    onChange={setSleepDuration}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* STEP 5: Nutritional Goals */}
+            {currentStep === 5 && (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Step 5 of 7
+                  </span>
+                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    Nutritional & Wellness Goals
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Choose what you want to achieve with NutriLens meal analyses and recipe pivots.
+                  </p>
+                </div>
+
+                <div className="space-y-4 pt-1">
+                  <SingleSelectDropdown
+                    label="Primary Nutritional Goal"
+                    options={[
+                      'Weight loss',
+                      'Weight gain',
+                      'Maintain current weight',
+                      'Muscle building',
+                      'Blood sugar management',
+                      'Blood pressure management',
+                      'Improve heart health',
+                      'Improve digestive health',
+                      'Improve overall nutrition',
+                      'Improve fitness and energy',
+                      'Other (specify)',
+                    ]}
+                    selectedValue={primaryGoal}
+                    onChange={setPrimaryGoal}
+                    otherValue={primaryGoalSpecify}
+                    onOtherChange={setPrimaryGoalSpecify}
+                  />
+
+                  <MultiSelectDropdown
+                    label="Secondary Nutritional Goals"
+                    options={[
+                      'Increase protein intake',
+                      'Increase fiber intake',
+                      'Reduce sugar consumption',
+                      'Reduce sodium consumption',
+                      'Increase vitamin intake',
+                      'Increase mineral intake',
+                      'Improve hydration',
+                      'Eat more fruits and vegetables',
+                      'Improve meal balance',
+                      'Other (specify)',
+                    ]}
+                    selectedValues={secondaryGoals}
+                    onChange={setSecondaryGoals}
+                    otherValue={secondaryGoalsSpecify}
+                    onOtherChange={setSecondaryGoalsSpecify}
+                    placeholder="Select secondary goals"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* STEP 6: Account Information */}
+            {currentStep === 6 && (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Step 6 of 7
+                  </span>
+                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    Account Credentials
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Create secure credentials for accessing your NutriLens workspace.
+                  </p>
+                </div>
+
+                <div className="space-y-4 pt-1">
+                  {/* Username with Live Check */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Username <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <input
+                        type="text"
+                        required
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="e.g. tariqul_bd"
+                        className="w-full pl-10 pr-20 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <div className="absolute right-3 top-2.5 text-[11px] font-bold">
+                        {isCheckingUsername && <span className="text-slate-400">Checking...</span>}
+                        {!isCheckingUsername && usernameAvailable === true && (
+                          <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            Available
+                          </span>
+                        )}
+                        {!isCheckingUsername && usernameAvailable === false && (
+                          <span className="text-rose-600 dark:text-rose-400">Unavailable</span>
+                        )}
+                      </div>
+                    </div>
+                    {stepErrors.username && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                        {stepErrors.username}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Email Address <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    {stepErrors.email && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                        {stepErrors.email}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Password with Strength Meter */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Password <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Min 8 characters with numbers & mixed case"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <PasswordStrengthMeter password={password} />
+                    {stepErrors.password && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                        {stepErrors.password}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Confirm Password <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter your password"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {stepErrors.confirmPassword && (
+                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                        {stepErrors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 7: Review & Create Account */}
+            {currentStep === 7 && (
+              <div className="space-y-6 animate-fadeIn">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Step 7 of 7
+                  </span>
+                  <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    Review Profile & Consent
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Please review your entered nutrition profile before account creation.
+                  </p>
+                </div>
+
+                {/* Review Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {/* Personal Info Review */}
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 relative space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="absolute top-3 right-3 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline text-[10px]"
+                    >
+                      <Edit2 className="w-3 h-3" /> Edit
+                    </button>
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Personal Info</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{fullName}</p>
+                    <p className="text-slate-500">
+                      Age: {age} • Sex: {biologicalSex}
+                    </p>
+                    <p className="text-slate-500">
+                      Height: {heightValue ? `${heightValue} ${heightUnit}` : 'Not provided'} • Weight:{' '}
+                      {weightValue ? `${weightValue} ${weightUnit}` : 'Not provided'}
+                    </p>
+                  </div>
+
+                  {/* Health Info Review */}
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 relative space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(2)}
+                      className="absolute top-3 right-3 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline text-[10px]"
+                    >
+                      <Edit2 className="w-3 h-3" /> Edit
+                    </button>
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Health & Allergies</p>
+                    <p className="font-semibold text-slate-800 dark:text-slate-200">
+                      Conditions:{' '}
+                      <span className="font-normal">
+                        {medicalConditions.length > 0 ? medicalConditions.join(', ') : 'None / Skipped'}
+                      </span>
+                    </p>
+                    <p className="font-semibold text-rose-600 dark:text-rose-400">
+                      Allergies:{' '}
+                      <span className="font-normal text-slate-700 dark:text-slate-300">
+                        {allergies.length > 0 ? allergies.join(', ') : 'None declared'}
+                      </span>
+                    </p>
+                    <p className="font-semibold text-amber-600 dark:text-amber-400">
+                      Intolerances:{' '}
+                      <span className="font-normal text-slate-700 dark:text-slate-300">
+                        {intolerances.length > 0 ? intolerances.join(', ') : 'None declared'}
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Dietary Preferences Review */}
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 relative space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(3)}
+                      className="absolute top-3 right-3 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline text-[10px]"
+                    >
+                      <Edit2 className="w-3 h-3" /> Edit
+                    </button>
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Dietary Style</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{dietaryPreference}</p>
+                    <p className="text-slate-500">
+                      Restrictions:{' '}
+                      {foodRestrictions.length > 0 ? foodRestrictions.join(', ') : 'None'}
+                    </p>
+                    {religiousRestrictions.length > 0 && (
+                      <p className="text-slate-500">Religious: {religiousRestrictions.join(', ')}</p>
+                    )}
+                  </div>
+
+                  {/* Goals & Lifestyle Review */}
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 relative space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(5)}
+                      className="absolute top-3 right-3 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline text-[10px]"
+                    >
+                      <Edit2 className="w-3 h-3" /> Edit
+                    </button>
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Goals & Lifestyle</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{primaryGoal}</p>
+                    <p className="text-slate-500">
+                      Activity: {activityLevel || 'Not specified'} • Sleep: {sleepDuration || 'Not specified'}
+                    </p>
+                  </div>
+
+                  {/* Account Credentials Review (Password Masked) */}
+                  <div className="sm:col-span-2 p-4 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 relative space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(6)}
+                      className="absolute top-3 right-3 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline text-[10px]"
+                    >
+                      <Edit2 className="w-3 h-3" /> Edit
+                    </button>
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Account Credentials</p>
+                    <p className="font-bold text-slate-900 dark:text-white">
+                      Username: @{username} • Email: {email}
+                    </p>
+                    <p className="text-slate-500 font-mono">Password: •••••••••••• (Protected)</p>
+                  </div>
+                </div>
+
+                {/* Explicit Health Data Consent Notice */}
+                <HealthConsentNotice
+                  consentGiven={healthDataConsent}
+                  onConsentChange={setHealthDataConsent}
+                  hasHealthDataProvided={hasHealthData}
                 />
+
+                {/* Terms of Service Consent */}
+                <div className="pt-1">
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={termsConsent}
+                      onChange={(e) => setTermsConsent(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-forest-border"
+                    />
+                    <span className="text-xs text-slate-700 dark:text-slate-300 leading-snug">
+                      I agree to the{' '}
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold underline">
+                        Terms of Service
+                      </span>{' '}
+                      and acknowledge that NutriLens provides non-clinical dietary guidance and informational nutrition estimates.
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Action Footer Bar */}
+          <div className="pt-6 border-t border-slate-100 dark:border-forest-border flex items-center justify-between">
+            {currentStep > 1 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={handleBack}
+                icon={<ArrowLeft className="w-4 h-4" />}
+              >
+                Back
+              </Button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-3">
+              {/* Optional Skip Action for Steps 2 and 4 */}
+              {(currentStep === 2 || currentStep === 4) && (
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  onClick={handleSkipOptional}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-2 py-1"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  Skip Step
                 </button>
-              </div>
-              {formErrors.confirmPassword && (
-                <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{formErrors.confirmPassword}</p>
+              )}
+
+              {currentStep < 7 ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
+                  onClick={handleContinue}
+                  icon={<ArrowRight className="w-4 h-4" />}
+                  iconPosition="right"
+                >
+                  Continue
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="lg"
+                  loading={loading}
+                  disabled={loading}
+                  onClick={handleFinalSubmit}
+                  className="shadow-lg shadow-emerald-600/20"
+                  icon={<CheckCircle2 className="w-4 h-4" />}
+                  iconPosition="right"
+                >
+                  Create NutriLens Account
+                </Button>
               )}
             </div>
-
-            {/* Terms and Privacy Agreement */}
-            <div className="pt-1">
-              <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={agreeTerms}
-                  onChange={(e) => {
-                    setAgreeTerms(e.target.checked);
-                    if (formErrors.agreeTerms) setFormErrors((prev) => ({ ...prev, agreeTerms: '' }));
-                  }}
-                  className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-forest-border"
-                />
-                <span className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                  I agree to the{' '}
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold underline">Terms of Service</span>{' '}
-                  and acknowledge that NutriLens is an educational, non-clinical dietary guidance platform.
-                </span>
-              </label>
-              {formErrors.agreeTerms && (
-                <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{formErrors.agreeTerms}</p>
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              loading={loading}
-              disabled={loading}
-              className="w-full shadow-lg shadow-emerald-600/20"
-            >
-              Create Account
-            </Button>
-          </form>
-
-          {/* Login Link */}
-          <p className="text-center text-xs text-slate-500 dark:text-slate-400">
-            Already have an account?{' '}
-            <Link
-              to="/login"
-              className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-            >
-              Sign In
-            </Link>
-          </p>
+          </div>
         </div>
+
+        {/* Existing User Login Prompt */}
+        <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+          Already registered?{' '}
+          <Link
+            to="/login"
+            className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+          >
+            Sign In to your Account
+          </Link>
+        </p>
       </div>
 
-      {/* Bottom Legal Notice */}
+      {/* Footer Disclaimer */}
       <div className="text-center text-[11px] text-slate-400 dark:text-slate-500 max-w-md mx-auto">
         NutriLens respects user data privacy under Row Level Security. Passwords are cryptographically salted and hashed.
       </div>

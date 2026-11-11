@@ -150,9 +150,40 @@ export type MarketObservation = z.infer<typeof MarketObservationSchema>;
 export const ProfileSchema = z.object({
   id: z.string().uuid(),
   market_id: z.string().uuid().nullable().optional(),
+  username: z.string().nullable().optional(),
   display_name: z.string().nullable().optional(),
   full_name: z.string().nullable().optional(),
   age: z.number().int().min(18).max(120).nullable().optional(),
+  biological_sex: z.enum(['male', 'female', 'prefer_not_to_say']).nullable().optional(),
+  height_value: z.number().nullable().optional(),
+  height_unit: z.enum(['cm', 'ft_in']).optional().default('cm'),
+  weight_value: z.number().nullable().optional(),
+  weight_unit: z.enum(['kg', 'lbs']).optional().default('kg'),
+  target_weight_value: z.number().nullable().optional(),
+  activity_level: z.enum([
+    'sedentary',
+    'lightly_active',
+    'moderately_active',
+    'very_active',
+    'extremely_active',
+  ]).nullable().optional(),
+  exercise_frequency: z.enum([
+    'never',
+    '1_2_days',
+    '3_4_days',
+    '5_6_days',
+    'every_day',
+  ]).nullable().optional(),
+  sleep_duration: z.enum([
+    'less_than_4h',
+    '4_5h',
+    '6_7h',
+    '8_9h',
+    'more_than_9h',
+  ]).nullable().optional(),
+  disliked_foods: z.string().nullable().optional(),
+  health_data_consent: z.boolean().optional().default(false),
+  health_data_consent_at: z.string().nullable().optional(),
   country: z.string().default('Bangladesh'),
   city: z.string().default('Dhaka'),
   preferred_language: z.string().default('bn'),
@@ -186,6 +217,99 @@ export const ProfileSchema = z.object({
   updated_at: z.string().optional(),
 });
 export type Profile = z.infer<typeof ProfileSchema>;
+
+// Detailed item schemas for User Signup & Nutrition Profile Specification
+export const MedicalConditionItemSchema = z.object({
+  name: z.string(),
+  specify: z.string().optional(),
+  diabetesType: z.string().optional(),
+});
+export type MedicalConditionItem = z.infer<typeof MedicalConditionItemSchema>;
+
+export const AllergyItemSchema = z.object({
+  name: z.string(),
+  specify: z.string().optional(),
+});
+export type AllergyItem = z.infer<typeof AllergyItemSchema>;
+
+export const IntoleranceItemSchema = z.object({
+  name: z.string(),
+  specify: z.string().optional(),
+});
+export type IntoleranceItem = z.infer<typeof IntoleranceItemSchema>;
+
+export const DetailedPreferenceItemSchema = z.object({
+  type: z.enum(['dietary_preference', 'food_restriction', 'religious_cultural']),
+  name: z.string(),
+  specify: z.string().optional(),
+});
+export type DetailedPreferenceItem = z.infer<typeof DetailedPreferenceItemSchema>;
+
+export const DetailedGoalItemSchema = z.object({
+  type: z.enum(['primary', 'secondary']),
+  name: z.string(),
+  specify: z.string().optional(),
+});
+export type DetailedGoalItem = z.infer<typeof DetailedGoalItemSchema>;
+
+// Comprehensive 7-Step Signup Schema
+export const ComprehensiveSignupSchema = z.object({
+  // Step 1: Personal Information
+  fullName: z.string().trim().min(2, 'Full name must be at least 2 characters'),
+  age: z.number().int().min(18, 'Age must be 18 or older'),
+  biologicalSex: z.enum(['male', 'female', 'prefer_not_to_say']).optional(),
+  heightValue: z.number().positive().nullable().optional(),
+  heightUnit: z.enum(['cm', 'ft_in']).default('cm'),
+  weightValue: z.number().positive().nullable().optional(),
+  weightUnit: z.enum(['kg', 'lbs']).default('kg'),
+  targetWeightValue: z.number().positive().nullable().optional(),
+
+  // Step 2: Health Information (Optional)
+  medicalConditions: z.array(MedicalConditionItemSchema).default([]),
+  allergies: z.array(AllergyItemSchema).default([]),
+  intolerances: z.array(IntoleranceItemSchema).default([]),
+
+  // Step 3: Dietary Preferences
+  dietaryPreference: z.string().default('Non-vegetarian'),
+  dietaryPreferenceSpecify: z.string().optional(),
+  foodRestrictions: z.array(z.string()).default([]),
+  foodRestrictionsSpecify: z.string().optional(),
+  religiousRestrictions: z.array(z.string()).default([]),
+  religiousRestrictionsSpecify: z.string().optional(),
+  dislikedFoods: z.string().default(''),
+
+  // Step 4: Lifestyle Information (Optional)
+  activityLevel: z.string().optional(),
+  exerciseFrequency: z.string().optional(),
+  sleepDuration: z.string().optional(),
+
+  // Step 5: Nutritional Goals
+  primaryGoal: z.string().default('Maintain current weight'),
+  primaryGoalSpecify: z.string().optional(),
+  secondaryGoals: z.array(z.string()).default([]),
+  secondaryGoalsSpecify: z.string().optional(),
+
+  // Step 6: Account Information
+  username: z
+    .string()
+    .trim()
+    .min(3, 'Username must be at least 3 characters')
+    .max(30, 'Username must be at most 30 characters')
+    .regex(/^[a-zA-Z0-9_.-]+$/, 'Username can only contain letters, numbers, and _ . -'),
+  email: z.string().trim().email('Valid email address is required'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[0-9]/, 'Password must include at least one number')
+    .regex(/[a-z]/, 'Password must include at least one lowercase letter')
+    .regex(/[A-Z]/, 'Password must include at least one uppercase letter'),
+  confirmPassword: z.string(),
+
+  // Step 7: Consent
+  healthDataConsent: z.boolean().default(false),
+  termsConsent: z.boolean().refine((val) => val === true, 'You must agree to the Terms of Service'),
+});
+export type ComprehensiveSignupData = z.infer<typeof ComprehensiveSignupSchema>;
 
 export const NutritionPreferencesSchema = z.object({
   id: z.string().uuid().optional(),
