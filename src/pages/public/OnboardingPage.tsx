@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -36,8 +36,14 @@ const STEPS = [
 
 export const OnboardingPage: React.FC = () => {
   const { t } = useTranslation();
-  const { user, profile, completeOnboarding } = useAuth();
+  const { user, profile, onboardingCompleted, completeOnboarding } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (onboardingCompleted) {
+      navigate('/app', { replace: true });
+    }
+  }, [onboardingCompleted, navigate]);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);

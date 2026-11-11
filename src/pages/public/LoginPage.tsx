@@ -26,7 +26,8 @@ export const LoginPage: React.FC = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  const from = (location.state as any)?.from?.pathname || '/app';
+  const rawFrom = (location.state as any)?.from?.pathname;
+  const targetDestination = rawFrom && !['/login', '/register', '/onboarding'].includes(rawFrom) ? rawFrom : '/app';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +55,7 @@ export const LoginPage: React.FC = () => {
       if (signInError) {
         setError(signInError.message || 'Invalid email or password. Please verify and try again.');
       } else {
-        navigate(from, { replace: true });
+        navigate(targetDestination, { replace: true });
       }
     } catch (err: any) {
       setLoading(false);
@@ -64,7 +65,7 @@ export const LoginPage: React.FC = () => {
 
   const handleDemoLogin = (demoId: string) => {
     selectDemoUser(demoId);
-    navigate(from, { replace: true });
+    navigate(targetDestination, { replace: true });
   };
 
   return (

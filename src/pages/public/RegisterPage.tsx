@@ -47,7 +47,7 @@ import {
 export const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { refreshUserData } = useAuth();
+  const { setAuthenticatedUser, refreshUserData } = useAuth();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -271,6 +271,9 @@ export const RegisterPage: React.FC = () => {
       if (!result.success) {
         setGeneralError(result.error || 'Failed to complete registration.');
       } else {
+        if (result.user && result.profile) {
+          setAuthenticatedUser(result.user, result.profile);
+        }
         await refreshUserData();
         navigate('/app', { replace: true });
       }

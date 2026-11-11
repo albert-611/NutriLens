@@ -8,11 +8,16 @@ import type {
   DetailedGoalItem,
   Profile,
 } from '../contracts';
-import { ensureProfileExists } from './authService';
+import {
+  ensureProfileExists,
+  saveLocalProfile,
+  LOCAL_REGISTERED_USERS_KEY,
+} from './authService';
 
 export interface RegistrationResult {
   success: boolean;
   user?: any;
+  profile?: Profile;
   error?: string;
 }
 
@@ -237,25 +242,122 @@ export async function registerComprehensiveAccount(
         await supabase.from('user_nutritional_goals_detailed').insert(goalRows);
       }
 
-      return { success: true, user: createdUser };
+      const completeProfile: Profile = {
+        id: userId,
+        market_id: '22222222-2222-2222-2222-222222222201',
+        username: usernameClean,
+        full_name: data.fullName.trim(),
+        display_name: data.fullName.trim(),
+        age: data.age,
+        biological_sex: data.biologicalSex as any,
+        height_value: data.heightValue || null,
+        height_unit: data.heightUnit,
+        weight_value: data.weightValue || null,
+        weight_unit: data.weightUnit,
+        target_weight_value: data.targetWeightValue || null,
+        activity_level: data.activityLevel as any,
+        exercise_frequency: data.exerciseFrequency as any,
+        sleep_duration: data.sleepDuration as any,
+        disliked_foods: data.dislikedFoods || null,
+        health_data_consent: data.healthDataConsent,
+        health_data_consent_at: data.healthDataConsent ? nowIso : null,
+        age_adult_confirmed: true,
+        onboarding_completed: true,
+        country: 'Bangladesh',
+        city: 'Dhaka',
+        language: 'bn',
+        preferred_language: 'bn',
+        unit_preference: 'metric',
+        cuisine_preferences: ['bangladeshi'],
+        dietary_exclusions: data.foodRestrictions || [],
+        declared_allergens: data.allergies?.map((a) => a.name) || [],
+        general_goal: (data.primaryGoal as any) || 'balanced_wellness',
+        household_size: 1,
+        budget_amount: 150,
+        budget_currency: 'BDT',
+        budget_people: 1,
+        budget_duration_days: 1,
+        available_time_minutes: 30,
+        available_equipment: ['stove', 'pan', 'pot', 'knife'],
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      saveLocalProfile(completeProfile);
+
+      return { success: true, user: createdUser, profile: completeProfile };
     } catch (err: any) {
       console.error('Registration persistence error:', err);
       return { success: false, error: err?.message || 'Database registration failed.' };
     }
   } else {
     // Offline / Demo fallback
+    const mockUserId = crypto.randomUUID();
     createdUser = {
-      id: crypto.randomUUID(),
-      email: data.email,
-      user_metadata: { full_name: data.fullName, username: usernameClean },
+      id: mockUserId,
+      email: data.email.trim(),
+      user_metadata: { full_name: data.fullName.trim(), username: usernameClean },
+    };
+
+    const completeProfile: Profile = {
+      id: mockUserId,
+      market_id: '22222222-2222-2222-2222-222222222201',
+      username: usernameClean,
+      full_name: data.fullName.trim(),
+      display_name: data.fullName.trim(),
+      age: data.age,
+      biological_sex: data.biologicalSex as any,
+      height_value: data.heightValue || null,
+      height_unit: data.heightUnit,
+      weight_value: data.weightValue || null,
+      weight_unit: data.weightUnit,
+      target_weight_value: data.targetWeightValue || null,
+      activity_level: data.activityLevel as any,
+      exercise_frequency: data.exerciseFrequency as any,
+      sleep_duration: data.sleepDuration as any,
+      disliked_foods: data.dislikedFoods || null,
+      health_data_consent: data.healthDataConsent,
+      age_adult_confirmed: true,
+      onboarding_completed: true,
+      country: 'Bangladesh',
+      city: 'Dhaka',
+      language: 'bn',
+      preferred_language: 'bn',
+      unit_preference: 'metric',
+      cuisine_preferences: ['bangladeshi'],
+      dietary_exclusions: data.foodRestrictions || [],
+      declared_allergens: data.allergies?.map((a) => a.name) || [],
+      general_goal: (data.primaryGoal as any) || 'balanced_wellness',
+      household_size: 1,
+      budget_amount: 150,
+      budget_currency: 'BDT',
+      budget_people: 1,
+      budget_duration_days: 1,
+      available_time_minutes: 30,
+      available_equipment: ['stove', 'pan', 'pot', 'knife'],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     // Store in local storage for session simulation
     try {
       localStorage.setItem('nutrilens_demo_signup_profile', JSON.stringify(data));
+      saveLocalProfile(completeProfile);
+
+      // Register into registered users list for login lookup
+      const existingRaw = localStorage.getItem(LOCAL_REGISTERED_USERS_KEY);
+      const userList = existingRaw ? JSON.parse(existingRaw) : [];
+      userList.push({
+        id: mockUserId,
+        email: data.email.trim(),
+        fullName: data.fullName.trim(),
+        username: usernameClean,
+        user_metadata: { full_name: data.fullName.trim(), username: usernameClean },
+      });
+      localStorage.setItem(LOCAL_REGISTERED_USERS_KEY, JSON.stringify(userList));
     } catch {}
 
-    return { success: true, user: createdUser };
+    return { success: true, user: createdUser, profile: completeProfile };
   }
 }
 

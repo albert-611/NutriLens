@@ -20,6 +20,7 @@ import {
   saveOnboardingData,
   deleteUserAccount,
   ensureProfileExists,
+  saveLocalProfile,
 } from '../services/authService';
 
 export interface DemoUserOption {
@@ -147,6 +148,7 @@ interface AuthContextType {
   isDemoUser: boolean;
   signIn: (email: string, password?: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  setAuthenticatedUser: (user: User, profile: Profile) => void;
   signOut: () => Promise<void>;
   resetPasswordForEmail: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
@@ -201,11 +203,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         if (isSupabaseConfigured) {
           const { data } = await supabase.auth.getSession();
-          if (data.session) {
+          if (data?.session?.user) {
             setSession(data.session);
             setUser(data.session.user);
             setIsDemoUser(false);
             await loadUserData(data.session.user.id);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Check active local user session
+        const activeUserId = localStorage.getItem('nutrilens_active_user_id');
+        if (activeUserId) {
+          const prof = await fetchUserProfile(activeUserId);
+          if (prof) {
+            const persistedUser = {
+              id: prof.id,
+              email: (prof as any).email || `${prof.username || 'user'}@nutrilens.internal`,
+              app_metadata: {},
+              user_metadata: { full_name: prof.full_name || prof.display_name },
+              aud: 'authenticated',
+              created_at: prof.created_at || new Date().toISOString(),
+            } as unknown as User;
+
+            setUser(persistedUser);
+            setProfile(prof);
+            setIsDemoUser(false);
+            await loadUserData(activeUserId);
             setLoading(false);
             return;
           }
@@ -283,9 +308,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(data.session);
       setIsDemoUser(false);
       localStorage.removeItem('nutrilens_active_demo_user');
+      localStorage.setItem('nutrilens_active_user_id', data.user.id);
       await loadUserData(data.user.id);
     }
     return { error: null };
+  };
+
+  const setAuthenticatedUser = (authUser: User, authProfile: Profile) => {
+    setUser(authUser);
+    setProfile(authProfile);
+    setIsDemoUser(false);
+    localStorage.removeItem('nutrilens_active_demo_user');
+    localStorage.setItem('nutrilens_active_user_id', authUser.id);
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -297,6 +331,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(data.session);
       setIsDemoUser(false);
       localStorage.removeItem('nutrilens_active_demo_user');
+      localStorage.setItem('nutrilens_active_user_id', data.user.id);
       // Create initial local profile
       const prof = await ensureProfileExists(data.user.id, fullName);
       if (prof) setProfile(prof);
@@ -316,6 +351,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBudgetPreferences(null);
     setIsDemoUser(false);
     localStorage.removeItem('nutrilens_active_demo_user');
+    localStorage.removeItem('nutrilens_active_user_id');
   };
 
   const resetPasswordForEmail = async (email: string) => {
@@ -350,24 +386,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { error } = await saveOnboardingData(user.id, data);
     if (error) return { error };
 
-    // Update local state
-    if (profile) {
-      setProfile({
-        ...profile,
-        full_name: data.fullName,
-        display_name: data.fullName,
-        age: data.age,
-        country: data.country,
-        city: data.city,
-        preferred_language: data.preferredLanguage,
-        language: data.preferredLanguage,
-        market_id: data.marketId || profile.market_id,
-        budget_amount: data.budgetAmount,
-        budget_currency: data.currency,
-        household_size: data.peopleCount,
-        onboarding_completed: true,
-      });
-    }
+    // Update local state and profile with onboarding_completed: true
+    const currentProfile = profile || (await fetchUserProfile(user.id));
+    const baseProfile: Profile = currentProfile || {
+      id: user.id,
+      market_id: data.marketId || '22222222-2222-2222-2222-222222222201',
+      username: 'member',
+      display_name: data.fullName,
+      full_name: data.fullName,
+      age: data.age,
+      country: data.country,
+      city: data.city,
+      height_unit: 'cm',
+      weight_unit: 'kg',
+      health_data_consent: true,
+      age_adult_confirmed: true,
+      onboarding_completed: true,
+      language: data.preferredLanguage,
+      preferred_language: data.preferredLanguage,
+      unit_preference: 'metric',
+      cuisine_preferences: ['bangladeshi'],
+      dietary_exclusions: [],
+      declared_allergens: [],
+      general_goal: 'balanced_wellness',
+      household_size: data.peopleCount,
+      budget_amount: data.budgetAmount,
+      budget_currency: data.currency,
+      budget_people: data.peopleCount,
+      budget_duration_days: 1,
+      available_time_minutes: 30,
+      available_equipment: ['stove', 'pan', 'pot', 'knife'],
+    };
+
+    const updatedProfile: Profile = {
+      ...baseProfile,
+      full_name: data.fullName,
+      display_name: data.fullName,
+      age: data.age,
+      country: data.country,
+      city: data.city,
+      preferred_language: data.preferredLanguage,
+      language: data.preferredLanguage,
+      market_id: data.marketId || baseProfile.market_id,
+      budget_amount: data.budgetAmount,
+      budget_currency: data.currency,
+      household_size: data.peopleCount,
+      age_adult_confirmed: true,
+      onboarding_completed: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    setProfile(updatedProfile);
+    saveLocalProfile(updatedProfile);
+    localStorage.setItem('nutrilens_active_user_id', user.id);
 
     await loadUserData(user.id);
     return { error: null };
@@ -400,6 +471,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isDemoUser,
         signIn,
         signUp,
+        setAuthenticatedUser,
         signOut,
         resetPasswordForEmail,
         updatePassword,
