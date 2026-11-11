@@ -294,3 +294,4 @@ export async function fetchFullNutritionProfile(userId: string) {
     return null;
   }
 }
+

@@ -111,3 +111,4 @@ export const SignupStepIndicator: React.FC<SignupStepIndicatorProps> = ({
     </div>
   );
 };
+

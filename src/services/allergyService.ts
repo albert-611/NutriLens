@@ -117,3 +117,4 @@ export function auditMealForUserRestrictions(
       'NutriLens does not claim guaranteed allergen safety. Incomplete ingredient information or cross-contact cannot be ruled out from visual inspection alone.',
   };
 }
+

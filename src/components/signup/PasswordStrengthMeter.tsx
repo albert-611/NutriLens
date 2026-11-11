@@ -65,3 +65,4 @@ export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({ pa
     </div>
   );
 };
+

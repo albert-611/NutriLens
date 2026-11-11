@@ -42,3 +42,10 @@ lerna-debug.log*
 
 # Supabase local temp files
 .supabase/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

@@ -46,3 +46,4 @@ export const HealthConsentNotice: React.FC<HealthConsentNoticeProps> = ({
     </div>
   );
 };
+
