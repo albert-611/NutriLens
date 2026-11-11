@@ -21,21 +21,24 @@ import { formatCurrency, formatGrams } from '../../lib/formatters';
 
 export const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
 
-  const goalLabels: Record<string, string> = {
-    budget_friendly: 'Budget-Friendly Vitality',
-    balanced_wellness: 'Balanced Family Nutrition',
-    high_protein: 'High Protein / Active Lifestyle',
-    increase_protein: 'High Protein / Active Lifestyle',
-    diabetic_friendly_lifestyle: 'Low-GI Lifestyle',
-    heart_conscious: 'Heart Conscious',
-    improve_overall_nutrition: 'Overall Nutrition Focus',
-    improve_dietary_variety: 'Dietary Variety Focus',
-    manage_food_expenses: 'Food Expense Management',
-    build_healthier_habits: 'Healthier Habits Focus',
-  };
-  const currentGoalLabel = goalLabels[profile?.general_goal || 'balanced_wellness'] || 'Balanced Everyday Nutrition';
+  const displayName = profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Member';
+  const photoUrl = profile?.avatar_url || (user?.user_metadata as any)?.avatar_url || (user?.user_metadata as any)?.picture;
+
+  const [imgError, setImgError] = React.useState(false);
+
+  React.useEffect(() => {
+    setImgError(false);
+  }, [photoUrl]);
+
+  const initials = React.useMemo(() => {
+    const parts = displayName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return displayName.slice(0, 2).toUpperCase();
+  }, [displayName]);
 
   const recentMeals = [
     {
@@ -64,29 +67,54 @@ export const DashboardPage: React.FC = () => {
     <div className="space-y-8 animate-fadeIn">
       
       {/* 1. Header & Context Card */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
-              {currentGoalLabel}
-            </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-forest-root px-2.5 py-1 rounded-full border border-slate-200 dark:border-forest-border/60">
-              Savar Demo Market
-            </span>
+      <div className="p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all duration-200">
+        <div className="flex items-center gap-4 sm:gap-5">
+          {/* Profile Photo Avatar */}
+          <div className="relative shrink-0">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-500 via-teal-500 to-emerald-700 text-white font-extrabold text-xl flex items-center justify-center shadow-md shadow-emerald-600/10 ring-2 ring-emerald-500/20 dark:ring-emerald-400/20">
+              {photoUrl && !imgError ? (
+                <img
+                  src={photoUrl}
+                  alt={displayName}
+                  key={photoUrl}
+                  onError={() => setImgError(true)}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{initials}</span>
+              )}
+            </div>
+            <div
+              className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-white dark:border-forest-card rounded-full flex items-center justify-center shadow-xs"
+              title="Active Profile"
+            >
+              <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+            </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            {t('dashboard.welcome')}, {profile?.display_name || 'Member'}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl">
-            Plate-to-market intelligence active. Tracking nutrition against your {formatCurrency(profile?.budget_amount || 150)} daily budget.
-          </p>
+          {/* Welcome Text & Intelligence Status */}
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2 flex-wrap">
+              <span>{t('dashboard.welcome')}, {displayName}</span>
+              <span className="animate-wave text-2xl sm:text-3xl select-none" role="img" aria-label="Waving hand">
+                👋
+              </span>
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
+              Plate-to-market intelligence active. Tracking nutrition against your {formatCurrency(profile?.budget_amount || 150)} daily budget.
+            </p>
+          </div>
         </div>
 
         {/* Quick Action Button */}
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center">
           <Link to="/app/analyze">
-            <Button variant="primary" size="lg" icon={<Camera className="w-5 h-5" />}>
+            <Button
+              variant="primary"
+              size="lg"
+              icon={<Camera className="w-5 h-5" />}
+              className="shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 transition-all duration-200"
+            >
               Scan Food Photo
             </Button>
           </Link>

@@ -69,6 +69,23 @@ body {
     transform: rotateY(180deg);
   }
 
+  @keyframes wave-hand {
+    0% { transform: rotate(0deg); }
+    5% { transform: rotate(14deg); }
+    10% { transform: rotate(-8deg); }
+    15% { transform: rotate(14deg); }
+    20% { transform: rotate(-4deg); }
+    25% { transform: rotate(10deg); }
+    30% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+  }
+
+  .animate-wave {
+    display: inline-block;
+    transform-origin: 70% 70%;
+    animation: wave-hand 2.8s ease-in-out infinite;
+  }
+
   [data-glow]::before,
   [data-glow]::after {
     pointer-events: none;
