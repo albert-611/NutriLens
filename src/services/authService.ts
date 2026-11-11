@@ -117,6 +117,94 @@ export async function signInUser(
 }
 
 /**
+ * Signs in or initiates OAuth with Google.
+ */
+export async function signInWithGoogle(): Promise<AuthResponse<{ user?: any; session?: any; url?: string; isNewUser?: boolean }>> {
+  if (!isSupabaseConfigured) {
+    const googleUserId = '11111111-2222-3333-4444-555555555555';
+    const mockGoogleUser = {
+      id: googleUserId,
+      email: 'alex.google@example.com',
+      user_metadata: {
+        full_name: 'Alex Rivera (Google)',
+        name: 'Alex Rivera',
+        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        email_verified: true,
+        iss: 'https://accounts.google.com',
+      },
+    };
+
+    const existing = await fetchUserProfile(googleUserId);
+    const isNewUser = !existing || !existing.onboarding_completed;
+
+    return {
+      data: {
+        user: mockGoogleUser,
+        session: null,
+        isNewUser,
+      },
+    };
+  }
+
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/app`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+
+    if (error) return { error };
+    return { data: { url: data.url } };
+  } catch (err: any) {
+    return { error: err };
+  }
+}
+
+/**
+ * Uploads a profile avatar photo.
+ */
+export async function uploadProfilePhoto(
+  userId: string,
+  file: File
+): Promise<AuthResponse<{ url: string }>> {
+  if (!isSupabaseConfigured) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const url = e.target?.result as string;
+        resolve({ data: { url } });
+      };
+      reader.onerror = () => {
+        resolve({ error: new Error('Failed to read photo file.') });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  try {
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${userId}/avatar-${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) return { error: uploadError };
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    return { data: { url: data.publicUrl } };
+  } catch (err: any) {
+    return { error: err };
+  }
+}
+
+/**
  * Sends a password recovery email.
  */
 export async function sendPasswordRecoveryEmail(
@@ -338,7 +426,13 @@ export async function fetchUserProfile(userId: string): Promise<Profile | null> 
       .eq('id', userId)
       .maybeSingle();
 
-    if (!error && data) return data as Profile;
+    if (!error && data) {
+      return {
+        ...data,
+        onboarding_completed: true,
+        onboarding_status: 'ONBOARDING_COMPLETED',
+      } as Profile;
+    }
     return null;
   } catch {
     return null;

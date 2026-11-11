@@ -1,24 +1,15 @@
 import React from 'react';
-import { Menu, LogOut } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { LangToggle } from '../common/LangToggle';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { DemoUserSelector } from '../common/DemoUserSelector';
-import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { NavbarAvatarMenu } from './NavbarAvatarMenu';
 
 interface AppHeaderProps {
   onMobileMenuToggle: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ onMobileMenuToggle }) => {
-  const { signOut, isDemoUser } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/');
-  };
-
   return (
     <header className="h-16 shrink-0 bg-white/80 dark:bg-forest-card/70 backdrop-blur-md border-b border-slate-200 dark:border-forest-border px-4 sm:px-6 lg:px-8 flex items-center justify-between z-20">
       
@@ -47,14 +38,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onMobileMenuToggle }) => {
         <ThemeToggle />
         <LangToggle />
 
-        {/* Logout / Switch Account */}
-        <button
-          onClick={handleLogout}
-          title={isDemoUser ? "Reset Demo Session" : "Log out"}
-          className="p-2 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-slate-100 dark:hover:bg-forest-card transition-colors duration-150"
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
+        {/* User Account Avatar Dropdown Menu */}
+        <NavbarAvatarMenu />
       </div>
     </header>
   );

@@ -7,11 +7,8 @@ interface ProtectedRouteProps {
   allowIncompleteOnboarding?: boolean;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
-  children,
-  allowIncompleteOnboarding = false,
-}) => {
-  const { user, loading, onboardingCompleted } = useAuth();
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -29,10 +26,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If user has not completed onboarding and is trying to access /app/* pages
-  if (!allowIncompleteOnboarding && !onboardingCompleted) {
-    return <Navigate to="/onboarding" replace />;
-  }
-
+  // Any authenticated user proceeds directly into the application
   return <>{children}</>;
 };

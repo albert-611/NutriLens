@@ -19,6 +19,11 @@ import { Button } from '../../components/common/Button';
 import { MultiSelectDropdown } from '../../components/signup/MultiSelectDropdown';
 import { SingleSelectDropdown } from '../../components/signup/SingleSelectDropdown';
 import { UnitValueInput } from '../../components/signup/UnitValueInput';
+import { ProfilePhotoUploader } from '../../components/common/ProfilePhotoUploader';
+import {
+  getAvailableMedicalConditions,
+  sanitizeConditionsForSex,
+} from '../../lib/medicalConditionsConfig';
 
 export const ProfilePage: React.FC = () => {
   const { t } = useTranslation();
@@ -29,10 +34,16 @@ export const ProfilePage: React.FC = () => {
     foodRestrictions,
     budgetPreferences,
     updateProfile,
+    uploadAvatar,
     isDemoUser,
     refreshUserData,
   } = useAuth();
   const { locale, setLocale } = useLocale();
+
+  const handleBiologicalSexChange = (newSex: string) => {
+    setBiologicalSex(newSex);
+    setMedicalConditions((prev) => sanitizeConditionsForSex(prev, newSex));
+  };
 
   const [activeTab, setActiveTab] = useState<'personal' | 'health' | 'dietary' | 'lifestyle' | 'goals' | 'budget'>('personal');
 
@@ -248,6 +259,32 @@ export const ProfilePage: React.FC = () => {
               Personal Identity & Anthropometrics
             </h2>
 
+            <div className="flex justify-center pb-4 border-b border-slate-100 dark:border-forest-border/60">
+              <ProfilePhotoUploader
+                currentPhotoUrl={profile?.avatar_url || null}
+                onPhotoSelected={async (file) => {
+                  if (!file) return;
+                  setSaving(true);
+                  const res = await uploadAvatar(file);
+                  setSaving(false);
+                  if (res.error) {
+                    setErrorMessage(res.error.message || 'Failed to upload photo');
+                  } else {
+                    setSaveSuccess(true);
+                    setTimeout(() => setSaveSuccess(false), 3000);
+                    await refreshUserData();
+                  }
+                }}
+                onPhotoRemoved={async () => {
+                  setSaving(true);
+                  await updateProfile({ avatar_url: null as any });
+                  setSaving(false);
+                  await refreshUserData();
+                }}
+                label="Profile Photo"
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -306,7 +343,7 @@ export const ProfilePage: React.FC = () => {
                   label="Biological Sex"
                   options={['Male', 'Female', 'Prefer not to say']}
                   selectedValue={biologicalSex}
-                  onChange={(val) => setBiologicalSex(val)}
+                  onChange={handleBiologicalSexChange}
                 />
               </div>
 
@@ -409,23 +446,7 @@ export const ProfilePage: React.FC = () => {
             <div className="space-y-4">
               <MultiSelectDropdown
                 label="Medical Conditions"
-                options={[
-                  'None',
-                  'Diabetes',
-                  'Prediabetes',
-                  'High blood pressure (hypertension)',
-                  'Low blood pressure (hypotension)',
-                  'Heart disease',
-                  'Kidney disease',
-                  'Liver disease',
-                  'Thyroid disorders',
-                  'PCOS',
-                  'High cholesterol',
-                  'Obesity',
-                  'Anemia',
-                  'Gastrointestinal disorders',
-                  'Other (specify)',
-                ]}
+                options={getAvailableMedicalConditions(biologicalSex)}
                 selectedValues={medicalConditions}
                 onChange={setMedicalConditions}
                 otherValue={medicalConditionSpecify}

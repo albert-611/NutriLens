@@ -11,6 +11,8 @@ import type {
 import {
   signUpUser,
   signInUser,
+  signInWithGoogle as authSignInWithGoogle,
+  uploadProfilePhoto,
   sendPasswordRecoveryEmail,
   updateUserPassword,
   fetchUserProfile,
@@ -147,8 +149,10 @@ interface AuthContextType {
   onboardingCompleted: boolean;
   isDemoUser: boolean;
   signIn: (email: string, password?: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null; isNewUser?: boolean }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   setAuthenticatedUser: (user: User, profile: Profile) => void;
+  uploadAvatar: (file: File) => Promise<{ url?: string; error: Error | null }>;
   signOut: () => Promise<void>;
   resetPasswordForEmail: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
@@ -314,6 +318,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error: null };
   };
 
+  const signInWithGoogle = async () => {
+    const { data, error } = await authSignInWithGoogle();
+    if (error) return { error };
+
+    if (data?.url) {
+      window.location.href = data.url;
+      return { error: null };
+    }
+
+    if (data?.user) {
+      setUser(data.user);
+      setSession(data.session || null);
+      setIsDemoUser(false);
+      localStorage.removeItem('nutrilens_active_demo_user');
+      localStorage.setItem('nutrilens_active_user_id', data.user.id);
+
+      const prof = await fetchUserProfile(data.user.id);
+      if (prof) {
+        setProfile(prof);
+      } else {
+        const newProf = await ensureProfileExists(data.user.id, data.user.user_metadata?.full_name);
+        if (newProf) setProfile(newProf);
+      }
+      await loadUserData(data.user.id);
+      return { error: null, isNewUser: data.isNewUser };
+    }
+    return { error: null };
+  };
+
+  const uploadAvatar = async (file: File) => {
+    if (!user) return { error: new Error('User not authenticated.') };
+    const { data, error } = await uploadProfilePhoto(user.id, file);
+    if (error || !data?.url) return { error: error || new Error('Upload failed') };
+
+    await updateProfile({ avatar_url: data.url });
+    return { url: data.url, error: null };
+  };
+
   const setAuthenticatedUser = (authUser: User, authProfile: Profile) => {
     setUser(authUser);
     setProfile(authProfile);
@@ -452,9 +494,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error: null };
   };
 
-  // Derive onboarding completion status
+  // Derive onboarding completion status: any authenticated user has completed onboarding
   const onboardingCompleted = Boolean(
-    profile?.onboarding_completed || isDemoUser
+    user || profile?.onboarding_completed || isDemoUser
   );
 
   return (
@@ -470,8 +512,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         onboardingCompleted,
         isDemoUser,
         signIn,
+        signInWithGoogle,
         signUp,
         setAuthenticatedUser,
+        uploadAvatar,
         signOut,
         resetPasswordForEmail,
         updatePassword,

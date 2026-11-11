@@ -16,12 +16,26 @@ import {
 import {
   PasswordStrengthMeter,
 } from '../../components/signup/PasswordStrengthMeter';
+import { useLocation } from 'react-router-dom';
 import {
   SignupStepIndicator,
 } from '../../components/signup/SignupStepIndicator';
 import {
   HealthConsentNotice,
 } from '../../components/signup/HealthConsentNotice';
+import {
+  TermsConfirmationModal,
+} from '../../components/signup/TermsConfirmationModal';
+import {
+  TermsDetailModal,
+} from '../../components/signup/TermsDetailModal';
+import {
+  ProfilePhotoUploader,
+} from '../../components/common/ProfilePhotoUploader';
+import {
+  getAvailableMedicalConditions,
+  sanitizeConditionsForSex,
+} from '../../lib/medicalConditionsConfig';
 import {
   checkUsernameAvailable,
   registerComprehensiveAccount,
@@ -47,13 +61,24 @@ import {
 export const RegisterPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { setAuthenticatedUser, refreshUserData } = useAuth();
+  const location = useLocation();
+  const { user, signInWithGoogle, setAuthenticatedUser, refreshUserData } = useAuth();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
+
+  // Profile photo state (Optional)
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+
+  // Terms confirmation modals
+  const [showTermsConfirmation, setShowTermsConfirmation] = useState(false);
+  const [showTermsDetail, setShowTermsDetail] = useState(false);
+
+  // Google progressive onboarding mode
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
 
   // STEP 1: Personal Information
   const [fullName, setFullName] = useState('');
@@ -64,6 +89,58 @@ export const RegisterPage: React.FC = () => {
   const [weightValue, setWeightValue] = useState<number | null>(68);
   const [weightUnit, setWeightUnit] = useState<string>('kg');
   const [targetWeightValue, setTargetWeightValue] = useState<number | null>(65);
+
+  // Check and populate Google user info if in progressive onboarding
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const isGoogleMode = params.get('mode') === 'google';
+    if (isGoogleMode || user?.app_metadata?.provider === 'google') {
+      setIsGoogleUser(true);
+      if (user?.user_metadata?.full_name && !fullName) {
+        setFullName(user.user_metadata.full_name);
+      }
+      if (user?.email && !email) {
+        setEmail(user.email);
+      }
+      if ((user?.user_metadata?.avatar_url || (user?.user_metadata as any)?.picture) && !profilePhotoUrl) {
+        setProfilePhotoUrl(user?.user_metadata?.avatar_url || (user?.user_metadata as any)?.picture);
+      }
+      if (!username && user?.user_metadata?.full_name) {
+        const cleanName = user.user_metadata.full_name
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '_')
+          .replace(/_+/g, '_')
+          .slice(0, 15);
+        setUsername(cleanName);
+      }
+    }
+  }, [location.search, user]);
+
+  const handleBiologicalSexChange = (newSex: string) => {
+    setBiologicalSex(newSex);
+    // Automatically sanitize and clear conditions no longer valid for this sex
+    setMedicalConditions((prev) => sanitizeConditionsForSex(prev, newSex));
+  };
+
+  const handleGoogleSignup = async () => {
+    setLoading(true);
+    setGeneralError(null);
+    try {
+      const res = await signInWithGoogle();
+      setLoading(false);
+      if (res.error) {
+        setGeneralError(res.error.message || 'Google sign-in failed.');
+      } else {
+        setIsGoogleUser(true);
+        if (user?.user_metadata?.full_name) setFullName(user.user_metadata.full_name);
+        if (user?.email) setEmail(user.email);
+        if (user?.user_metadata?.avatar_url) setProfilePhotoUrl(user.user_metadata.avatar_url);
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setGeneralError(err?.message || 'Unexpected Google sign-in error.');
+    }
+  };
 
   // STEP 2: Health Information
   const [medicalConditions, setMedicalConditions] = useState<string[]>([]);
@@ -164,13 +241,15 @@ export const RegisterPage: React.FC = () => {
       if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
         errors.email = 'Please provide a valid email address.';
       }
-      if (!password || password.length < 8) {
-        errors.password = 'Password must be at least 8 characters.';
-      } else if (!/[0-9]/.test(password) || !/[a-z]/.test(password) || !/[A-Z]/.test(password)) {
-        errors.password = 'Password must include uppercase, lowercase, and a number.';
-      }
-      if (password !== confirmPassword) {
-        errors.confirmPassword = 'Passwords do not match.';
+      if (!isGoogleUser) {
+        if (!password || password.length < 8) {
+          errors.password = 'Password must be at least 8 characters.';
+        } else if (!/[0-9]/.test(password) || !/[a-z]/.test(password) || !/[A-Z]/.test(password)) {
+          errors.password = 'Password must include uppercase, lowercase, and a number.';
+        }
+        if (password !== confirmPassword) {
+          errors.confirmPassword = 'Passwords do not match.';
+        }
       }
     }
 
@@ -205,7 +284,7 @@ export const RegisterPage: React.FC = () => {
     setGeneralError(null);
 
     if (!termsConsent) {
-      setGeneralError('Please agree to the Terms of Service to create your account.');
+      setShowTermsConfirmation(true);
       return;
     }
 
@@ -233,6 +312,7 @@ export const RegisterPage: React.FC = () => {
 
       const signupData = {
         fullName: fullName.trim(),
+        avatarUrl: profilePhotoUrl,
         age: age || 24,
         biologicalSex: biologicalSex as any,
         heightValue: heightValue || null,
@@ -337,7 +417,52 @@ export const RegisterPage: React.FC = () => {
                   </p>
                 </div>
 
+                {!isGoogleUser && (
+                  <div className="pb-3 border-b border-slate-100 dark:border-forest-border">
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignup}
+                      disabled={loading}
+                      className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root hover:bg-slate-50 dark:hover:bg-forest-card text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
+                    >
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                      <span>Sign up faster with Google</span>
+                    </button>
+                    <div className="flex items-center gap-3 my-2.5">
+                      <div className="flex-1 h-px bg-slate-200 dark:bg-forest-border" />
+                      <span className="text-[10px] uppercase font-bold text-slate-400">or enter details</span>
+                      <div className="flex-1 h-px bg-slate-200 dark:bg-forest-border" />
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <div className="sm:col-span-2 flex justify-center pb-2">
+                    <ProfilePhotoUploader
+                      currentPhotoUrl={profilePhotoUrl}
+                      onPhotoSelected={(_file, url) => setProfilePhotoUrl(url)}
+                      onPhotoRemoved={() => setProfilePhotoUrl(null)}
+                      label="Profile Photo (Optional)"
+                    />
+                  </div>
+
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                       Full Name <span className="text-rose-500">*</span>
@@ -383,7 +508,7 @@ export const RegisterPage: React.FC = () => {
                       label="Biological Sex (Optional)"
                       options={['Male', 'Female', 'Prefer not to say']}
                       selectedValue={biologicalSex}
-                      onChange={(val) => setBiologicalSex(val)}
+                      onChange={handleBiologicalSexChange}
                       placeholder="Select biological sex"
                     />
                   </div>
@@ -474,26 +599,10 @@ export const RegisterPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-4 pt-1">
-                  {/* Medical Conditions */}
+                  {/* Medical Conditions (dynamically filtered by biological sex) */}
                   <MultiSelectDropdown
                     label="Medical Conditions"
-                    options={[
-                      'None',
-                      'Diabetes',
-                      'Prediabetes',
-                      'High blood pressure (hypertension)',
-                      'Low blood pressure (hypotension)',
-                      'Heart disease',
-                      'Kidney disease',
-                      'Liver disease',
-                      'Thyroid disorders',
-                      'PCOS',
-                      'High cholesterol',
-                      'Obesity',
-                      'Anemia',
-                      'Gastrointestinal disorders',
-                      'Other (specify)',
-                    ]}
+                    options={getAvailableMedicalConditions(biologicalSex)}
                     selectedValues={medicalConditions}
                     onChange={setMedicalConditions}
                     otherValue={medicalConditionSpecify}
@@ -843,10 +952,11 @@ export const RegisterPage: React.FC = () => {
                     <input
                       type="email"
                       required
+                      readOnly={isGoogleUser}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@example.com"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className={`w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isGoogleUser ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-forest-card' : ''}`}
                     />
                     {stepErrors.email && (
                       <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
@@ -855,64 +965,73 @@ export const RegisterPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Password with Strength Meter */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Password <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Min 8 characters with numbers & mixed case"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                  {isGoogleUser ? (
+                    <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span>Google account authenticated ({email}). No password creation is required.</span>
                     </div>
-                    <PasswordStrengthMeter password={password} />
-                    {stepErrors.password && (
-                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
-                        {stepErrors.password}
-                      </p>
-                    )}
-                  </div>
+                  ) : (
+                    <>
+                      {/* Password with Strength Meter */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Password <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Min 8 characters with numbers & mixed case"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <PasswordStrengthMeter password={password} />
+                        {stepErrors.password && (
+                          <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                            {stepErrors.password}
+                          </p>
+                        )}
+                      </div>
 
-                  {/* Confirm Password */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Confirm Password <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Re-enter your password"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                      >
-                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {stepErrors.confirmPassword && (
-                      <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
-                        {stepErrors.confirmPassword}
-                      </p>
-                    )}
-                  </div>
+                      {/* Confirm Password */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Confirm Password <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            required
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Re-enter your password"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {stepErrors.confirmPassword && (
+                          <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">
+                            {stepErrors.confirmPassword}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1055,9 +1174,16 @@ export const RegisterPage: React.FC = () => {
                     />
                     <span className="text-xs text-slate-700 dark:text-slate-300 leading-snug">
                       I agree to the{' '}
-                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold underline">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowTermsDetail(true);
+                        }}
+                        className="text-emerald-600 dark:text-emerald-400 font-semibold underline hover:text-emerald-500"
+                      >
                         Terms of Service
-                      </span>{' '}
+                      </button>{' '}
                       and acknowledge that NutriLens provides non-clinical dietary guidance and informational nutrition estimates.
                     </span>
                   </label>
@@ -1140,6 +1266,27 @@ export const RegisterPage: React.FC = () => {
       <div className="text-center text-[11px] text-slate-400 dark:text-slate-500 max-w-md mx-auto">
         NutriLens respects user data privacy under Row Level Security. Passwords are cryptographically salted and hashed.
       </div>
+
+      {/* Terms Confirmation Modal */}
+      <TermsConfirmationModal
+        isOpen={showTermsConfirmation}
+        onClose={() => setShowTermsConfirmation(false)}
+        onReviewTerms={() => {
+          setShowTermsConfirmation(false);
+          setShowTermsDetail(true);
+        }}
+      />
+
+      {/* Detailed Terms of Service Modal */}
+      <TermsDetailModal
+        isOpen={showTermsDetail}
+        onClose={() => setShowTermsDetail(false)}
+        termsAgreed={termsConsent}
+        onAcceptAndClose={() => {
+          setTermsConsent(true);
+          setShowTermsDetail(false);
+        }}
+      />
     </div>
   );
 };

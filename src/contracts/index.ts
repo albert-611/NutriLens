@@ -153,6 +153,7 @@ export const ProfileSchema = z.object({
   username: z.string().nullable().optional(),
   display_name: z.string().nullable().optional(),
   full_name: z.string().nullable().optional(),
+  avatar_url: z.string().nullable().optional(),
   age: z.number().int().min(18).max(120).nullable().optional(),
   biological_sex: z.enum(['male', 'female', 'prefer_not_to_say']).nullable().optional(),
   height_value: z.number().nullable().optional(),
@@ -184,11 +185,14 @@ export const ProfileSchema = z.object({
   disliked_foods: z.string().nullable().optional(),
   health_data_consent: z.boolean().optional().default(false),
   health_data_consent_at: z.string().nullable().optional(),
+  terms_accepted_at: z.string().nullable().optional(),
+  terms_version: z.string().nullable().optional(),
   country: z.string().default('Bangladesh'),
   city: z.string().default('Dhaka'),
   preferred_language: z.string().default('bn'),
   age_adult_confirmed: z.boolean().default(true),
-  onboarding_completed: z.boolean().default(false),
+  onboarding_completed: z.boolean().optional().default(true),
+  onboarding_status: z.enum(['ONBOARDING_REQUIRED', 'ONBOARDING_COMPLETED']).nullable().optional(),
   language: z.string().default('bn'),
   unit_preference: z.string().default('metric'),
   cuisine_preferences: z.array(z.string()).default(['bangladeshi']),
@@ -304,6 +308,7 @@ export const ComprehensiveSignupSchema = z.object({
     .regex(/[a-z]/, 'Password must include at least one lowercase letter')
     .regex(/[A-Z]/, 'Password must include at least one uppercase letter'),
   confirmPassword: z.string(),
+  avatarUrl: z.string().nullable().optional(),
 
   // Step 7: Consent
   healthDataConsent: z.boolean().default(false),

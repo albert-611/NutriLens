@@ -53,15 +53,8 @@ export const AppRoutes: React.FC = () => {
       />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-      {/* Onboarding Flow (Requires Authenticated User, Allows Incomplete Onboarding) */}
-      <Route
-        path="/onboarding"
-        element={
-          <ProtectedRoute allowIncompleteOnboarding={true}>
-            <OnboardingPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Onboarding Flow: Redirect directly to App */}
+      <Route path="/onboarding" element={<Navigate to="/app" replace />} />
 
       {/* Protected App Pages (Requires Authenticated User with Completed Onboarding) */}
       <Route

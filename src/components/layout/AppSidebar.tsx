@@ -31,8 +31,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ mobileOpen, setMobileOpe
     { name: t('nav.bazar'), href: '/app/bazar', icon: Store, badge: 'Demo' },
     { name: t('nav.meal_rescue'), href: '/app/meal-rescue', icon: Sparkles },
     { name: t('nav.shopping'), href: '/app/shopping', icon: ShoppingBag },
-    { name: t('nav.profile'), href: '/app/profile', icon: User },
-    { name: 'Settings', href: '/app/settings', icon: Settings },
   ];
 
   const sidebarContent = (

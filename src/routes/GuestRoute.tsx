@@ -7,7 +7,7 @@ interface GuestRouteProps {
 }
 
 export const GuestRoute: React.FC<GuestRouteProps> = ({ children }) => {
-  const { user, loading, onboardingCompleted } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -20,14 +20,10 @@ export const GuestRoute: React.FC<GuestRouteProps> = ({ children }) => {
     );
   }
 
+  // Authenticated users should always be routed directly to the dashboard
   if (user) {
-    // If onboarding is not completed, route to onboarding
-    if (!onboardingCompleted) {
-      return <Navigate to="/onboarding" replace />;
-    }
     return <Navigate to="/app" replace />;
   }
 
   return <>{children}</>;
 };
-
