@@ -36,7 +36,7 @@ export const LoginPage: React.FC = () => {
     const validation = loginSchema.safeParse({ email, password });
     if (!validation.success) {
       const errors: Record<string, string> = {};
-      validation.error.errors.forEach((err) => {
+      validation.error.issues.forEach((err) => {
         if (err.path[0]) {
           errors[err.path[0] as string] = err.message;
         }

@@ -36,7 +36,7 @@ export type StockState = z.infer<typeof StockStateSchema>;
 // ==========================================
 
 export const FoodSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   canonical_name: z.string().min(1),
   category: z.string(),
   preparation_state: PreparationStateSchema,
@@ -47,7 +47,7 @@ export const FoodSchema = z.object({
   carbohydrate_g: z.number().nullable(),
   fat_g: z.number().nullable(),
   fibre_g: z.number().nullable(),
-  source_id: z.string().uuid(),
+  source_id: z.string().guid(),
   external_record_id: z.string().nullable().optional(),
   source_version: z.string().nullable().optional(),
   review_status: z.enum(['draft', 'reviewed', 'approved']).default('approved'),
@@ -57,10 +57,10 @@ export const FoodSchema = z.object({
 export type Food = z.infer<typeof FoodSchema>;
 
 export const FoodNameSchema = z.object({
-  id: z.string().uuid(),
-  food_id: z.string().uuid(),
+  id: z.string().guid(),
+  food_id: z.string().guid(),
   language_code: z.enum(['bn', 'en', 'bn_translit']),
-  market_id: z.string().uuid().nullable().optional(),
+  market_id: z.string().guid().nullable().optional(),
   local_name: z.string(),
   normalized_alias: z.string(),
   alias_type: z.enum(['canonical', 'common', 'colloquial', 'regional', 'spelling_variant']),
@@ -73,9 +73,9 @@ export type FoodName = z.infer<typeof FoodNameSchema>;
 // ==========================================
 
 export const RecipeIngredientSchema = z.object({
-  id: z.string().uuid(),
-  recipe_id: z.string().uuid(),
-  food_id: z.string().uuid(),
+  id: z.string().guid(),
+  recipe_id: z.string().guid(),
+  food_id: z.string().guid(),
   quantity_g: z.number().positive(),
   input_state: PreparationStateSchema,
   is_optional: z.boolean().default(false),
@@ -86,8 +86,8 @@ export const RecipeIngredientSchema = z.object({
 export type RecipeIngredient = z.infer<typeof RecipeIngredientSchema>;
 
 export const RecipeSchema = z.object({
-  id: z.string().uuid(),
-  market_id: z.string().uuid().nullable().optional(),
+  id: z.string().guid(),
+  market_id: z.string().guid().nullable().optional(),
   cuisine: z.string().default('bangladeshi'),
   name_en: z.string(),
   name_bn: z.string(),
@@ -98,7 +98,7 @@ export const RecipeSchema = z.object({
   equipment_required: z.array(z.string()).default([]),
   instructions: z.string().nullable().optional(),
   yield_grams: z.number().positive().nullable().optional(),
-  source_id: z.string().uuid().nullable().optional(),
+  source_id: z.string().guid().nullable().optional(),
   review_status: z.enum(['draft', 'reviewed', 'approved']).default('approved'),
   created_at: z.string().optional(),
   ingredients: z.array(RecipeIngredientSchema).optional(),
@@ -110,7 +110,7 @@ export type Recipe = z.infer<typeof RecipeSchema>;
 // ==========================================
 
 export const MarketSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   country_code: z.string().default('BD'),
   region: z.string(),
   city: z.string(),
@@ -124,9 +124,9 @@ export const MarketSchema = z.object({
 export type Market = z.infer<typeof MarketSchema>;
 
 export const MarketObservationSchema = z.object({
-  id: z.string().uuid(),
-  market_id: z.string().uuid(),
-  food_id: z.string().uuid(),
+  id: z.string().guid(),
+  market_id: z.string().guid(),
+  food_id: z.string().guid(),
   seller_label: z.string(),
   currency_code: z.string().default('BDT'),
   price_amount: z.number().min(0),
@@ -136,7 +136,7 @@ export const MarketObservationSchema = z.object({
   stock_state: StockStateSchema.default('in_stock'),
   observed_at: z.string(),
   expires_at: z.string().nullable().optional(),
-  source_id: z.string().uuid().nullable().optional(),
+  source_id: z.string().guid().nullable().optional(),
   data_mode: DataModeSchema.default('synthetic_demo'),
   notes: z.string().nullable().optional(),
   food: FoodSchema.optional(),
@@ -148,8 +148,8 @@ export type MarketObservation = z.infer<typeof MarketObservationSchema>;
 // ==========================================
 
 export const ProfileSchema = z.object({
-  id: z.string().uuid(),
-  market_id: z.string().uuid().nullable().optional(),
+  id: z.string().guid(),
+  market_id: z.string().guid().nullable().optional(),
   username: z.string().nullable().optional(),
   display_name: z.string().nullable().optional(),
   full_name: z.string().nullable().optional(),
@@ -312,8 +312,8 @@ export const ComprehensiveSignupSchema = z.object({
 export type ComprehensiveSignupData = z.infer<typeof ComprehensiveSignupSchema>;
 
 export const NutritionPreferencesSchema = z.object({
-  id: z.string().uuid().optional(),
-  user_id: z.string().uuid(),
+  id: z.string().guid().optional(),
+  user_id: z.string().guid(),
   primary_goal: z.string().default('balanced_wellness'),
   secondary_goals: z.array(z.string()).default([]),
   dietary_pattern: z.string().default('no_preference'),
@@ -326,8 +326,8 @@ export const NutritionPreferencesSchema = z.object({
 export type NutritionPreferences = z.infer<typeof NutritionPreferencesSchema>;
 
 export const FoodRestrictionSchema = z.object({
-  id: z.string().uuid().optional(),
-  user_id: z.string().uuid(),
+  id: z.string().guid().optional(),
+  user_id: z.string().guid(),
   restriction_type: z.enum(['allergy', 'intolerance', 'religious_exclusion', 'ingredient_avoidance']),
   restriction_value: z.string().min(1),
   notes: z.string().optional().nullable(),
@@ -336,9 +336,9 @@ export const FoodRestrictionSchema = z.object({
 export type FoodRestriction = z.infer<typeof FoodRestrictionSchema>;
 
 export const BudgetPreferencesSchema = z.object({
-  id: z.string().uuid().optional(),
-  user_id: z.string().uuid(),
-  market_id: z.string().uuid().nullable().optional(),
+  id: z.string().guid().optional(),
+  user_id: z.string().guid(),
+  market_id: z.string().guid().nullable().optional(),
   currency: z.string().default('BDT'),
   budget_amount: z.number().min(0).default(150),
   budget_period: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
@@ -369,7 +369,7 @@ export const OnboardingDataSchema = z.object({
   religiousExclusions: z.array(z.string()).default([]),
   dislikedIngredients: z.array(z.string()).default([]),
   // Step 5: Budget
-  marketId: z.string().uuid().nullable().optional(),
+  marketId: z.string().guid().nullable().optional(),
   currency: z.string().default('BDT'),
   budgetAmount: z.number().min(0).default(150),
   budgetPeriod: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
@@ -382,7 +382,7 @@ export type OnboardingData = z.infer<typeof OnboardingDataSchema>;
 // ==========================================
 
 export const ConfirmedItemSchema = z.object({
-  food_id: z.string().uuid(),
+  food_id: z.string().guid(),
   confirmed_grams: z.number().positive(),
   preparation_state: PreparationStateSchema,
   portion_source: z.enum(['user_entered', 'ai_estimated_unconfirmed', 'standard_reference_serving']).default('user_entered'),
@@ -402,8 +402,8 @@ export const NutrientTotalsSchema = z.object({
 export type NutrientTotals = z.infer<typeof NutrientTotalsSchema>;
 
 export const MealReportSchema = z.object({
-  id: z.string().uuid(),
-  meal_log_id: z.string().uuid(),
+  id: z.string().guid(),
+  meal_log_id: z.string().guid(),
   revision: z.number().int().positive(),
   total_energy_kcal: z.number().nullable(),
   total_protein_g: z.number().nullable(),
@@ -422,7 +422,7 @@ export type MealReport = z.infer<typeof MealReportSchema>;
 // ==========================================
 
 export const ShoppingItemSchema = z.object({
-  food_id: z.string().uuid(),
+  food_id: z.string().guid(),
   name: z.string(),
   needed_quantity: z.number(),
   pantry_quantity: z.number().default(0),
@@ -445,8 +445,8 @@ export const CandidateItemSchema = z.object({
   id: z.string(),
   label: z.string(),
   label_bn: z.string().optional(),
-  candidate_food_ids: z.array(z.string().uuid()).default([]),
-  matched_food_id: z.string().uuid().nullable().optional(),
+  candidate_food_ids: z.array(z.string().guid()).default([]),
+  matched_food_id: z.string().guid().nullable().optional(),
   preparation_state: PreparationStateSchema.default('boiled'),
   estimated_grams: z.number().positive().nullable().default(null),
   portion_basis: z.enum([
@@ -466,13 +466,13 @@ export const AnalyzeMealRequestSchema = z.object({
   image_path: z.string().optional(),
   input_mode: z.enum(['photo', 'manual_search', 'menu_text']).default('photo'),
   language: z.enum(['bn', 'en']).default('bn'),
-  market_id: z.string().uuid().optional(),
+  market_id: z.string().guid().optional(),
   manual_query: z.string().optional(),
 });
 export type AnalyzeMealRequest = z.infer<typeof AnalyzeMealRequestSchema>;
 
 export const AnalyzeMealResponseSchema = z.object({
-  analysis_id: z.string().uuid(),
+  analysis_id: z.string().guid(),
   schema_version: z.string().default('1.0'),
   input_mode: z.enum(['photo', 'manual_search', 'menu_text']),
   candidates: z.array(CandidateItemSchema),
@@ -485,7 +485,7 @@ export type AnalyzeMealResponse = z.infer<typeof AnalyzeMealResponseSchema>;
 
 export const SearchFoodsRequestSchema = z.object({
   query: z.string().min(1),
-  market_id: z.string().uuid().optional(),
+  market_id: z.string().guid().optional(),
   language: z.enum(['bn', 'en', 'bn_translit']).default('bn'),
   category: z.string().optional(),
   preparation_state: PreparationStateSchema.optional(),
@@ -493,7 +493,7 @@ export const SearchFoodsRequestSchema = z.object({
 export type SearchFoodsRequest = z.infer<typeof SearchFoodsRequestSchema>;
 
 export const FoodSearchResultItemSchema = z.object({
-  food_id: z.string().uuid(),
+  food_id: z.string().guid(),
   canonical_name: z.string(),
   local_name: z.string(),
   local_name_bn: z.string(),

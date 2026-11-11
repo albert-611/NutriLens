@@ -25,7 +25,7 @@ export const ForgotPasswordPage: React.FC = () => {
 
     const validation = emailSchema.safeParse(email);
     if (!validation.success) {
-      setError(validation.error.errors[0].message);
+      setError(validation.error.issues[0]?.message || 'Please enter a valid email address.');
       return;
     }
 
