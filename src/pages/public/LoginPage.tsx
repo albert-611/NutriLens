@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
-import { useAuth, DEMO_USERS } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
+import { isSupabaseConfigured } from '../../lib/supabaseClient';
 import { Button } from '../../components/common/Button';
 import { LangToggle } from '../../components/common/LangToggle';
 import { ThemeToggle } from '../../components/common/ThemeToggle';
-import { ArrowLeft, UserCheck, Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Lock, Mail, Eye, EyeOff, AlertCircle, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().trim().email('Please enter a valid email address.'),
@@ -15,7 +16,7 @@ const loginSchema = z.object({
 
 export const LoginPage: React.FC = () => {
   const { t } = useTranslation();
-  const { signIn, signInWithGoogle, selectDemoUser, onboardingCompleted } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,6 +29,8 @@ export const LoginPage: React.FC = () => {
 
   const rawFrom = (location.state as any)?.from?.pathname;
   const targetDestination = rawFrom && !['/login', '/register', '/onboarding'].includes(rawFrom) ? rawFrom : '/app';
+  const queryParams = new URLSearchParams(location.search);
+  const isPendingConfirmation = queryParams.get('registered') === 'pending_confirmation';
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -72,7 +75,15 @@ export const LoginPage: React.FC = () => {
       setLoading(false);
 
       if (signInError) {
-        setError(signInError.message || 'Invalid email or password. Please verify and try again.');
+        // Map common Supabase error messages to friendly, accurate text
+        const msg = signInError.message || '';
+        if (msg.toLowerCase().includes('invalid login credentials')) {
+          setError('Invalid email or password. Unregistered accounts cannot log in.');
+        } else if (msg.toLowerCase().includes('email not confirmed')) {
+          setError('Email address has not been confirmed. Please check your inbox for the confirmation link.');
+        } else {
+          setError(msg || 'Authentication failed. Please verify your credentials and try again.');
+        }
       } else {
         navigate(targetDestination, { replace: true });
       }
@@ -80,11 +91,6 @@ export const LoginPage: React.FC = () => {
       setLoading(false);
       setError(err?.message || 'An unexpected error occurred during sign-in.');
     }
-  };
-
-  const handleDemoLogin = (demoId: string) => {
-    selectDemoUser(demoId);
-    navigate(targetDestination, { replace: true });
   };
 
   return (
@@ -120,41 +126,31 @@ export const LoginPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Quick Demo Personas Selector */}
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
-            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-              <UserCheck className="w-3.5 h-3.5" />
-              1-Click Demo Personas (Quick Access)
-            </p>
-            <div className="grid grid-cols-1 gap-1.5">
-              {DEMO_USERS.map((demo) => (
-                <button
-                  key={demo.id}
-                  type="button"
-                  onClick={() => handleDemoLogin(demo.id)}
-                  className="w-full text-left px-3 py-2 rounded-xl bg-white/80 dark:bg-forest-card/80 border border-emerald-500/20 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-forest-cardHover text-xs transition-colors duration-150 flex items-center justify-between"
-                >
-                  <div>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {demo.name}
-                    </span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
-                      {demo.roleDescription}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                    Login →
-                  </span>
-                </button>
-              ))}
+          {isPendingConfirmation && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+              <div>
+                <strong className="font-semibold block mb-0.5">Account Registered</strong>
+                <span>Please check your inbox to verify your email address before signing in.</span>
+              </div>
             </div>
-          </div>
+          )}
+
+          {!isSupabaseConfigured && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5">
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <strong className="font-semibold block mb-0.5">Database Connection Notice</strong>
+                <span>Supabase environment variables are not configured in <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-900 rounded font-mono text-[10px]">.env.local</code>. Real credential verification requires an active Supabase project.</span>
+              </div>
+            </div>
+          )}
 
           {/* Google Sign In Button */}
           <button
             type="button"
             onClick={handleGoogleSignIn}
-            disabled={loading}
+            disabled={loading || !isSupabaseConfigured}
             className="w-full py-2.5 px-4 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root hover:bg-slate-50 dark:hover:bg-forest-card text-xs font-semibold text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2.5 shadow-sm transition-all duration-150 disabled:opacity-50"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
@@ -201,25 +197,26 @@ export const LoginPage: React.FC = () => {
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Mail className="w-4 h-4" />
+                </div>
                 <input
                   type="email"
-                  required
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (formErrors.email) setFormErrors((prev) => ({ ...prev, email: '' }));
-                  }}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl border ${
+                  autoComplete="email"
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-forest-root border transition-all duration-150 focus:outline-none focus:ring-2 ${
                     formErrors.email
-                      ? 'border-rose-400 dark:border-rose-600 focus:ring-rose-500'
-                      : 'border-slate-300 dark:border-forest-border focus:ring-emerald-500'
-                  } bg-white dark:bg-forest-root text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors`}
+                      ? 'border-rose-500 focus:ring-rose-500/20'
+                      : 'border-slate-200 dark:border-forest-border focus:border-emerald-500 focus:ring-emerald-500/20'
+                  } text-slate-900 dark:text-white placeholder:text-slate-400`}
                 />
               </div>
               {formErrors.email && (
-                <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{formErrors.email}</p>
+                <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                  {formErrors.email}
+                </p>
               )}
             </div>
 
@@ -230,69 +227,74 @@ export const LoginPage: React.FC = () => {
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                  className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 transition-colors"
                 >
                   Forgot password?
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
+                </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  required
                   value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (formErrors.password) setFormErrors((prev) => ({ ...prev, password: '' }));
-                  }}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className={`w-full pl-10 pr-10 py-2.5 rounded-xl border ${
+                  autoComplete="current-password"
+                  className={`w-full pl-10 pr-10 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-forest-root border transition-all duration-150 focus:outline-none focus:ring-2 ${
                     formErrors.password
-                      ? 'border-rose-400 dark:border-rose-600 focus:ring-rose-500'
-                      : 'border-slate-300 dark:border-forest-border focus:ring-emerald-500'
-                  } bg-white dark:bg-forest-root text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-colors`}
+                      ? 'border-rose-500 focus:ring-rose-500/20'
+                      : 'border-slate-200 dark:border-forest-border focus:border-emerald-500 focus:ring-emerald-500/20'
+                  } text-slate-900 dark:text-white placeholder:text-slate-400`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
               {formErrors.password && (
-                <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{formErrors.password}</p>
+                <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                  {formErrors.password}
+                </p>
               )}
             </div>
 
             <Button
               type="submit"
               variant="primary"
-              size="lg"
+              size="md"
               loading={loading}
               disabled={loading}
-              className="w-full shadow-lg shadow-emerald-600/20"
+              className="w-full mt-2 font-bold shadow-md"
             >
               Sign In
             </Button>
           </form>
 
-          {/* Footer note */}
-          <p className="text-center text-xs text-slate-500 dark:text-slate-400">
-            Don't have an account?{' '}
-            <Link
-              to="/register"
-              className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-            >
-              Create an account
-            </Link>
-          </p>
+          {/* Bottom Link to Register */}
+          <div className="text-center pt-2 border-t border-slate-100 dark:border-forest-border/40">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Don't have an account?{' '}
+              <Link
+                to="/register"
+                className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1"
+              >
+                Create Account →
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Bottom Legal Notice */}
-      <div className="text-center text-[11px] text-slate-400 dark:text-slate-500 max-w-md mx-auto">
-        NutriLens is for nutritional intelligence and dietary awareness. Non-clinical SaaS prototype.
+      {/* Footer Disclaimer */}
+      <div className="max-w-md w-full mx-auto text-center py-2">
+        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+          Protected by Supabase Auth with Row Level Security &amp; JWT encryption.
+        </p>
       </div>
     </div>
   );

@@ -24,6 +24,62 @@ import {
   getAvailableMedicalConditions,
   sanitizeConditionsForSex,
 } from '../../lib/medicalConditionsConfig';
+import {
+  fetchFullNutritionProfile,
+  saveFullNutritionProfile,
+} from '../../services/authService';
+
+function displaySex(val?: string | null): string {
+  if (!val) return 'Prefer not to say';
+  const lower = val.toLowerCase();
+  if (lower.includes('female')) return 'Female';
+  if (lower.includes('male')) return 'Male';
+  return 'Prefer not to say';
+}
+
+function displayActivity(val?: string | null): string {
+  if (!val) return 'Moderately active';
+  const lower = val.toLowerCase();
+  if (lower.includes('sedentary')) return 'Sedentary (little or no exercise)';
+  if (lower.includes('light')) return 'Lightly active';
+  if (lower.includes('extreme')) return 'Extremely active';
+  if (lower.includes('very')) return 'Very active';
+  return 'Moderately active';
+}
+
+function displayFreq(val?: string | null): string {
+  if (!val) return '3–4 days per week';
+  const lower = val.toLowerCase();
+  if (lower.includes('never')) return 'Never';
+  if (lower.includes('1') && lower.includes('2')) return '1–2 days per week';
+  if (lower.includes('3') && lower.includes('4')) return '3–4 days per week';
+  if (lower.includes('5') && lower.includes('6')) return '5–6 days per week';
+  if (lower.includes('every') || lower.includes('daily')) return 'Every day';
+  return '3–4 days per week';
+}
+
+function displaySleep(val?: string | null): string {
+  if (!val) return '6–7 hours';
+  const lower = val.toLowerCase();
+  if (lower.includes('less') || lower.includes('<')) return 'Less than 4 hours';
+  if (lower.includes('4') && lower.includes('5')) return '4–5 hours';
+  if (lower.includes('6') && lower.includes('7')) return '6–7 hours';
+  if (lower.includes('8') && lower.includes('9')) return '8–9 hours';
+  if (lower.includes('more') || lower.includes('>')) return 'More than 9 hours';
+  return '6–7 hours';
+}
+
+function displayGoal(val?: string | null): string {
+  if (!val) return 'Maintain current weight';
+  const lower = val.toLowerCase();
+  if (lower.includes('muscle') || lower.includes('protein')) return 'Muscle building';
+  if (lower.includes('sugar') || lower.includes('diabet')) return 'Blood sugar management';
+  if (lower.includes('heart') || lower.includes('pressure')) return 'Improve heart health';
+  if (lower.includes('digest')) return 'Improve digestive health';
+  if (lower.includes('loss')) return 'Weight loss';
+  if (lower.includes('gain')) return 'Weight gain';
+  return 'Maintain current weight';
+}
 
 export const ProfilePage: React.FC = () => {
   const { t } = useTranslation();
@@ -35,7 +91,6 @@ export const ProfilePage: React.FC = () => {
     budgetPreferences,
     updateProfile,
     uploadAvatar,
-    isDemoUser,
     refreshUserData,
   } = useAuth();
   const { locale, setLocale } = useLocale();
@@ -48,13 +103,19 @@ export const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'personal' | 'health' | 'dietary' | 'lifestyle' | 'goals' | 'budget'>('personal');
 
   // Personal Info
-  const [fullName, setFullName] = useState(profile?.full_name || profile?.display_name || '');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url || null);
+  const [fullName, setFullName] = useState(
+    profile?.full_name || profile?.display_name || user?.user_metadata?.full_name || ''
+  );
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    profile?.avatar_url || user?.user_metadata?.avatar_url || null
+  );
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
   const [isPhotoRemoved, setIsPhotoRemoved] = useState<boolean>(false);
-  const [username, setUsername] = useState(profile?.username || '');
+  const [username, setUsername] = useState(
+    profile?.username || (user?.email ? user.email.split('@')[0] : '')
+  );
   const [age, setAge] = useState<number | null>(profile?.age || 24);
-  const [biologicalSex, setBiologicalSex] = useState<string>(profile?.biological_sex || 'Prefer not to say');
+  const [biologicalSex, setBiologicalSex] = useState<string>(displaySex(profile?.biological_sex));
   const [heightValue, setHeightValue] = useState<number | null>(profile?.height_value || 170);
   const [heightUnit, setHeightUnit] = useState<string>(profile?.height_unit || 'cm');
   const [weightValue, setWeightValue] = useState<number | null>(profile?.weight_value || 68);
@@ -70,9 +131,7 @@ export const ProfilePage: React.FC = () => {
   const [diabetesType, setDiabetesType] = useState('Not sure');
   const [allergies, setAllergies] = useState<string[]>(profile?.declared_allergens || []);
   const [allergySpecify, setAllergySpecify] = useState('');
-  const [intolerances, setIntolerances] = useState<string[]>(
-    foodRestrictions.filter((r) => r.restriction_type === 'intolerance').map((r) => r.restriction_value) || []
-  );
+  const [intolerances, setIntolerances] = useState<string[]>([]);
   const [intoleranceSpecify, setIntoleranceSpecify] = useState('');
 
   // Dietary Preferences
@@ -87,12 +146,14 @@ export const ProfilePage: React.FC = () => {
   const [dislikedFoods, setDislikedFoods] = useState(profile?.disliked_foods || '');
 
   // Lifestyle
-  const [activityLevel, setActivityLevel] = useState(profile?.activity_level || 'Moderately active');
-  const [exerciseFrequency, setExerciseFrequency] = useState(profile?.exercise_frequency || '3–4 days per week');
-  const [sleepDuration, setSleepDuration] = useState(profile?.sleep_duration || '6–7 hours');
+  const [activityLevel, setActivityLevel] = useState(displayActivity(profile?.activity_level));
+  const [exerciseFrequency, setExerciseFrequency] = useState(displayFreq(profile?.exercise_frequency));
+  const [sleepDuration, setSleepDuration] = useState(displaySleep(profile?.sleep_duration));
 
   // Nutritional Goals
-  const [primaryGoal, setPrimaryGoal] = useState(nutritionPreferences?.primary_goal || profile?.general_goal || 'Maintain current weight');
+  const [primaryGoal, setPrimaryGoal] = useState(
+    nutritionPreferences?.primary_goal || displayGoal(profile?.general_goal)
+  );
   const [primaryGoalSpecify, setPrimaryGoalSpecify] = useState('');
   const [secondaryGoals, setSecondaryGoals] = useState<string[]>(nutritionPreferences?.secondary_goals || []);
   const [secondaryGoalsSpecify, setSecondaryGoalsSpecify] = useState('');
@@ -107,33 +168,134 @@ export const ProfilePage: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Sync profile data from auth state
   useEffect(() => {
     if (profile) {
-      setFullName(profile.full_name || profile.display_name || '');
-      setAvatarUrl(profile.avatar_url || null);
+      setFullName(profile.full_name || profile.display_name || user?.user_metadata?.full_name || '');
+      setAvatarUrl(profile.avatar_url || user?.user_metadata?.avatar_url || null);
       setPendingPhotoFile(null);
       setIsPhotoRemoved(false);
-      setUsername(profile.username || '');
-      setAge(profile.age || 24);
-      setBiologicalSex(profile.biological_sex || 'Prefer not to say');
-      setHeightValue(profile.height_value || null);
-      setHeightUnit(profile.height_unit || 'cm');
-      setWeightValue(profile.weight_value || null);
-      setWeightUnit(profile.weight_unit || 'kg');
-      setTargetWeightValue(profile.target_weight_value || null);
-      setCity(profile.city || 'Dhaka');
-      setPrefLang(profile.preferred_language || 'bn');
-      setBudgetAmount(profile.budget_amount || 150);
-      setPeopleCount(profile.household_size || 1);
-      if (profile.market_id) setMarketId(profile.market_id);
-      if (profile.declared_allergens) setAllergies(profile.declared_allergens);
-      if (profile.dietary_exclusions) setUserFoodRestrictions(profile.dietary_exclusions);
+      setUsername(profile.username || (user?.email ? user.email.split('@')[0] : ''));
+      if (profile.age) setAge(profile.age);
+      if (profile.biological_sex) setBiologicalSex(displaySex(profile.biological_sex));
+      if (profile.height_value !== undefined && profile.height_value !== null) setHeightValue(profile.height_value);
+      if (profile.height_unit) setHeightUnit(profile.height_unit);
+      if (profile.weight_value !== undefined && profile.weight_value !== null) setWeightValue(profile.weight_value);
+      if (profile.weight_unit) setWeightUnit(profile.weight_unit);
+      if (profile.target_weight_value !== undefined && profile.target_weight_value !== null) setTargetWeightValue(profile.target_weight_value);
+      if (profile.city) setCity(profile.city);
+      if (profile.country) setCountry(profile.country);
+      if (profile.preferred_language) setPrefLang(profile.preferred_language);
       if (profile.disliked_foods) setDislikedFoods(profile.disliked_foods);
-      if (profile.activity_level) setActivityLevel(profile.activity_level);
-      if (profile.exercise_frequency) setExerciseFrequency(profile.exercise_frequency);
-      if (profile.sleep_duration) setSleepDuration(profile.sleep_duration);
+      if (profile.activity_level) setActivityLevel(displayActivity(profile.activity_level));
+      if (profile.exercise_frequency) setExerciseFrequency(displayFreq(profile.exercise_frequency));
+      if (profile.sleep_duration) setSleepDuration(displaySleep(profile.sleep_duration));
+      if (profile.budget_amount) setBudgetAmount(profile.budget_amount);
+      if (profile.household_size) setPeopleCount(profile.household_size);
+      if (profile.market_id) setMarketId(profile.market_id);
+      if (profile.declared_allergens && profile.declared_allergens.length > 0) {
+        setAllergies(profile.declared_allergens);
+      }
+      if (profile.dietary_exclusions && profile.dietary_exclusions.length > 0) {
+        setUserFoodRestrictions(profile.dietary_exclusions);
+      }
+    } else if (user) {
+      if (user.user_metadata?.full_name && !fullName) {
+        setFullName(user.user_metadata.full_name);
+      }
+      if (user.email && !username) {
+        setUsername(user.email.split('@')[0]);
+      }
     }
-  }, [profile]);
+  }, [profile, user]);
+
+  // Load full multi-tab data from PostgreSQL on mount / user change
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadFullProfile() {
+      if (!user) return;
+      try {
+        const fullData = await fetchFullNutritionProfile(user.id);
+        if (!isMounted) return;
+
+        if (fullData.medicalConditions.length > 0) {
+          setMedicalConditions(fullData.medicalConditions);
+        }
+        if (fullData.medicalConditionSpecify) {
+          setMedicalConditionSpecify(fullData.medicalConditionSpecify);
+        }
+        if (fullData.diabetesType) {
+          let dtLabel = fullData.diabetesType;
+          if (dtLabel === 'type_1') dtLabel = 'Type 1';
+          else if (dtLabel === 'type_2') dtLabel = 'Type 2';
+          else if (dtLabel === 'gestational') dtLabel = 'Gestational diabetes';
+          else if (dtLabel === 'prediabetes') dtLabel = 'Prediabetes';
+          else if (dtLabel === 'not_sure') dtLabel = 'Not sure';
+          setDiabetesType(dtLabel);
+        }
+        if (fullData.allergies.length > 0) {
+          setAllergies(fullData.allergies);
+        }
+        if (fullData.allergySpecify) {
+          setAllergySpecify(fullData.allergySpecify);
+        }
+        if (fullData.intolerances.length > 0) {
+          setIntolerances(fullData.intolerances);
+        }
+        if (fullData.intoleranceSpecify) {
+          setIntoleranceSpecify(fullData.intoleranceSpecify);
+        }
+        if (fullData.dietaryPreference) {
+          setDietaryPreference(fullData.dietaryPreference);
+        }
+        if (fullData.dietaryPreferenceSpecify) {
+          setDietaryPreferenceSpecify(fullData.dietaryPreferenceSpecify);
+        }
+        if (fullData.foodRestrictions.length > 0) {
+          setUserFoodRestrictions(fullData.foodRestrictions);
+        }
+        if (fullData.foodRestrictionsSpecify) {
+          setFoodRestrictionsSpecify(fullData.foodRestrictionsSpecify);
+        }
+        if (fullData.religiousRestrictions.length > 0) {
+          setReligiousRestrictions(fullData.religiousRestrictions);
+        }
+        if (fullData.religiousRestrictionsSpecify) {
+          setReligiousRestrictionsSpecify(fullData.religiousRestrictionsSpecify);
+        }
+        if (fullData.primaryGoal) {
+          setPrimaryGoal(fullData.primaryGoal);
+        }
+        if (fullData.primaryGoalSpecify) {
+          setPrimaryGoalSpecify(fullData.primaryGoalSpecify);
+        }
+        if (fullData.secondaryGoals.length > 0) {
+          setSecondaryGoals(fullData.secondaryGoals);
+        }
+        if (fullData.secondaryGoalsSpecify) {
+          setSecondaryGoalsSpecify(fullData.secondaryGoalsSpecify);
+        }
+        if (fullData.budgetAmount) {
+          setBudgetAmount(fullData.budgetAmount);
+        }
+        if (fullData.budgetPeriod) {
+          setBudgetPeriod(fullData.budgetPeriod);
+        }
+        if (fullData.peopleCount) {
+          setPeopleCount(fullData.peopleCount);
+        }
+      } catch (err) {
+        console.warn('Full nutrition profile load error:', err);
+      }
+    }
+
+    loadFullProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   const hasDiabetesSelected = medicalConditions.some(
     (c) => c.toLowerCase().includes('diabetes') || c.toLowerCase().includes('prediabetes')
@@ -141,6 +303,11 @@ export const ProfilePage: React.FC = () => {
 
   const handleSaveAll = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      setErrorMessage('User session not found. Please log in.');
+      return;
+    }
+
     setSaving(true);
     setErrorMessage(null);
     setSaveSuccess(false);
@@ -151,21 +318,67 @@ export const ProfilePage: React.FC = () => {
       // 1. Upload photo if user picked a new file
       if (pendingPhotoFile) {
         const uploadRes = await uploadAvatar(pendingPhotoFile);
-        if (uploadRes.error) {
-          setSaving(false);
-          setErrorMessage(uploadRes.error.message || 'Failed to upload photo.');
-          return;
-        }
         if (uploadRes.url) {
           finalAvatarUrl = uploadRes.url;
           setAvatarUrl(uploadRes.url);
+        } else if (uploadRes.error) {
+          console.warn('Avatar photo upload warning:', uploadRes.error.message);
         }
       } else if (isPhotoRemoved) {
         finalAvatarUrl = null;
       }
 
-      // 2. Persist full profile updates
-      const updates = {
+      // 2. Persist full nutrition profile across all 8 tables
+      const { error: fullSaveError } = await saveFullNutritionProfile(user.id, {
+        fullName,
+        displayName: fullName,
+        avatarUrl: finalAvatarUrl,
+        username,
+        age,
+        biologicalSex,
+        heightValue,
+        heightUnit,
+        weightValue,
+        weightUnit,
+        targetWeightValue,
+        city,
+        country,
+        prefLang,
+        activityLevel,
+        exerciseFrequency,
+        sleepDuration,
+        dislikedFoods,
+        marketId,
+        budgetAmount,
+        budgetPeriod: (budgetPeriod === 'weekly' ? 'weekly' : 'daily') as 'daily' | 'weekly',
+        peopleCount,
+        medicalConditions,
+        medicalConditionSpecify,
+        diabetesType,
+        allergies,
+        allergySpecify,
+        intolerances,
+        intoleranceSpecify,
+        dietaryPreference,
+        dietaryPreferenceSpecify,
+        userFoodRestrictions,
+        foodRestrictionsSpecify,
+        religiousRestrictions,
+        religiousRestrictionsSpecify,
+        primaryGoal,
+        primaryGoalSpecify,
+        secondaryGoals,
+        secondaryGoalsSpecify,
+      });
+
+      if (fullSaveError) {
+        setErrorMessage(fullSaveError.message || 'Failed to update profile.');
+        setSaving(false);
+        return;
+      }
+
+      // 3. Update local auth state context
+      await updateProfile({
         full_name: fullName,
         display_name: fullName,
         avatar_url: finalAvatarUrl,
@@ -177,33 +390,25 @@ export const ProfilePage: React.FC = () => {
         weight_value: weightValue,
         weight_unit: weightUnit as any,
         target_weight_value: targetWeightValue,
-        activity_level: activityLevel as any,
-        exercise_frequency: exerciseFrequency as any,
-        sleep_duration: sleepDuration as any,
-        disliked_foods: dislikedFoods || null,
         city,
         country,
         preferred_language: prefLang,
         language: prefLang,
-        general_goal: primaryGoal as any,
+        disliked_foods: dislikedFoods || null,
         budget_amount: budgetAmount,
         household_size: peopleCount,
         market_id: marketId,
         declared_allergens: allergies,
         dietary_exclusions: userFoodRestrictions,
-      };
+      });
 
-      const { error } = await updateProfile(updates);
+      await refreshUserData();
+
+      setPendingPhotoFile(null);
+      setIsPhotoRemoved(false);
       setSaving(false);
-
-      if (error) {
-        setErrorMessage(error.message || 'Failed to update profile.');
-      } else {
-        setPendingPhotoFile(null);
-        setIsPhotoRemoved(false);
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
       setSaving(false);
       setErrorMessage(err?.message || 'An error occurred while saving.');
@@ -218,11 +423,6 @@ export const ProfilePage: React.FC = () => {
           <span className="text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             User Profile
           </span>
-          {isDemoUser && (
-            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
-              Active Persona: {profile?.display_name}
-            </span>
-          )}
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           Personal Nutrition Profile

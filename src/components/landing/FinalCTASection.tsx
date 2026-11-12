@@ -117,7 +117,7 @@ export const FinalCTASection: React.FC = () => {
                 </div>
 
                 <p className="text-xs text-emerald-300/70 pt-4">
-                  Prototype demo includes pre-configured personas with Savar and Ashulia local market observations.
+                  NutriLens includes secure user account registration with Savar and Ashulia local market observations.
                 </p>
               </div>
             </CursorGrid>

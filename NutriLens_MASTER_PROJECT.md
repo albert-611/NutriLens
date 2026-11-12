@@ -268,6 +268,8 @@ These tools support the same small application. They are not separate applicatio
 
 **Browser:** Displays screens and collects confirmed inputs. It can preview formatting, but its computed values are not authoritative. It holds only the Supabase URL and publishable/anon client key, protected by authentication and Row Level Security.
 
+**Authentication & Session Architecture:** NutriLens enforces real Supabase Auth authentication with password hashing, email verification, and Supabase-issued JWT access and refresh tokens (`supabase.auth.getSession()` and `onAuthStateChange`). All demo/mock login functions, hardcoded credentials, and simulated sessions have been permanently removed. Unregistered email addresses and invalid passwords are strictly rejected. Protected routes (`/app/*`) enforce active JWT session verification. User-specific tables are isolated by Row Level Security (`auth.uid() = user_id`). All reference datasets (foods, recipes, market observations) remain intact.
+
 **Backend:** Verifies the session, checks ownership, validates inputs, calls providers and calculates authoritative results. The user ID comes from the verified session, never from a trusted request-body field. [S05, S06]
 
 **Database:** Stores the food records, source metadata, market observations, recipes and personalized state. Nutrition and price tables use SQL filters and joins; knowledge excerpts use text/vector retrieval. These are different retrieval jobs.
@@ -590,7 +592,7 @@ Seed examples: Bangladesh / Dhaka Division / Savar / "Savar Demo Market" and Ban
 
 `id` (linked to Supabase Auth user), `market_id`, `display_name`, `age_adult_confirmed`, `language`, `unit_preference`, `cuisine_preferences`, `dietary_exclusions`, `declared_allergens`, `general_goal`, `household_size`, `budget_amount`, `budget_currency`, `budget_people`, `budget_duration_days`, `available_time_minutes`, `available_equipment`, `created_at`, `updated_at`.
 
-Use fictional adult demo users. Do not collect date of birth, diagnosis, blood tests or medical records for this prototype. Optional targets must be labeled as user-entered, not clinically prescribed.
+Authentication relies exclusively on genuine user registration via Supabase Auth with secure password hashing and JWT sessions. All user records reference auth.users(id) with strict Row Level Security (RLS) isolation. Seeded authentication records are completely excluded from production. Optional targets must be labeled as user-entered, not clinically prescribed.
 
 ### `data_sources`
 
@@ -673,7 +675,7 @@ Never display `synthetic_demo` as "live", "real-time", "currently available" or 
 5. Import curated recipes and validate every ingredient reference.
 6. Import synthetic markets, price observations and stock states with `synthetic_demo` mode.
 7. Insert reviewed knowledge documents/chunks and embeddings.
-8. Create fictional demo users through Supabase Auth; link their profiles using trusted server-side setup.
+8. Enable dynamic user registration through real Supabase Auth (no seeded authentication accounts in production database). User profiles are generated automatically via the `handle_new_user()` trigger or server registration workflow.
 9. Run database integrity checks and nutrition/budget fixtures.
 10. Keep a repeatable seed script so the database can be reset to the same demo state.
 

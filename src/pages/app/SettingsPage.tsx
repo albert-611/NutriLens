@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -15,14 +15,55 @@ import {
   Eye,
   EyeOff,
   User,
+  Sliders,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 
 export const SettingsPage: React.FC = () => {
   const { t } = useTranslation();
-  const { user, profile, updatePassword, deleteAccount, isDemoUser } = useAuth();
+  const { user, profile, updateProfile, updatePassword, deleteAccount } = useAuth();
   const { locale, setLocale } = useLocale();
   const navigate = useNavigate();
+
+  // Account Profile Details State
+  const [fullName, setFullName] = useState(
+    profile?.full_name || profile?.display_name || user?.user_metadata?.full_name || ''
+  );
+  const [displayName, setDisplayName] = useState(
+    profile?.display_name || profile?.full_name || ''
+  );
+  const [city, setCity] = useState(profile?.city || 'Dhaka');
+  const [country, setCountry] = useState(profile?.country || 'Bangladesh');
+  const [unitPreference, setUnitPreference] = useState<'metric' | 'imperial'>(
+    (profile?.unit_preference as 'metric' | 'imperial') || 'metric'
+  );
+  const [selectedLocale, setSelectedLocale] = useState<'en' | 'bn'>(
+    (profile?.preferred_language as 'en' | 'bn') || locale || 'en'
+  );
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsSuccess, setDetailsSuccess] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+
+  // Sync state when profile loads
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || profile.display_name || user?.user_metadata?.full_name || '');
+      setDisplayName(profile.display_name || profile.full_name || '');
+      setCity(profile.city || 'Dhaka');
+      setCountry(profile.country || 'Bangladesh');
+      if (profile.unit_preference === 'metric' || profile.unit_preference === 'imperial') {
+        setUnitPreference(profile.unit_preference);
+      }
+      if (profile.preferred_language === 'en' || profile.preferred_language === 'bn') {
+        setSelectedLocale(profile.preferred_language);
+      }
+    } else if (user) {
+      if (user.user_metadata?.full_name && !fullName) {
+        setFullName(user.user_metadata.full_name);
+        setDisplayName(user.user_metadata.full_name);
+      }
+    }
+  }, [profile, user]);
 
   // Password Change State
   const [newPassword, setNewPassword] = useState('');
@@ -37,6 +78,74 @@ export const SettingsPage: React.FC = () => {
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleSaveAccountDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingDetails(true);
+    setDetailsError(null);
+    setDetailsSuccess(false);
+
+    try {
+      const { error } = await updateProfile({
+        full_name: fullName.trim(),
+        display_name: displayName.trim() || fullName.trim(),
+        city: city.trim(),
+        country: country.trim(),
+        unit_preference: unitPreference,
+        preferred_language: selectedLocale,
+        language: selectedLocale,
+      });
+
+      setSavingDetails(false);
+
+      if (error) {
+        setDetailsError(error.message || 'Failed to update settings in database.');
+      } else {
+        setLocale(selectedLocale);
+        setDetailsSuccess(true);
+        setTimeout(() => setDetailsSuccess(false), 3000);
+      }
+    } catch (err: any) {
+      setSavingDetails(false);
+      setDetailsError(err?.message || 'Error updating settings.');
+    }
+  };
+
+  const handleLanguageChange = async (lang: 'en' | 'bn') => {
+    setSelectedLocale(lang);
+    setLocale(lang);
+    try {
+      const { error } = await updateProfile({
+        preferred_language: lang,
+        language: lang,
+      });
+      if (error) {
+        setDetailsError(error.message);
+      } else {
+        setDetailsSuccess(true);
+        setTimeout(() => setDetailsSuccess(false), 2500);
+      }
+    } catch (err: any) {
+      setDetailsError(err?.message || 'Failed to persist language preference to database.');
+    }
+  };
+
+  const handleUnitChange = async (unit: 'metric' | 'imperial') => {
+    setUnitPreference(unit);
+    try {
+      const { error } = await updateProfile({
+        unit_preference: unit,
+      });
+      if (error) {
+        setDetailsError(error.message);
+      } else {
+        setDetailsSuccess(true);
+        setTimeout(() => setDetailsSuccess(false), 2500);
+      }
+    } catch (err: any) {
+      setDetailsError(err?.message || 'Failed to persist unit preference to database.');
+    }
+  };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,50 +241,190 @@ export const SettingsPage: React.FC = () => {
         </p>
       </div>
 
-      {/* 1. Language & Regional Settings */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-4">
+      {/* 1. Account Details & Identity */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-5">
+        <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-forest-border/60">
+          <User className="w-4 h-4 text-emerald-500" />
+          Account & Profile Information
+        </h2>
+
+        {detailsSuccess && (
+          <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2 animate-fadeIn">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>Account settings updated and saved to database!</span>
+          </div>
+        )}
+
+        {detailsError && (
+          <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2 animate-shake">
+            <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span>{detailsError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSaveAccountDetails} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Registered Email
+              </label>
+              <input
+                type="email"
+                disabled
+                value={user?.email || ''}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-forest-border/50 bg-slate-100 dark:bg-forest-root/60 text-xs text-slate-500 dark:text-slate-400 cursor-not-allowed"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">Managed via Supabase Auth</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Albert Smith Bala"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Display Name
+              </label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Albert"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                City / Location
+              </label>
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. Dhaka"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Country
+              </label>
+              <input
+                type="text"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="e.g. Bangladesh"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              loading={savingDetails}
+              disabled={savingDetails}
+            >
+              Save Account Changes
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      {/* 2. Language & Measurement Preferences */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-6">
         <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-forest-border/60">
           <Globe className="w-4 h-4 text-emerald-500" />
           Language & Regional Preferences
         </h2>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Language Selection */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-forest-border/40">
           <div>
             <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
               Active Application Language
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Select whether you prefer English or Bengali (বাংলা) across all pages.
+              Select English or Bengali (বাংলা). Changes sync instantly to your database profile.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setLocale('en')}
+              onClick={() => handleLanguageChange('en')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                locale === 'en'
+                selectedLocale === 'en'
                   ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-slate-100 dark:bg-forest-root text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  : 'bg-slate-100 dark:bg-forest-root text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-forest-border/60'
               }`}
             >
               English
             </button>
             <button
               type="button"
-              onClick={() => setLocale('bn')}
+              onClick={() => handleLanguageChange('bn')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                locale === 'bn'
+                selectedLocale === 'bn'
                   ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-slate-100 dark:bg-forest-root text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  : 'bg-slate-100 dark:bg-forest-root text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-forest-border/60'
               }`}
             >
               বাংলা (Bengali)
             </button>
           </div>
         </div>
+
+        {/* Measurement Units */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              Measurement System
+            </p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Choose Metric (cm, kg) or Imperial (ft/in, lbs). Persists to your database profile.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleUnitChange('metric')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                unitPreference === 'metric'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-forest-root text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-forest-border/60'
+              }`}
+            >
+              Metric (cm / kg)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleUnitChange('imperial')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                unitPreference === 'imperial'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-forest-root text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-forest-border/60'
+              }`}
+            >
+              Imperial (ft / lbs)
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* 2. Change Password */}
+      {/* 3. Change Password */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-4">
         <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-forest-border/60">
           <Lock className="w-4 h-4 text-emerald-500" />
@@ -185,7 +434,7 @@ export const SettingsPage: React.FC = () => {
         {passwordSuccess && (
           <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span>Password updated successfully!</span>
+            <span>Password updated successfully in database!</span>
           </div>
         )}
 
@@ -246,7 +495,7 @@ export const SettingsPage: React.FC = () => {
         </form>
       </div>
 
-      {/* 3. Data Portability / Export */}
+      {/* 4. Data Portability / Export */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-4">
         <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-forest-border/60">
           <Download className="w-4 h-4 text-emerald-500" />
@@ -274,7 +523,7 @@ export const SettingsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Danger Zone: Delete Account */}
+      {/* 5. Danger Zone: Delete Account */}
       <div className="p-6 sm:p-8 rounded-3xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/60 shadow-sm space-y-4">
         <h2 className="text-sm font-bold text-rose-700 dark:text-rose-400 flex items-center gap-2 pb-2 border-b border-rose-200 dark:border-rose-900/60">
           <Trash2 className="w-4 h-4" />

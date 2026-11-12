@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import type {
@@ -22,122 +22,7 @@ import {
   saveOnboardingData,
   deleteUserAccount,
   ensureProfileExists,
-  saveLocalProfile,
-  getLocalProfilesMap,
 } from '../services/authService';
-
-export interface DemoUserOption {
-  id: string;
-  name: string;
-  email: string;
-  roleDescription: string;
-  profile: Profile;
-}
-
-export const DEMO_USERS: DemoUserOption[] = [
-  {
-    id: '00000000-0000-0000-0000-000000000001',
-    name: 'Tariqul Islam',
-    email: 'demo.student@nutrilens.internal',
-    roleDescription: 'Savar Mess Student • Budget ৳150/day',
-    profile: {
-      id: '00000000-0000-0000-0000-000000000001',
-      market_id: '22222222-2222-2222-2222-222222222201',
-      display_name: 'Tariqul Islam',
-      full_name: 'Tariqul Islam',
-      age: 22,
-      country: 'Bangladesh',
-      city: 'Savar',
-      height_unit: 'cm',
-      weight_unit: 'kg',
-      health_data_consent: true,
-      age_adult_confirmed: true,
-      onboarding_completed: true,
-      language: 'bn',
-      preferred_language: 'bn',
-      unit_preference: 'metric',
-      cuisine_preferences: ['bangladeshi'],
-      dietary_exclusions: [],
-      declared_allergens: [],
-      general_goal: 'budget_friendly',
-      household_size: 1,
-      budget_amount: 150,
-      budget_currency: 'BDT',
-      budget_people: 1,
-      budget_duration_days: 1,
-      available_time_minutes: 25,
-      available_equipment: ['stove', 'pan', 'pot', 'knife'],
-    },
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000002',
-    name: 'Nasima Akter',
-    email: 'demo.family@nutrilens.internal',
-    roleDescription: 'Ashulia Garments Supervisor • Family of 3 • Budget ৳350/day',
-    profile: {
-      id: '00000000-0000-0000-0000-000000000002',
-      market_id: '22222222-2222-2222-2222-222222222202',
-      display_name: 'Nasima Akter',
-      full_name: 'Nasima Akter',
-      age: 34,
-      country: 'Bangladesh',
-      city: 'Ashulia',
-      height_unit: 'cm',
-      weight_unit: 'kg',
-      health_data_consent: true,
-      age_adult_confirmed: true,
-      onboarding_completed: true,
-      language: 'bn',
-      preferred_language: 'bn',
-      unit_preference: 'metric',
-      cuisine_preferences: ['bangladeshi'],
-      dietary_exclusions: [],
-      declared_allergens: [],
-      general_goal: 'balanced_wellness',
-      household_size: 3,
-      budget_amount: 350,
-      budget_currency: 'BDT',
-      budget_people: 3,
-      budget_duration_days: 1,
-      available_time_minutes: 40,
-      available_equipment: ['stove', 'pan', 'pot', 'knife'],
-    },
-  },
-  {
-    id: '00000000-0000-0000-0000-000000000003',
-    name: 'Tanvir Ahmed',
-    email: 'demo.fitness@nutrilens.internal',
-    roleDescription: 'IT Professional (Savar) • High Protein Goal',
-    profile: {
-      id: '00000000-0000-0000-0000-000000000003',
-      market_id: '22222222-2222-2222-2222-222222222201',
-      display_name: 'Tanvir Ahmed',
-      full_name: 'Tanvir Ahmed',
-      age: 28,
-      country: 'Bangladesh',
-      city: 'Savar',
-      height_unit: 'cm',
-      weight_unit: 'kg',
-      health_data_consent: true,
-      age_adult_confirmed: true,
-      onboarding_completed: true,
-      language: 'en',
-      preferred_language: 'en',
-      unit_preference: 'metric',
-      cuisine_preferences: ['bangladeshi'],
-      dietary_exclusions: [],
-      declared_allergens: [],
-      general_goal: 'high_protein',
-      household_size: 1,
-      budget_amount: 300,
-      budget_currency: 'BDT',
-      budget_people: 1,
-      budget_duration_days: 1,
-      available_time_minutes: 30,
-      available_equipment: ['stove', 'pan', 'pot', 'knife', 'blender'],
-    },
-  },
-];
 
 interface AuthContextType {
   user: User | null;
@@ -148,8 +33,7 @@ interface AuthContextType {
   budgetPreferences: BudgetPreferences | null;
   loading: boolean;
   onboardingCompleted: boolean;
-  isDemoUser: boolean;
-  signIn: (email: string, password?: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null; isNewUser?: boolean }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   setAuthenticatedUser: (user: User, profile: Profile) => void;
@@ -160,8 +44,58 @@ interface AuthContextType {
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
   completeOnboarding: (data: OnboardingData) => Promise<{ error: Error | null }>;
   deleteAccount: () => Promise<{ error: Error | null }>;
-  selectDemoUser: (demoUserId: string) => void;
   refreshUserData: () => Promise<void>;
+}
+
+/**
+ * Builds a valid fallback Profile object for an authenticated user.
+ * Ensures the app and profile views remain functional even before database migrations are run.
+ */
+function buildDefaultProfile(userId: string, email?: string, fullName?: string): Profile {
+  const name = fullName || (email ? email.split('@')[0] : 'NutriLens Member');
+  const uname = email ? email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_') : 'member';
+  return {
+    id: userId,
+    full_name: name,
+    display_name: name,
+    username: uname,
+    age: 24,
+    biological_sex: 'prefer_not_to_say',
+    height_value: 170,
+    height_unit: 'cm',
+    weight_value: 65,
+    weight_unit: 'kg',
+    target_weight_value: null,
+    activity_level: 'moderately_active',
+    exercise_frequency: '3_4_days',
+    sleep_duration: '6_7h',
+    disliked_foods: null,
+    city: 'Dhaka',
+    country: 'Bangladesh',
+    preferred_language: 'bn',
+    language: 'bn',
+    unit_preference: 'metric',
+    general_goal: 'balanced_wellness',
+    household_size: 1,
+    budget_amount: 5000,
+    budget_currency: 'BDT',
+    budget_people: 1,
+    budget_duration_days: 30,
+    available_time_minutes: 30,
+    available_equipment: ['stove', 'pan', 'knife', 'pot'],
+    market_id: null,
+    declared_allergens: [],
+    dietary_exclusions: [],
+    cuisine_preferences: ['bangladeshi'],
+    health_data_consent: true,
+    age_adult_confirmed: true,
+    terms_accepted_at: new Date().toISOString(),
+    terms_version: '1.0',
+    onboarding_completed: true,
+    onboarding_status: 'ONBOARDING_COMPLETED',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -174,10 +108,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [foodRestrictions, setFoodRestrictions] = useState<FoodRestriction[]>([]);
   const [budgetPreferences, setBudgetPreferences] = useState<BudgetPreferences | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isDemoUser, setIsDemoUser] = useState(false);
 
-  const loadUserData = useCallback(async (userId: string) => {
+  // Stable reference to current user to prevent dependency cycle in loadUserData
+  const userRef = useRef<User | null>(null);
+  userRef.current = user;
+
+  const loadUserData = useCallback(async (userId: string, currentUser?: User | null) => {
     try {
+      const effectiveUser = currentUser || userRef.current;
+      const initialProfile = buildDefaultProfile(
+        userId,
+        effectiveUser?.email,
+        effectiveUser?.user_metadata?.full_name
+      );
+
+      // Pre-set profile so views have immediate data while fetching
+      setProfile((prev) => prev || initialProfile);
+
       const [prof, nut, rest, bud] = await Promise.all([
         fetchUserProfile(userId),
         fetchNutritionPreferences(userId),
@@ -187,85 +134,106 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (prof) {
         setProfile(prof);
+      } else {
+        const displayName = effectiveUser?.user_metadata?.full_name || effectiveUser?.email?.split('@')[0];
+        const created = await ensureProfileExists(userId, displayName);
+        if (created) {
+          setProfile(created);
+        }
       }
+
       setNutritionPreferences(nut);
       setFoodRestrictions(rest);
       setBudgetPreferences(bud);
     } catch (err) {
-      console.warn('Error loading user data:', err);
+      console.warn('Error loading user profile and preferences:', err);
     }
   }, []);
 
   const refreshUserData = useCallback(async () => {
-    if (user?.id) {
-      await loadUserData(user.id);
+    if (userRef.current?.id) {
+      await loadUserData(userRef.current.id, userRef.current);
     }
-  }, [user?.id, loadUserData]);
+  }, [loadUserData]);
 
   useEffect(() => {
+    let mounted = true;
+
+    // Safety timeout: ensure loading spinner is never stuck for more than 1.5 seconds
+    const safetyTimer = setTimeout(() => {
+      if (mounted) {
+        setLoading(false);
+      }
+    }, 1500);
+
     const initializeAuth = async () => {
-      setLoading(true);
+      if (!isSupabaseConfigured) {
+        if (mounted) setLoading(false);
+        return;
+      }
+
       try {
-        if (isSupabaseConfigured) {
-          const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.warn('Supabase getSession notice:', error);
+        }
+
+        if (mounted) {
           if (data?.session?.user) {
             setSession(data.session);
             setUser(data.session.user);
-            setIsDemoUser(false);
-            await loadUserData(data.session.user.id);
+            userRef.current = data.session.user;
+            setProfile(
+              buildDefaultProfile(
+                data.session.user.id,
+                data.session.user.email,
+                data.session.user.user_metadata?.full_name
+              )
+            );
+            // Complete session check immediately
             setLoading(false);
-            return;
-          }
-        }
-
-        // Check active local user session
-        const activeUserId = localStorage.getItem('nutrilens_active_user_id');
-        if (activeUserId) {
-          const prof = await fetchUserProfile(activeUserId);
-          if (prof) {
-            const persistedUser = {
-              id: prof.id,
-              email: (prof as any).email || `${prof.username || 'user'}@nutrilens.internal`,
-              app_metadata: {},
-              user_metadata: {
-                full_name: prof.full_name || prof.display_name,
-                avatar_url: prof.avatar_url || null,
-              },
-              aud: 'authenticated',
-              created_at: prof.created_at || new Date().toISOString(),
-            } as unknown as User;
-
-            setUser(persistedUser);
-            setProfile(prof);
-            setIsDemoUser(false);
-            await loadUserData(activeUserId);
+            // Fetch remote data in background
+            loadUserData(data.session.user.id, data.session.user);
+          } else {
+            setSession(null);
+            setUser(null);
+            userRef.current = null;
+            setProfile(null);
             setLoading(false);
-            return;
           }
-        }
-
-        // Check if demo user was saved
-        const savedDemoId = localStorage.getItem('nutrilens_active_demo_user');
-        if (savedDemoId) {
-          const demo = DEMO_USERS.find((d) => d.id === savedDemoId) || DEMO_USERS[0];
-          setDemoUserSession(demo);
         }
       } catch (err) {
-        console.warn('Auth initialization fallback:', err);
+        console.warn('Auth initialization error:', err);
+        if (mounted) setLoading(false);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     initializeAuth();
 
+    let authSubscription: { unsubscribe: () => void } | null = null;
+
     if (isSupabaseConfigured) {
-      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+        if (!mounted) return;
+
         setSession(newSession);
         setUser(newSession?.user ?? null);
+        userRef.current = newSession?.user ?? null;
+        setLoading(false);
+
         if (newSession?.user) {
-          setIsDemoUser(false);
-          await loadUserData(newSession.user.id);
+          setProfile(
+            buildDefaultProfile(
+              newSession.user.id,
+              newSession.user.email,
+              newSession.user.user_metadata?.full_name
+            )
+          );
+          loadUserData(newSession.user.id, newSession.user);
         } else {
           setProfile(null);
           setNutritionPreferences(null);
@@ -273,46 +241,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setBudgetPreferences(null);
         }
       });
-
-      return () => {
-        authListener.subscription.unsubscribe();
-      };
+      authSubscription = authListener.subscription;
     }
+
+    return () => {
+      mounted = false;
+      clearTimeout(safetyTimer);
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
+    };
   }, [loadUserData]);
 
-  const setDemoUserSession = (demo: DemoUserOption) => {
-    const map = getLocalProfilesMap();
-    const activeProfile: Profile = map[demo.id] || demo.profile;
-
-    const mockUser = {
-      id: demo.id,
-      email: demo.email,
-      app_metadata: {},
-      user_metadata: {
-        full_name: activeProfile.full_name || demo.name,
-        avatar_url: activeProfile.avatar_url || null,
-      },
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-    } as unknown as User;
-
-    setUser(mockUser);
-    setProfile(activeProfile);
-    setIsDemoUser(true);
-    localStorage.setItem('nutrilens_active_demo_user', demo.id);
-    saveLocalProfile(activeProfile);
-  };
-
-  const selectDemoUser = (demoUserId: string) => {
-    const demo = DEMO_USERS.find((d) => d.id === demoUserId) || DEMO_USERS[0];
-    setDemoUserSession(demo);
-  };
-
-  const signIn = async (email: string, password?: string) => {
+  const signIn = async (email: string, password: string) => {
     if (!password) {
-      const match = DEMO_USERS.find((d) => d.email.toLowerCase() === email.toLowerCase()) || DEMO_USERS[0];
-      setDemoUserSession(match);
-      return { error: null };
+      return { error: new Error('Password is required for authentication.') };
     }
 
     const { data, error } = await signInUser(email, password);
@@ -320,10 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (data?.user) {
       setUser(data.user);
-      setSession(data.session);
-      setIsDemoUser(false);
-      localStorage.removeItem('nutrilens_active_demo_user');
-      localStorage.setItem('nutrilens_active_user_id', data.user.id);
+      setSession(data.session || null);
       await loadUserData(data.user.id);
     }
     return { error: null };
@@ -341,10 +281,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (data?.user) {
       setUser(data.user);
       setSession(data.session || null);
-      setIsDemoUser(false);
-      localStorage.removeItem('nutrilens_active_demo_user');
-      localStorage.setItem('nutrilens_active_user_id', data.user.id);
-
       const prof = await fetchUserProfile(data.user.id);
       if (prof) {
         setProfile(prof);
@@ -370,9 +306,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setAuthenticatedUser = (authUser: User, authProfile: Profile) => {
     setUser(authUser);
     setProfile(authProfile);
-    setIsDemoUser(false);
-    localStorage.removeItem('nutrilens_active_demo_user');
-    localStorage.setItem('nutrilens_active_user_id', authUser.id);
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -381,11 +314,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (data?.user) {
       setUser(data.user);
-      setSession(data.session);
-      setIsDemoUser(false);
-      localStorage.removeItem('nutrilens_active_demo_user');
-      localStorage.setItem('nutrilens_active_user_id', data.user.id);
-      // Create initial local profile
+      setSession(data.session || null);
       const prof = await ensureProfileExists(data.user.id, fullName);
       if (prof) setProfile(prof);
     }
@@ -393,8 +322,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    if (isSupabaseConfigured && !isDemoUser) {
-      await supabase.auth.signOut();
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Sign out notice:', err);
+      }
     }
     setUser(null);
     setProfile(null);
@@ -402,9 +335,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setNutritionPreferences(null);
     setFoodRestrictions([]);
     setBudgetPreferences(null);
-    setIsDemoUser(false);
-    localStorage.removeItem('nutrilens_active_demo_user');
-    localStorage.removeItem('nutrilens_active_user_id');
   };
 
   const resetPasswordForEmail = async (email: string) => {
@@ -418,66 +348,138 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
-    if (!profile) return { error: new Error('No active profile.') };
-    const updated: Profile = {
-      ...profile,
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
-    setProfile(updated);
-    saveLocalProfile(updated);
+    const activeUserId = profile?.id || user?.id;
+    if (!activeUserId) {
+      return { error: new Error('No authenticated user session found. Please sign in again.') };
+    }
 
-    // Synchronize user metadata in local auth state
+    const currentProfile: Profile = profile || buildDefaultProfile(
+      activeUserId,
+      user?.email,
+      user?.user_metadata?.full_name
+    );
+
+    const allowedColumns = [
+      'full_name', 'display_name', 'username', 'avatar_url', 'age', 'biological_sex',
+      'height_value', 'height_unit', 'weight_value', 'weight_unit', 'target_weight_value',
+      'activity_level', 'exercise_frequency', 'sleep_duration', 'disliked_foods',
+      'city', 'country', 'preferred_language', 'language', 'unit_preference',
+      'general_goal', 'household_size', 'budget_amount', 'budget_currency', 'budget_people',
+      'budget_duration_days', 'available_time_minutes', 'available_equipment',
+      'market_id', 'declared_allergens', 'dietary_exclusions', 'cuisine_preferences',
+      'health_data_consent', 'health_data_consent_at', 'terms_accepted_at', 'terms_version',
+      'onboarding_completed', 'onboarding_status', 'updated_at'
+    ];
+
+    const dbUpdates: Record<string, any> = {
+      id: activeUserId,
+    };
+    for (const key of Object.keys(updates)) {
+      if (allowedColumns.includes(key)) {
+        const val = (updates as any)[key];
+        dbUpdates[key] = val === undefined ? null : val;
+      }
+    }
+
+    // Sanitize values to strictly adhere to PostgreSQL table check constraints
+    if (dbUpdates.activity_level) {
+      const s = String(dbUpdates.activity_level).toLowerCase();
+      if (s.includes('sedentary')) dbUpdates.activity_level = 'sedentary';
+      else if (s.includes('light')) dbUpdates.activity_level = 'lightly_active';
+      else if (s.includes('extreme')) dbUpdates.activity_level = 'extremely_active';
+      else if (s.includes('very')) dbUpdates.activity_level = 'very_active';
+      else dbUpdates.activity_level = 'moderately_active';
+    }
+    if (dbUpdates.exercise_frequency) {
+      const s = String(dbUpdates.exercise_frequency).toLowerCase();
+      if (s.includes('never')) dbUpdates.exercise_frequency = 'never';
+      else if (s.includes('1') && s.includes('2')) dbUpdates.exercise_frequency = '1_2_days';
+      else if (s.includes('3') && s.includes('4')) dbUpdates.exercise_frequency = '3_4_days';
+      else if (s.includes('5') && s.includes('6')) dbUpdates.exercise_frequency = '5_6_days';
+      else if (s.includes('every') || s.includes('daily')) dbUpdates.exercise_frequency = 'every_day';
+      else dbUpdates.exercise_frequency = '3_4_days';
+    }
+    if (dbUpdates.sleep_duration) {
+      const s = String(dbUpdates.sleep_duration).toLowerCase();
+      if (s.includes('less') || s.includes('<')) dbUpdates.sleep_duration = 'less_than_4h';
+      else if (s.includes('4') && s.includes('5')) dbUpdates.sleep_duration = '4_5h';
+      else if (s.includes('6') && s.includes('7')) dbUpdates.sleep_duration = '6_7h';
+      else if (s.includes('8') && s.includes('9')) dbUpdates.sleep_duration = '8_9h';
+      else if (s.includes('more') || s.includes('>')) dbUpdates.sleep_duration = 'more_than_9h';
+      else dbUpdates.sleep_duration = '6_7h';
+    }
+    if (dbUpdates.biological_sex) {
+      const s = String(dbUpdates.biological_sex).toLowerCase();
+      if (s.includes('female')) dbUpdates.biological_sex = 'female';
+      else if (s.includes('male')) dbUpdates.biological_sex = 'male';
+      else dbUpdates.biological_sex = 'prefer_not_to_say';
+    }
+    if (dbUpdates.general_goal) {
+      const s = String(dbUpdates.general_goal).toLowerCase();
+      if (s.includes('protein') || s.includes('muscle')) dbUpdates.general_goal = 'high_protein';
+      else if (s.includes('budget') || s.includes('expense')) dbUpdates.general_goal = 'budget_friendly';
+      else if (s.includes('diabet') || s.includes('sugar')) dbUpdates.general_goal = 'diabetic_friendly_lifestyle';
+      else if (s.includes('heart') || s.includes('pressure')) dbUpdates.general_goal = 'heart_conscious';
+      else dbUpdates.general_goal = 'balanced_wellness';
+    }
+    if (dbUpdates.height_unit) {
+      dbUpdates.height_unit = String(dbUpdates.height_unit).toLowerCase().includes('ft') ? 'ft_in' : 'cm';
+    }
+    if (dbUpdates.weight_unit) {
+      dbUpdates.weight_unit = String(dbUpdates.weight_unit).toLowerCase().includes('lb') ? 'lbs' : 'kg';
+    }
+
+    dbUpdates.updated_at = new Date().toISOString();
+
+    if (isSupabaseConfigured) {
+      try {
+        // If market_id was supplied, verify it actually exists in markets table to avoid foreign key errors
+        if (dbUpdates.market_id) {
+          const { data: mkt } = await supabase.from('markets').select('id').eq('id', dbUpdates.market_id).maybeSingle();
+          if (!mkt) {
+            dbUpdates.market_id = null;
+          }
+        }
+
+        const { error } = await supabase.from('profiles').upsert(dbUpdates, { onConflict: 'id' });
+        if (error) {
+          console.error('Supabase profile upsert error:', error);
+          if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+            return {
+              error: new Error(
+                "Database tables do not exist in Supabase yet. Please run 'supabase/combined_migrations_for_sql_editor.sql' in your Supabase SQL Editor."
+              ),
+            };
+          }
+          return { error: new Error(error.message) };
+        }
+      } catch (err: any) {
+        console.error('Supabase profile update exception:', err);
+        return { error: err instanceof Error ? err : new Error(String(err)) };
+      }
+    }
+
+    const updatedProfile: Profile = {
+      ...currentProfile,
+      ...updates,
+      id: activeUserId,
+      updated_at: dbUpdates.updated_at,
+    };
+    setProfile(updatedProfile);
+
+    // Update user metadata in local React state
     if (user) {
       const updatedUser: User = {
         ...user,
         user_metadata: {
           ...user.user_metadata,
-          full_name: updated.full_name || updated.display_name,
-          avatar_url: updated.avatar_url || null,
+          full_name: updatedProfile.full_name || updatedProfile.display_name,
+          avatar_url: updatedProfile.avatar_url || null,
         },
       };
       setUser(updatedUser);
     }
 
-    // If active demo persona, sync in-memory reference
-    if (isDemoUser) {
-      const match = DEMO_USERS.find((d) => d.id === updated.id);
-      if (match) {
-        match.profile = { ...match.profile, ...updated };
-      }
-    }
-
-    if (isSupabaseConfigured && !isDemoUser) {
-      try {
-        const allowedColumns = [
-          'full_name', 'display_name', 'username', 'avatar_url', 'age', 'biological_sex',
-          'height_value', 'height_unit', 'weight_value', 'weight_unit', 'target_weight_value',
-          'activity_level', 'exercise_frequency', 'sleep_duration', 'disliked_foods',
-          'city', 'country', 'preferred_language', 'language', 'unit_preference',
-          'general_goal', 'household_size', 'budget_amount', 'budget_currency', 'budget_people',
-          'budget_duration_days', 'available_time_minutes', 'available_equipment',
-          'market_id', 'declared_allergens', 'dietary_exclusions', 'cuisine_preferences',
-          'health_data_consent', 'health_data_consent_at', 'terms_accepted_at', 'terms_version',
-          'onboarding_completed', 'onboarding_status', 'updated_at'
-        ];
-        const dbUpdates: Record<string, any> = {};
-        for (const key of Object.keys(updates)) {
-          if (allowedColumns.includes(key)) {
-            const val = (updates as any)[key];
-            dbUpdates[key] = val === undefined ? null : val;
-          }
-        }
-        dbUpdates.updated_at = new Date().toISOString();
-
-        const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', profile.id);
-        if (error) {
-          console.warn('Supabase profile update warning:', error);
-        }
-      } catch (err: any) {
-        console.warn('Supabase profile update exception:', err);
-      }
-    }
     return { error: null };
   };
 
@@ -486,60 +488,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { error } = await saveOnboardingData(user.id, data);
     if (error) return { error };
-
-    // Update local state and profile with onboarding_completed: true
-    const currentProfile = profile || (await fetchUserProfile(user.id));
-    const baseProfile: Profile = currentProfile || {
-      id: user.id,
-      market_id: data.marketId || '22222222-2222-2222-2222-222222222201',
-      username: 'member',
-      display_name: data.fullName,
-      full_name: data.fullName,
-      age: data.age,
-      country: data.country,
-      city: data.city,
-      height_unit: 'cm',
-      weight_unit: 'kg',
-      health_data_consent: true,
-      age_adult_confirmed: true,
-      onboarding_completed: true,
-      language: data.preferredLanguage,
-      preferred_language: data.preferredLanguage,
-      unit_preference: 'metric',
-      cuisine_preferences: ['bangladeshi'],
-      dietary_exclusions: [],
-      declared_allergens: [],
-      general_goal: 'balanced_wellness',
-      household_size: data.peopleCount,
-      budget_amount: data.budgetAmount,
-      budget_currency: data.currency,
-      budget_people: data.peopleCount,
-      budget_duration_days: 1,
-      available_time_minutes: 30,
-      available_equipment: ['stove', 'pan', 'pot', 'knife'],
-    };
-
-    const updatedProfile: Profile = {
-      ...baseProfile,
-      full_name: data.fullName,
-      display_name: data.fullName,
-      age: data.age,
-      country: data.country,
-      city: data.city,
-      preferred_language: data.preferredLanguage,
-      language: data.preferredLanguage,
-      market_id: data.marketId || baseProfile.market_id,
-      budget_amount: data.budgetAmount,
-      budget_currency: data.currency,
-      household_size: data.peopleCount,
-      age_adult_confirmed: true,
-      onboarding_completed: true,
-      updated_at: new Date().toISOString(),
-    };
-
-    setProfile(updatedProfile);
-    saveLocalProfile(updatedProfile);
-    localStorage.setItem('nutrilens_active_user_id', user.id);
 
     await loadUserData(user.id);
     return { error: null };
@@ -553,9 +501,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error: null };
   };
 
-  // Derive onboarding completion status: any authenticated user has completed onboarding
+  // Derive onboarding completion status from verified profile
   const onboardingCompleted = Boolean(
-    user || profile?.onboarding_completed || isDemoUser
+    profile?.onboarding_completed || profile?.onboarding_status === 'ONBOARDING_COMPLETED'
   );
 
   return (
@@ -569,7 +517,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         budgetPreferences,
         loading,
         onboardingCompleted,
-        isDemoUser,
         signIn,
         signInWithGoogle,
         signUp,
@@ -581,7 +528,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateProfile,
         completeOnboarding,
         deleteAccount,
-        selectDemoUser,
         refreshUserData,
       }}
     >

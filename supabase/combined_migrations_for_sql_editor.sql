@@ -1,4 +1,4 @@
-﻿
+
 -- ==================================================================
 -- MIGRATION: 20261108000001_create_extensions_and_enums.sql
 -- ==================================================================
@@ -588,4 +588,572 @@ CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+
+
+-- ==================================================================
+-- MIGRATION: 20261110000010_create_auth_and_user_personalization_tables.sql
+-- ==================================================================
+-- NutriLens Database Migration
+-- 20261110000010_create_auth_and_user_personalization_tables.sql
+-- Implements Phase 3: Authentication, Profiles, Nutrition Preferences, Food Restrictions, and Budget Preferences with RLS.
+
+-- 1. Enhance profiles table with additional personalization columns
+ALTER TABLE profiles
+    ADD COLUMN IF NOT EXISTS full_name TEXT,
+    ADD COLUMN IF NOT EXISTS age INTEGER CHECK (age IS NULL OR age >= 18),
+    ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT 'Bangladesh',
+    ADD COLUMN IF NOT EXISTS city TEXT NOT NULL DEFAULT 'Dhaka',
+    ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) NOT NULL DEFAULT 'bn',
+    ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT false;
+
+-- Sync full_name with display_name if full_name is null
+UPDATE profiles SET full_name = display_name WHERE full_name IS NULL AND display_name IS NOT NULL;
+UPDATE profiles SET display_name = full_name WHERE display_name IS NULL AND full_name IS NOT NULL;
+
+-- 2. User Nutrition Preferences Table
+CREATE TABLE IF NOT EXISTS user_nutrition_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    primary_goal TEXT NOT NULL DEFAULT 'balanced_wellness' CHECK (primary_goal IN (
+        'balanced_wellness',
+        'improve_overall_nutrition',
+        'increase_protein',
+        'improve_dietary_variety',
+        'manage_food_expenses',
+        'build_healthier_habits',
+        'budget_friendly',
+        'high_protein',
+        'diabetic_friendly_lifestyle',
+        'heart_conscious'
+    )),
+    secondary_goals TEXT[] DEFAULT ARRAY[]::TEXT[],
+    dietary_pattern TEXT DEFAULT 'no_preference' CHECK (dietary_pattern IN (
+        'no_preference',
+        'vegetarian',
+        'vegan',
+        'pescatarian',
+        'halal',
+        'other'
+    )),
+    preferred_cuisine TEXT DEFAULT 'bangladeshi',
+    favorite_food_categories TEXT[] DEFAULT ARRAY[]::TEXT[],
+    foods_to_avoid TEXT[] DEFAULT ARRAY[]::TEXT[],
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT uq_user_nutrition_preferences_user_id UNIQUE (user_id)
+);
+
+-- 3. User Food Restrictions Table
+CREATE TABLE IF NOT EXISTS user_food_restrictions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    restriction_type TEXT NOT NULL CHECK (restriction_type IN (
+        'allergy',
+        'intolerance',
+        'religious_exclusion',
+        'ingredient_avoidance'
+    )),
+    restriction_value TEXT NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Index on user_id for faster retrieval
+CREATE INDEX IF NOT EXISTS idx_user_food_restrictions_user_id ON user_food_restrictions(user_id);
+
+-- 4. User Budget Preferences Table
+CREATE TABLE IF NOT EXISTS user_budget_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    market_id UUID REFERENCES markets(id) ON DELETE SET NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'BDT',
+    budget_amount NUMERIC(10,2) NOT NULL DEFAULT 150.00 CHECK (budget_amount >= 0),
+    budget_period TEXT NOT NULL DEFAULT 'daily' CHECK (budget_period IN ('daily', 'weekly', 'monthly')),
+    people_count INTEGER NOT NULL DEFAULT 1 CHECK (people_count > 0),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT uq_user_budget_preferences_user_id UNIQUE (user_id)
+);
+
+-- 5. Enable Row Level Security (RLS) on all user personalization tables
+ALTER TABLE user_nutrition_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_food_restrictions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_budget_preferences ENABLE ROW LEVEL SECURITY;
+
+-- 6. Strict Tenant Isolation Policies based on auth.uid()
+-- user_nutrition_preferences
+DO $$
+BEGIN
+    CREATE POLICY "Users can read own nutrition preferences" ON user_nutrition_preferences
+        FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+    CREATE POLICY "Users can insert own nutrition preferences" ON user_nutrition_preferences
+        FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can update own nutrition preferences" ON user_nutrition_preferences
+        FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can delete own nutrition preferences" ON user_nutrition_preferences
+        FOR DELETE TO authenticated USING (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- user_food_restrictions
+DO $$
+BEGIN
+    CREATE POLICY "Users can read own food restrictions" ON user_food_restrictions
+        FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+    CREATE POLICY "Users can insert own food restrictions" ON user_food_restrictions
+        FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can update own food restrictions" ON user_food_restrictions
+        FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can delete own food restrictions" ON user_food_restrictions
+        FOR DELETE TO authenticated USING (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- user_budget_preferences
+DO $$
+BEGIN
+    CREATE POLICY "Users can read own budget preferences" ON user_budget_preferences
+        FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+    CREATE POLICY "Users can insert own budget preferences" ON user_budget_preferences
+        FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can update own budget preferences" ON user_budget_preferences
+        FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can delete own budget preferences" ON user_budget_preferences
+        FOR DELETE TO authenticated USING (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- 7. Trigger Function to automatically create profile on auth.users sign up
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+DECLARE
+    default_market_id UUID;
+BEGIN
+    -- Select first active market (e.g. Savar) as default if available
+    SELECT id INTO default_market_id FROM public.markets LIMIT 1;
+
+    INSERT INTO public.profiles (
+        id,
+        display_name,
+        full_name,
+        age_adult_confirmed,
+        country,
+        city,
+        preferred_language,
+        market_id,
+        onboarding_completed
+    ) VALUES (
+        new.id,
+        COALESCE(new.raw_user_meta_data->>'full_name', 'NutriLens Member'),
+        COALESCE(new.raw_user_meta_data->>'full_name', 'NutriLens Member'),
+        true,
+        'Bangladesh',
+        'Dhaka',
+        'bn',
+        default_market_id,
+        false
+    )
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO public.user_nutrition_preferences (
+        user_id,
+        primary_goal,
+        dietary_pattern,
+        preferred_cuisine
+    ) VALUES (
+        new.id,
+        'balanced_wellness',
+        'no_preference',
+        'bangladeshi'
+    )
+    ON CONFLICT (user_id) DO NOTHING;
+
+    INSERT INTO public.user_budget_preferences (
+        user_id,
+        market_id,
+        currency,
+        budget_amount,
+        budget_period,
+        people_count
+    ) VALUES (
+        new.id,
+        default_market_id,
+        'BDT',
+        150.00,
+        'daily',
+        1
+    )
+    ON CONFLICT (user_id) DO NOTHING;
+
+    RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Recreate trigger on auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 8. RPC Function to allow authenticated user to delete their own account and all data
+CREATE OR REPLACE FUNCTION public.delete_user_account()
+RETURNS void AS $$
+DECLARE
+    v_user_id UUID;
+BEGIN
+    v_user_id := auth.uid();
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    -- Deleting the profile cascades to meal_logs, meal_items, preferences, restrictions
+    DELETE FROM public.profiles WHERE id = v_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+
+-- ==================================================================
+-- MIGRATION: 20261111000011_create_nutrition_profile_tables.sql
+-- ==================================================================
+-- NutriLens Database Migration
+-- 20261111000011_create_nutrition_profile_tables.sql
+-- Implements the comprehensive NutriLens User Signup & Nutrition Profile Specification.
+
+-- 1. Enhance profiles table with anthropometric, lifestyle, and consent columns
+ALTER TABLE profiles
+    ADD COLUMN IF NOT EXISTS username TEXT UNIQUE,
+    ADD COLUMN IF NOT EXISTS biological_sex TEXT CHECK (biological_sex IS NULL OR biological_sex IN ('male', 'female', 'prefer_not_to_say')),
+    ADD COLUMN IF NOT EXISTS height_value NUMERIC(6,2) CHECK (height_value IS NULL OR height_value > 0),
+    ADD COLUMN IF NOT EXISTS height_unit TEXT DEFAULT 'cm' CHECK (height_unit IN ('cm', 'ft_in')),
+    ADD COLUMN IF NOT EXISTS weight_value NUMERIC(6,2) CHECK (weight_value IS NULL OR weight_value > 0),
+    ADD COLUMN IF NOT EXISTS weight_unit TEXT DEFAULT 'kg' CHECK (weight_unit IN ('kg', 'lbs')),
+    ADD COLUMN IF NOT EXISTS target_weight_value NUMERIC(6,2) CHECK (target_weight_value IS NULL OR target_weight_value > 0),
+    ADD COLUMN IF NOT EXISTS activity_level TEXT CHECK (activity_level IS NULL OR activity_level IN (
+        'sedentary', 'lightly_active', 'moderately_active', 'very_active', 'extremely_active'
+    )),
+    ADD COLUMN IF NOT EXISTS exercise_frequency TEXT CHECK (exercise_frequency IS NULL OR exercise_frequency IN (
+        'never', '1_2_days', '3_4_days', '5_6_days', 'every_day'
+    )),
+    ADD COLUMN IF NOT EXISTS sleep_duration TEXT CHECK (sleep_duration IS NULL OR sleep_duration IN (
+        'less_than_4h', '4_5h', '6_7h', '8_9h', 'more_than_9h'
+    )),
+    ADD COLUMN IF NOT EXISTS disliked_foods TEXT,
+    ADD COLUMN IF NOT EXISTS health_data_consent BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS health_data_consent_at TIMESTAMPTZ;
+
+-- Index for username lookups
+CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
+
+-- 2. Medical Conditions Table
+CREATE TABLE IF NOT EXISTS user_medical_conditions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    condition_name TEXT NOT NULL,
+    condition_specify TEXT,
+    diabetes_type TEXT CHECK (diabetes_type IS NULL OR diabetes_type IN (
+        'type_1', 'type_2', 'gestational', 'prediabetes', 'other', 'not_sure'
+    )),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_medical_conditions_user_id ON user_medical_conditions(user_id);
+
+-- 3. Food Allergies Table (Strictly separate from intolerances)
+CREATE TABLE IF NOT EXISTS user_food_allergies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    allergy_name TEXT NOT NULL,
+    allergy_specify TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_food_allergies_user_id ON user_food_allergies(user_id);
+
+-- 4. Food Intolerances Table (Strictly separate from allergies)
+CREATE TABLE IF NOT EXISTS user_food_intolerances (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    intolerance_name TEXT NOT NULL,
+    intolerance_specify TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_food_intolerances_user_id ON user_food_intolerances(user_id);
+
+-- 5. Dietary Preferences & Restrictions Detailed Table
+CREATE TABLE IF NOT EXISTS user_dietary_preferences_detailed (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    preference_type TEXT NOT NULL CHECK (preference_type IN (
+        'dietary_preference',
+        'food_restriction',
+        'religious_cultural'
+    )),
+    preference_name TEXT NOT NULL,
+    preference_specify TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_dietary_preferences_detailed_user_id ON user_dietary_preferences_detailed(user_id);
+
+-- 6. Nutritional Goals Detailed Table
+CREATE TABLE IF NOT EXISTS user_nutritional_goals_detailed (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    goal_type TEXT NOT NULL CHECK (goal_type IN ('primary', 'secondary')),
+    goal_name TEXT NOT NULL,
+    goal_specify TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_nutritional_goals_detailed_user_id ON user_nutritional_goals_detailed(user_id);
+
+-- 7. Enable Row Level Security (RLS) on all new tables
+ALTER TABLE user_medical_conditions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_food_allergies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_food_intolerances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_dietary_preferences_detailed ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_nutritional_goals_detailed ENABLE ROW LEVEL SECURITY;
+
+-- 8. Strict Tenant Isolation Policies based on auth.uid()
+-- user_medical_conditions
+DO $$
+BEGIN
+    CREATE POLICY "Users can read own medical conditions" ON user_medical_conditions
+        FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+    CREATE POLICY "Users can insert own medical conditions" ON user_medical_conditions
+        FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can update own medical conditions" ON user_medical_conditions
+        FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can delete own medical conditions" ON user_medical_conditions
+        FOR DELETE TO authenticated USING (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- user_food_allergies
+DO $$
+BEGIN
+    CREATE POLICY "Users can read own food allergies" ON user_food_allergies
+        FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+    CREATE POLICY "Users can insert own food allergies" ON user_food_allergies
+        FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can update own food allergies" ON user_food_allergies
+        FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can delete own food allergies" ON user_food_allergies
+        FOR DELETE TO authenticated USING (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- user_food_intolerances
+DO $$
+BEGIN
+    CREATE POLICY "Users can read own food intolerances" ON user_food_intolerances
+        FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+    CREATE POLICY "Users can insert own food intolerances" ON user_food_intolerances
+        FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can update own food intolerances" ON user_food_intolerances
+        FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can delete own food intolerances" ON user_food_intolerances
+        FOR DELETE TO authenticated USING (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- user_dietary_preferences_detailed
+DO $$
+BEGIN
+    CREATE POLICY "Users can read own dietary preferences detailed" ON user_dietary_preferences_detailed
+        FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+    CREATE POLICY "Users can insert own dietary preferences detailed" ON user_dietary_preferences_detailed
+        FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can update own dietary preferences detailed" ON user_dietary_preferences_detailed
+        FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can delete own dietary preferences detailed" ON user_dietary_preferences_detailed
+        FOR DELETE TO authenticated USING (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- user_nutritional_goals_detailed
+DO $$
+BEGIN
+    CREATE POLICY "Users can read own nutritional goals detailed" ON user_nutritional_goals_detailed
+        FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+    CREATE POLICY "Users can insert own nutritional goals detailed" ON user_nutritional_goals_detailed
+        FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can update own nutritional goals detailed" ON user_nutritional_goals_detailed
+        FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+    CREATE POLICY "Users can delete own nutritional goals detailed" ON user_nutritional_goals_detailed
+        FOR DELETE TO authenticated USING (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- 9. Helper Function to check username availability
+CREATE OR REPLACE FUNCTION public.check_username_available(p_username TEXT)
+RETURNS boolean AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM public.profiles WHERE LOWER(username) = LOWER(p_username)) THEN
+        RETURN false;
+    END IF;
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+
+-- ==================================================================
+-- MIGRATION: 20261111000012_add_profile_avatar_and_terms.sql
+-- ==================================================================
+-- NutriLens Database Migration
+-- 20261111000012_add_profile_avatar_and_terms.sql
+-- Adds profile photo (avatar_url), terms acceptance tracking, and onboarding status columns.
+
+ALTER TABLE profiles
+    ADD COLUMN IF NOT EXISTS avatar_url TEXT,
+    ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS terms_version TEXT DEFAULT '1.0',
+    ADD COLUMN IF NOT EXISTS onboarding_status TEXT DEFAULT 'ONBOARDING_COMPLETED' CHECK (onboarding_status IN ('ONBOARDING_REQUIRED', 'ONBOARDING_COMPLETED'));
+
+-- Create storage bucket for avatars if it doesn't exist
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage policies for user avatars
+DROP POLICY IF EXISTS "Avatar images are publicly accessible" ON storage.objects;
+CREATE POLICY "Avatar images are publicly accessible"
+    ON storage.objects FOR SELECT
+    USING (bucket_id = 'avatars');
+
+DROP POLICY IF EXISTS "Users can upload their own avatar" ON storage.objects;
+CREATE POLICY "Users can upload their own avatar"
+    ON storage.objects FOR INSERT
+    WITH CHECK (
+        bucket_id = 'avatars' 
+        AND auth.uid()::text = (storage.foldername(name))[1]
+    );
+
+DROP POLICY IF EXISTS "Users can update their own avatar" ON storage.objects;
+CREATE POLICY "Users can update their own avatar"
+    ON storage.objects FOR UPDATE
+    USING (
+        bucket_id = 'avatars' 
+        AND auth.uid()::text = (storage.foldername(name))[1]
+    );
+
+DROP POLICY IF EXISTS "Users can delete their own avatar" ON storage.objects;
+CREATE POLICY "Users can delete their own avatar"
+    ON storage.objects FOR DELETE
+    USING (
+        bucket_id = 'avatars' 
+        AND auth.uid()::text = (storage.foldername(name))[1]
+    );
+
+
+
+-- ==================================================================
+-- MIGRATION: 20261112000013_remove_seeded_auth_accounts_and_harden_rls.sql
+-- ==================================================================
+-- NutriLens Database Migration
+-- 20261112000013_remove_seeded_auth_accounts_and_harden_rls.sql
+-- Eliminates seeded demo authentication accounts, drops demo provisioning helpers,
+-- and verifies Row Level Security (RLS) enforcement across all user-specific tables.
+
+-- 1. Safely clean up hardcoded demo user profiles (preserving all legitimate user accounts)
+DELETE FROM public.profiles 
+WHERE id IN (
+    '00000000-0000-0000-0000-000000000001'::uuid,
+    '00000000-0000-0000-0000-000000000002'::uuid,
+    '00000000-0000-0000-0000-000000000003'::uuid
+);
+
+-- Clean up from auth.users if running in an environment with direct auth schema access
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'users') THEN
+        DELETE FROM auth.users WHERE id IN (
+            '00000000-0000-0000-0000-000000000001'::uuid,
+            '00000000-0000-0000-0000-000000000002'::uuid,
+            '00000000-0000-0000-0000-000000000003'::uuid
+        );
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL; -- Ignore if running under restricted non-superuser role
+END $$;
+
+-- 2. Drop legacy demo provisioning helper function
+DROP FUNCTION IF EXISTS public.provision_demo_profile(UUID, TEXT, TEXT, UUID, VARCHAR, TEXT, INTEGER, NUMERIC, INTEGER, TEXT[], TEXT[]);
+
+-- 3. Ensure Row Level Security (RLS) is ENABLED on every user-isolated table
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_nutrition_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_food_restrictions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_budget_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_medical_conditions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_food_allergies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_food_intolerances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_dietary_preferences_detailed ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_nutritional_goals_detailed ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meal_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meal_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meal_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meal_plans ENABLE ROW LEVEL SECURITY;
+
+-- 4. Re-assert strict tenant isolation policies using auth.uid()
+-- Profiles: Users can only read/update/insert their own profile
+DO $$
+BEGIN
+    DROP POLICY IF EXISTS "Users can read own profile" ON profiles;
+    CREATE POLICY "Users can read own profile" ON profiles
+        FOR SELECT TO authenticated
+        USING (auth.uid() = id);
+
+    DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+    CREATE POLICY "Users can update own profile" ON profiles
+        FOR UPDATE TO authenticated
+        USING (auth.uid() = id)
+        WITH CHECK (auth.uid() = id);
+
+    DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+    CREATE POLICY "Users can insert own profile" ON profiles
+        FOR INSERT TO authenticated
+        WITH CHECK (auth.uid() = id);
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- 5. RPC function for secure account self-deletion (GDPR / Right to be Forgotten)
+CREATE OR REPLACE FUNCTION public.delete_user_account()
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM public.profiles WHERE id = auth.uid();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 

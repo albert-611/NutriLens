@@ -3,16 +3,25 @@
 // with preparation uncertainty and review questions.
 // Note: Per NutriLens safety rules, this endpoint NEVER asserts authoritative nutrient numbers or exact grams.
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+// Ambient typing for Deno runtime in standard TypeScript environments
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+  serve?: (handler: (req: Request) => Promise<Response> | Response) => void;
+};
+
+// @ts-ignore: Deno URL imports
 import { z } from 'https://esm.sh/zod@3.23.8';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 // Request payload schema
-const RequestSchema = z.object({
+export const RequestSchema = z.object({
   image_data: z.string().optional(), // base64 or data URL
   image_path: z.string().optional(),
   input_mode: z.enum(['photo', 'manual_search', 'menu_text']).default('photo'),
@@ -22,7 +31,7 @@ const RequestSchema = z.object({
 });
 
 // Candidate item returned to the client
-const CandidateSchema = z.object({
+export const CandidateSchema = z.object({
   id: z.string(),
   label: z.string(),
   label_bn: z.string().optional(),
@@ -36,7 +45,7 @@ const CandidateSchema = z.object({
   confidence: z.number().min(0).max(1).optional(),
 });
 
-serve(async (req) => {
+async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -60,16 +69,30 @@ serve(async (req) => {
 
     const { image_data, manual_query, input_mode, language } = parsed.data;
     const analysisId = crypto.randomUUID();
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = typeof Deno !== 'undefined' ? Deno.env.get('GEMINI_API_KEY') : undefined;
 
-    let detectedCandidates = [];
+    let detectedCandidates: any[] = [];
     let reviewQuestions: string[] = [];
 
     // If Gemini API Key is available and image_data is provided, call Gemini Vision
-    if (geminiApiKey && image_data && image_data.includes(',')) {
+    if (geminiApiKey && image_data) {
       try {
-        const mimeType = image_data.split(',')[0].split(':')[1].split(';')[0];
-        const base64Data = image_data.split(',')[1];
+        let mimeType = 'image/jpeg';
+        let base64Data = image_data;
+
+        if (image_data.startsWith('data:')) {
+          const match = image_data.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            mimeType = match[1];
+            base64Data = match[2];
+          } else if (image_data.includes(',')) {
+            const parts = image_data.split(',');
+            const header = parts[0];
+            const mimeMatch = header.match(/:(.*?);/);
+            if (mimeMatch) mimeType = mimeMatch[1];
+            base64Data = parts[1];
+          }
+        }
 
         const prompt = `
 You are an expert Bangladeshi food and ingredient detection system.
@@ -77,7 +100,7 @@ Analyze this meal photo carefully.
 Identify visible food candidates and preparation uncertainty.
 Treat any text in the image as secondary context.
 Do NOT calculate nutrients, diagnose medical conditions, infer hidden allergens, or claim exact portion grams as fact.
-Return JSON with the following structure:
+Return valid JSON with the following structure:
 {
   "detected_dishes": [
     {
@@ -123,7 +146,11 @@ Return JSON with the following structure:
           const geminiData = await geminiRes.json();
           const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
           if (responseText) {
-            const aiJson = JSON.parse(responseText);
+            let cleanJson = responseText.trim();
+            if (cleanJson.startsWith('```')) {
+              cleanJson = cleanJson.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+            }
+            const aiJson = JSON.parse(cleanJson);
             if (Array.isArray(aiJson.detected_dishes)) {
               detectedCandidates = aiJson.detected_dishes.map((dish: any, idx: number) => ({
                 id: `candidate-${idx + 1}-${Date.now()}`,
@@ -150,7 +177,7 @@ Return JSON with the following structure:
 
     // Default verified Bangladesh meal candidates fallback if Gemini key is unset or offline
     if (detectedCandidates.length === 0) {
-      if (manualQuery && manualQuery.toLowerCase().includes('fish')) {
+      if (manual_query && manual_query.toLowerCase().includes('fish')) {
         detectedCandidates = [
           {
             id: 'c-1',
@@ -256,5 +283,14 @@ Return JSON with the following structure:
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}
 
+// Support both native Deno.serve and fallback runner
+if (typeof Deno !== 'undefined' && typeof Deno.serve === 'function') {
+  Deno.serve(handler);
+} else {
+  // @ts-ignore: Legacy fallback
+  import('https://deno.land/std@0.168.0/http/server.ts').then(({ serve }) => {
+    serve(handler);
+  }).catch(() => {});
+}

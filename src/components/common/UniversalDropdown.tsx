@@ -189,7 +189,15 @@ export const UniversalDropdown: React.FC<UniversalDropdownProps> = ({
   // Find label for single selected option
   const singleSelectedOption = React.useMemo(() => {
     if (multiple) return null;
-    return normalizedOptions.find((o) => o.value === value);
+    return (
+      normalizedOptions.find((o) => o.value === value) ||
+      normalizedOptions.find((o) => o.value.toLowerCase() === String(value || '').toLowerCase()) ||
+      normalizedOptions.find(
+        (o) =>
+          o.label.toLowerCase().includes(String(value || '').toLowerCase()) ||
+          String(value || '').toLowerCase().includes(o.value.toLowerCase())
+      )
+    );
   }, [multiple, normalizedOptions, value]);
 
   return (
@@ -318,7 +326,9 @@ export const UniversalDropdown: React.FC<UniversalDropdownProps> = ({
               </div>
             ) : (
               filteredOptions.map((opt, idx) => {
-                const isSelected = selectedList.includes(opt.value);
+                const isSelected =
+                  selectedList.includes(opt.value) ||
+                  selectedList.some((s) => s.toLowerCase() === opt.value.toLowerCase());
                 const isFocused = focusedIndex === idx;
 
                 return (

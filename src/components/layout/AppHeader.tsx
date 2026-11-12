@@ -2,7 +2,6 @@ import React from 'react';
 import { Menu } from 'lucide-react';
 import { LangToggle } from '../common/LangToggle';
 import { ThemeToggle } from '../common/ThemeToggle';
-import { DemoUserSelector } from '../common/DemoUserSelector';
 import { NavbarAvatarMenu } from './NavbarAvatarMenu';
 
 interface AppHeaderProps {
@@ -31,9 +30,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onMobileMenuToggle }) => {
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Quick Demo Persona Switcher */}
-        <DemoUserSelector />
-
         {/* Global Theme & Language Toggles */}
         <ThemeToggle />
         <LangToggle />
@@ -44,4 +40,3 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ onMobileMenuToggle }) => {
     </header>
   );
 };
-

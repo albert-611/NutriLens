@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, Settings, LogOut, ChevronDown, ShieldCheck } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const NavbarAvatarMenu: React.FC = () => {
-  const { user, profile, signOut, isDemoUser } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
@@ -42,12 +42,12 @@ export const NavbarAvatarMenu: React.FC = () => {
   const handleLogout = async () => {
     setIsOpen(false);
     await signOut();
-    navigate('/');
+    navigate('/login');
   };
 
   // Compute display name and initials
   const displayName = profile?.full_name || profile?.display_name || user?.user_metadata?.full_name || 'NutriLens Member';
-  const email = user?.email || (profile as any)?.email || 'member@nutrilens.internal';
+  const email = user?.email || (profile as any)?.email || '';
   const photoUrl = profile?.avatar_url || (user?.user_metadata as any)?.avatar_url || (user?.user_metadata as any)?.picture;
 
   const [imgError, setImgError] = useState(false);
@@ -126,11 +126,8 @@ export const NavbarAvatarMenu: React.FC = () => {
               <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
                 {displayName}
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{email}</p>
-              {isDemoUser && (
-                <span className="mt-1 inline-block text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded">
-                  Demo Persona
-                </span>
+              {email && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{email}</p>
               )}
             </div>
           </div>
@@ -175,11 +172,10 @@ export const NavbarAvatarMenu: React.FC = () => {
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
           >
             <LogOut className="w-4 h-4 shrink-0" />
-            <span>{isDemoUser ? 'Exit Demo Session' : 'Logout'}</span>
+            <span>Logout</span>
           </button>
         </div>
       )}
     </div>
   );
 };
-

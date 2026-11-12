@@ -41,6 +41,7 @@ import {
   registerComprehensiveAccount,
 } from '../../services/registrationService';
 import { useAuth } from '../../context/AuthContext';
+import { isSupabaseConfigured } from '../../lib/supabaseClient';
 import {
   ArrowLeft,
   ArrowRight,
@@ -350,6 +351,8 @@ export const RegisterPage: React.FC = () => {
 
       if (!result.success) {
         setGeneralError(result.error || 'Failed to complete registration.');
+      } else if (result.emailConfirmationRequired) {
+        navigate('/login?registered=pending_confirmation', { replace: true });
       } else {
         if (result.user && result.profile) {
           setAuthenticatedUser(result.user, result.profile);
