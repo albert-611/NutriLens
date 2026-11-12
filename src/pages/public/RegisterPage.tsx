@@ -40,6 +40,7 @@ import {
   checkUsernameAvailable,
   registerComprehensiveAccount,
 } from '../../services/registrationService';
+import { compressImageToDataUrl } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { isSupabaseConfigured } from '../../lib/supabaseClient';
 import {
@@ -73,6 +74,7 @@ export const RegisterPage: React.FC = () => {
 
   // Profile photo state (Optional)
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   // Terms confirmation modals
   const [showTermsConfirmation, setShowTermsConfirmation] = useState(false);
@@ -311,9 +313,19 @@ export const RegisterPage: React.FC = () => {
         specify: i.includes('Other') ? intoleranceSpecify : undefined,
       }));
 
+      // Compress avatar photo if user picked a photo file
+      let finalAvatarData = profilePhotoUrl;
+      if (photoFile) {
+        try {
+          finalAvatarData = await compressImageToDataUrl(photoFile);
+        } catch {
+          finalAvatarData = profilePhotoUrl;
+        }
+      }
+
       const signupData = {
         fullName: fullName.trim(),
-        avatarUrl: profilePhotoUrl,
+        avatarUrl: finalAvatarData,
         age: age || 24,
         biologicalSex: biologicalSex as any,
         heightValue: heightValue || null,
@@ -346,7 +358,7 @@ export const RegisterPage: React.FC = () => {
         termsConsent,
       };
 
-      const result = await registerComprehensiveAccount(signupData);
+      const result = await registerComprehensiveAccount(signupData, photoFile);
       setLoading(false);
 
       if (!result.success) {
@@ -460,8 +472,14 @@ export const RegisterPage: React.FC = () => {
                   <div className="sm:col-span-2 flex justify-center pb-2">
                     <ProfilePhotoUploader
                       currentPhotoUrl={profilePhotoUrl}
-                      onPhotoSelected={(_file, url) => setProfilePhotoUrl(url)}
-                      onPhotoRemoved={() => setProfilePhotoUrl(null)}
+                      onPhotoSelected={(file, url) => {
+                        setPhotoFile(file);
+                        setProfilePhotoUrl(url);
+                      }}
+                      onPhotoRemoved={() => {
+                        setPhotoFile(null);
+                        setProfilePhotoUrl(null);
+                      }}
                       label="Profile Photo (Optional)"
                     />
                   </div>

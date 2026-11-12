@@ -117,7 +117,7 @@ export async function signInWithGoogle(): Promise<
  * Compresses an image file to a lightweight data URL (max 256x256, JPEG 80%).
  * Ensures payload stays < 50KB to safely store or preview without quota errors.
  */
-function compressImageToDataUrl(file: File, maxDim = 256, quality = 0.8): Promise<string> {
+export function compressImageToDataUrl(file: File, maxDim = 256, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {

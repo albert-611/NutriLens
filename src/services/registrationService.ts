@@ -3,7 +3,11 @@ import type {
   ComprehensiveSignupData,
   Profile,
 } from '../contracts';
-import { ensureProfileExists } from './authService';
+import {
+  ensureProfileExists,
+  saveFullNutritionProfile,
+  uploadProfilePhoto,
+} from './authService';
 
 export interface RegistrationResult {
   success: boolean;
@@ -48,7 +52,8 @@ export async function checkUsernameAvailable(username: string): Promise<boolean>
  * Registers an account with Supabase Auth and persists the full nutrition profile in PostgreSQL.
  */
 export async function registerComprehensiveAccount(
-  data: ComprehensiveSignupData
+  data: ComprehensiveSignupData,
+  photoFile?: File | null
 ): Promise<RegistrationResult> {
   if (!isSupabaseConfigured) {
     return {
@@ -91,39 +96,6 @@ export async function registerComprehensiveAccount(
   }
 
   try {
-    // 1. Create Supabase Auth User
-    const { data: authData, error: authErr } = await supabase.auth.signUp({
-      email: cleanEmail,
-      password: data.password,
-      options: {
-        data: {
-          full_name: data.fullName.trim(),
-          username: usernameClean,
-        },
-        emailRedirectTo: `${window.location.origin}/login`,
-      },
-    });
-
-    if (authErr) {
-      return { success: false, error: authErr.message };
-    }
-
-    if (!authData.user) {
-      return { success: false, error: 'User registration failed to create an account.' };
-    }
-
-    const createdUser = authData.user;
-    const userId = createdUser.id;
-
-    // Check if email confirmation is required (user has no session yet)
-    const emailConfirmationRequired = !authData.session && !createdUser.confirmed_at;
-
-    // Ensure base profile exists in PostgreSQL
-    await ensureProfileExists(userId, data.fullName.trim());
-
-    // 2. Update Profiles table with full anthropometric and lifestyle data
-    const nowIso = new Date().toISOString();
-
     let safeSex = 'prefer_not_to_say';
     const sexLower = String(data.biologicalSex || '').toLowerCase();
     if (sexLower.includes('female')) safeSex = 'female';
@@ -162,229 +134,115 @@ export async function registerComprehensiveAccount(
     const safeHeightUnit = String(data.heightUnit || '').toLowerCase().includes('ft') ? 'ft_in' : 'cm';
     const safeWeightUnit = String(data.weightUnit || '').toLowerCase().includes('lb') ? 'lbs' : 'kg';
 
-    const profileUpdates: Record<string, any> = {
-      username: usernameClean,
-      full_name: data.fullName.trim(),
-      display_name: data.fullName.trim(),
-      age: data.age,
-      biological_sex: safeSex,
-      height_value: data.heightValue || null,
-      height_unit: safeHeightUnit,
-      weight_value: data.weightValue || null,
-      weight_unit: safeWeightUnit,
-      target_weight_value: data.targetWeightValue || null,
-      activity_level: safeActivity,
-      exercise_frequency: safeFreq,
-      sleep_duration: safeSleep,
-      disliked_foods: data.dislikedFoods || null,
-      general_goal: safeGoal,
-      budget_amount: 150,
-      budget_duration_days: 1,
-      household_size: 1,
-      declared_allergens: data.allergies?.filter((a) => a.name !== 'None').map((a) => a.name) || [],
-      dietary_exclusions: data.foodRestrictions?.filter((r) => r !== 'None') || [],
-      health_data_consent: data.healthDataConsent,
-      health_data_consent_at: data.healthDataConsent ? nowIso : null,
-      terms_accepted_at: nowIso,
-      terms_version: '1.0',
-      onboarding_status: 'ONBOARDING_COMPLETED',
-      avatar_url: data.avatarUrl || null,
-      onboarding_completed: true,
-      updated_at: nowIso,
-    };
+    // 1. Create Supabase Auth User with full metadata
+    const { data: authData, error: authErr } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password: data.password,
+      options: {
+        data: {
+          full_name: data.fullName.trim(),
+          display_name: data.fullName.trim(),
+          username: usernameClean,
+          avatar_url: data.avatarUrl || null,
+          age: data.age,
+          biological_sex: safeSex,
+          height_value: data.heightValue || null,
+          height_unit: safeHeightUnit,
+          weight_value: data.weightValue || null,
+          weight_unit: safeWeightUnit,
+          target_weight_value: data.targetWeightValue || null,
+          activity_level: safeActivity,
+          exercise_frequency: safeFreq,
+          sleep_duration: safeSleep,
+          disliked_foods: data.dislikedFoods || null,
+          general_goal: safeGoal,
+        },
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
+    });
 
-    const { error: profileUpdateErr } = await supabase
-      .from('profiles')
-      .update(profileUpdates)
-      .eq('id', userId);
-
-    if (profileUpdateErr) {
-      console.warn('Profile update notice:', profileUpdateErr);
+    if (authErr) {
+      return { success: false, error: authErr.message };
     }
 
-    // 3. Persist Medical Conditions if consented/provided
-    if (data.medicalConditions && data.medicalConditions.length > 0) {
-      const medicalRows = data.medicalConditions
-        .filter((c) => c.name && c.name !== 'None')
-        .map((c) => {
-          let diabetesCode: string | null = null;
-          if (c.diabetesType) {
-            const dLower = String(c.diabetesType).toLowerCase();
-            if (dLower.includes('type 1') || dLower.includes('type_1')) diabetesCode = 'type_1';
-            else if (dLower.includes('type 2') || dLower.includes('type_2')) diabetesCode = 'type_2';
-            else if (dLower.includes('gest')) diabetesCode = 'gestational';
-            else if (dLower.includes('prediabet')) diabetesCode = 'prediabetes';
-            else if (dLower.includes('other')) diabetesCode = 'other';
-            else diabetesCode = 'not_sure';
-          }
-          return {
-            user_id: userId,
-            condition_name: c.name,
-            condition_specify: c.specify || null,
-            diabetes_type: c.name.toLowerCase().includes('diabetes') ? diabetesCode : null,
-          };
-        });
-
-      if (medicalRows.length > 0) {
-        await supabase.from('user_medical_conditions').insert(medicalRows);
-      }
+    if (!authData.user) {
+      return { success: false, error: 'User registration failed to create an account.' };
     }
 
-    // 4. Persist Food Allergies (Strictly separated from intolerances)
-    if (data.allergies && data.allergies.length > 0) {
-      const allergyRows = data.allergies
-        .filter((a) => a.name !== 'None')
-        .map((a) => ({
-          user_id: userId,
-          allergy_name: a.name,
-          allergy_specify: a.specify || null,
-        }));
+    const createdUser = authData.user;
+    const userId = createdUser.id;
+    const emailConfirmationRequired = !authData.session && !createdUser.confirmed_at;
 
-      if (allergyRows.length > 0) {
-        await supabase.from('user_food_allergies').insert(allergyRows);
-      }
-    }
-
-    // 5. Persist Food Intolerances (Strictly separated from allergies)
-    if (data.intolerances && data.intolerances.length > 0) {
-      const intoleranceRows = data.intolerances
-        .filter((i) => i.name !== 'None')
-        .map((i) => ({
-          user_id: userId,
-          intolerance_name: i.name,
-          intolerance_specify: i.specify || null,
-        }));
-
-      if (intoleranceRows.length > 0) {
-        await supabase.from('user_food_intolerances').insert(intoleranceRows);
-      }
-    }
-
-    // 6. Persist Detailed Dietary Preferences
-    const prefRows: any[] = [];
-    if (data.dietaryPreference) {
-      prefRows.push({
-        user_id: userId,
-        preference_type: 'dietary_preference',
-        preference_name: data.dietaryPreference,
-        preference_specify: data.dietaryPreferenceSpecify || null,
-      });
-    }
-
-    if (data.foodRestrictions && data.foodRestrictions.length > 0) {
-      data.foodRestrictions
-        .filter((r) => r !== 'None')
-        .forEach((r) => {
-          prefRows.push({
-            user_id: userId,
-            preference_type: 'food_restriction',
-            preference_name: r,
-            preference_specify: r === 'Other' ? data.foodRestrictionsSpecify : null,
-          });
-        });
-    }
-
-    if (data.religiousRestrictions && data.religiousRestrictions.length > 0) {
-      data.religiousRestrictions
-        .filter((r) => r !== 'None' && r !== 'Prefer not to say')
-        .forEach((r) => {
-          prefRows.push({
-            user_id: userId,
-            preference_type: 'religious_cultural',
-            preference_name: r,
-            preference_specify: r === 'Other' ? data.religiousRestrictionsSpecify : null,
-          });
-        });
-    }
-
-    if (prefRows.length > 0) {
-      await supabase.from('user_dietary_preferences_detailed').insert(prefRows);
-    }
-
-    // 7. Persist Detailed Nutritional Goals
-    const goalRows: any[] = [];
-    if (data.primaryGoal) {
-      goalRows.push({
-        user_id: userId,
-        goal_type: 'primary',
-        goal_name: data.primaryGoal,
-        goal_specify: data.primaryGoalSpecify || null,
-      });
-    }
-
-    if (data.secondaryGoals && data.secondaryGoals.length > 0) {
-      data.secondaryGoals.forEach((g) => {
-        goalRows.push({
-          user_id: userId,
-          goal_type: 'secondary',
-          goal_name: g,
-          goal_specify: g === 'Other' ? data.secondaryGoalsSpecify : null,
-        });
-      });
-    }
-
-    if (goalRows.length > 0) {
-      await supabase.from('user_nutritional_goals_detailed').insert(goalRows);
-    }
-
-    // 8. Upsert user_nutrition_preferences and user_budget_preferences
+    // Cache registration preferences in localStorage so it can be restored whenever user logs in
     try {
-      let normalizedPattern = 'no_preference';
-      const patLower = String(data.dietaryPreference || '').toLowerCase();
-      if (patLower.includes('vegetarian') && !patLower.includes('non')) normalizedPattern = 'vegetarian';
-      else if (patLower.includes('vegan')) normalizedPattern = 'vegan';
-      else if (patLower.includes('pescatarian')) normalizedPattern = 'pescatarian';
-      else if (patLower.includes('halal')) normalizedPattern = 'halal';
-
-      await supabase.from('user_nutrition_preferences').upsert({
-        user_id: userId,
-        primary_goal: safeGoal,
-        secondary_goals: data.secondaryGoals || [],
-        dietary_pattern: normalizedPattern,
-        updated_at: nowIso,
-      }, { onConflict: 'user_id' });
-
-      await supabase.from('user_budget_preferences').upsert({
-        user_id: userId,
-        budget_amount: 150,
-        budget_period: 'daily',
-        people_count: 1,
-        currency: 'BDT',
-        updated_at: nowIso,
-      }, { onConflict: 'user_id' });
-
-      // 9. Sync user_food_restrictions for complete legacy compatibility
-      const legacyRestrictions: any[] = [
-        ...(data.allergies || []).filter((a) => a.name && a.name !== 'None').map((a) => ({
-          user_id: userId,
-          restriction_type: 'allergy',
-          restriction_value: a.name,
-          notes: a.specify || null,
-        })),
-        ...(data.intolerances || []).filter((i) => i.name && i.name !== 'None').map((i) => ({
-          user_id: userId,
-          restriction_type: 'intolerance',
-          restriction_value: i.name,
-          notes: i.specify || null,
-        })),
-        ...(data.religiousRestrictions || []).filter((r) => r && r !== 'None' && r !== 'Prefer not to say').map((r) => ({
-          user_id: userId,
-          restriction_type: 'religious_exclusion',
-          restriction_value: r,
-          notes: data.religiousRestrictionsSpecify || null,
-        })),
-        ...(data.foodRestrictions || []).filter((r) => r && r !== 'None').map((r) => ({
-          user_id: userId,
-          restriction_type: 'ingredient_avoidance',
-          restriction_value: r,
-          notes: data.foodRestrictionsSpecify || null,
-        })),
-      ];
-      if (legacyRestrictions.length > 0) {
-        await supabase.from('user_food_restrictions').insert(legacyRestrictions);
-      }
+      localStorage.setItem(`nutrilens_pending_signup_${cleanEmail}`, JSON.stringify({
+        ...data,
+        avatarUrl: data.avatarUrl,
+      }));
     } catch (e) {
-      console.warn('Preferences upsert notice:', e);
+      console.warn('Could not store pending signup in localStorage:', e);
+    }
+
+    let finalAvatarUrl = data.avatarUrl || null;
+
+    // If an active session is returned right away, set it on client and persist everything
+    if (authData.session) {
+      await supabase.auth.setSession(authData.session);
+
+      if (photoFile) {
+        try {
+          const { data: photoData } = await uploadProfilePhoto(userId, photoFile);
+          if (photoData?.url) {
+            finalAvatarUrl = photoData.url;
+            await supabase.auth.updateUser({ data: { avatar_url: photoData.url } });
+          }
+        } catch (photoErr) {
+          console.warn('Signup photo upload notice:', photoErr);
+        }
+      }
+
+      await saveFullNutritionProfile(userId, {
+        fullName: data.fullName.trim(),
+        displayName: data.fullName.trim(),
+        avatarUrl: finalAvatarUrl,
+        username: usernameClean,
+        age: data.age,
+        biologicalSex: safeSex,
+        heightValue: data.heightValue || null,
+        heightUnit: safeHeightUnit,
+        weightValue: data.weightValue || null,
+        weightUnit: safeWeightUnit,
+        targetWeightValue: data.targetWeightValue || null,
+        activityLevel: safeActivity,
+        exerciseFrequency: safeFreq,
+        sleepDuration: safeSleep,
+        dislikedFoods: data.dislikedFoods || null,
+        primaryGoal: data.primaryGoal,
+        primaryGoalSpecify: data.primaryGoalSpecify,
+        secondaryGoals: data.secondaryGoals,
+        secondaryGoalsSpecify: data.secondaryGoalsSpecify,
+        dietaryPreference: data.dietaryPreference,
+        dietaryPreferenceSpecify: data.dietaryPreferenceSpecify,
+        userFoodRestrictions: data.foodRestrictions,
+        foodRestrictionsSpecify: data.foodRestrictionsSpecify,
+        religiousRestrictions: data.religiousRestrictions,
+        religiousRestrictionsSpecify: data.religiousRestrictionsSpecify,
+        medicalConditions: data.medicalConditions?.map((c) => c.name),
+        medicalConditionSpecify: data.medicalConditions?.find((c) => c.specify)?.specify,
+        diabetesType: data.medicalConditions?.find((c) => c.diabetesType)?.diabetesType,
+        allergies: data.allergies?.map((a) => a.name),
+        allergySpecify: data.allergies?.find((a) => a.specify)?.specify,
+        intolerances: data.intolerances?.map((i) => i.name),
+        intoleranceSpecify: data.intolerances?.find((i) => i.specify)?.specify,
+        budgetAmount: 150,
+        budgetPeriod: 'daily',
+        peopleCount: 1,
+      });
+
+      // Clear pending cache since it was saved successfully
+      try {
+        localStorage.removeItem(`nutrilens_pending_signup_${cleanEmail}`);
+      } catch {}
     }
 
     // Fetch the final confirmed profile from Supabase

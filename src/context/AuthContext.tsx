@@ -20,6 +20,7 @@ import {
   fetchFoodRestrictions,
   fetchBudgetPreferences,
   saveOnboardingData,
+  saveFullNutritionProfile,
   deleteUserAccount,
   ensureProfileExists,
 } from '../services/authService';
@@ -125,21 +126,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Pre-set profile so views have immediate data while fetching
       setProfile((prev) => prev || initialProfile);
 
-      const [prof, nut, rest, bud] = await Promise.all([
+      // Check if there are pending signup registration preferences cached in localStorage
+      const userEmail = effectiveUser?.email?.toLowerCase();
+      if (userEmail) {
+        const pendingKey = `nutrilens_pending_signup_${userEmail}`;
+        const pendingRaw = localStorage.getItem(pendingKey);
+        if (pendingRaw) {
+          try {
+            const pending = JSON.parse(pendingRaw);
+            await saveFullNutritionProfile(userId, {
+              fullName: pending.fullName,
+              displayName: pending.fullName,
+              avatarUrl: pending.avatarUrl,
+              username: pending.username,
+              age: pending.age,
+              biologicalSex: pending.biologicalSex,
+              heightValue: pending.heightValue,
+              heightUnit: pending.heightUnit,
+              weightValue: pending.weightValue,
+              weightUnit: pending.weightUnit,
+              targetWeightValue: pending.targetWeightValue,
+              activityLevel: pending.activityLevel,
+              exerciseFrequency: pending.exerciseFrequency,
+              sleepDuration: pending.sleepDuration,
+              dislikedFoods: pending.dislikedFoods,
+              medicalConditions: pending.medicalConditions?.map((c: any) => (typeof c === 'string' ? c : c.name)),
+              medicalConditionSpecify: pending.medicalConditions?.find((c: any) => c.specify)?.specify,
+              diabetesType: pending.medicalConditions?.find((c: any) => c.diabetesType)?.diabetesType,
+              allergies: pending.allergies?.map((a: any) => (typeof a === 'string' ? a : a.name)),
+              allergySpecify: pending.allergies?.find((a: any) => a.specify)?.specify,
+              intolerances: pending.intolerances?.map((i: any) => (typeof i === 'string' ? i : i.name)),
+              intoleranceSpecify: pending.intolerances?.find((i: any) => i.specify)?.specify,
+              dietaryPreference: pending.dietaryPreference,
+              dietaryPreferenceSpecify: pending.dietaryPreferenceSpecify,
+              userFoodRestrictions: pending.foodRestrictions,
+              foodRestrictionsSpecify: pending.foodRestrictionsSpecify,
+              religiousRestrictions: pending.religiousRestrictions,
+              religiousRestrictionsSpecify: pending.religiousRestrictionsSpecify,
+              primaryGoal: pending.primaryGoal,
+              primaryGoalSpecify: pending.primaryGoalSpecify,
+              secondaryGoals: pending.secondaryGoals,
+              secondaryGoalsSpecify: pending.secondaryGoalsSpecify,
+              budgetAmount: 150,
+              budgetPeriod: 'daily',
+              peopleCount: 1,
+            });
+            localStorage.removeItem(pendingKey);
+          } catch (e) {
+            console.warn('Failed to apply pending signup data:', e);
+          }
+        }
+      }
+
+      let [prof, nut, rest, bud] = await Promise.all([
         fetchUserProfile(userId),
         fetchNutritionPreferences(userId),
         fetchFoodRestrictions(userId),
         fetchBudgetPreferences(userId),
       ]);
 
-      if (prof) {
-        setProfile(prof);
-      } else {
+      if (!prof) {
         const displayName = effectiveUser?.user_metadata?.full_name || effectiveUser?.email?.split('@')[0];
-        const created = await ensureProfileExists(userId, displayName);
-        if (created) {
-          setProfile(created);
+        prof = await ensureProfileExists(userId, displayName);
+      }
+
+      if (prof) {
+        // Synchronize missing fields from user_metadata (e.g. avatar_url, full_name, username)
+        let needsUpdate = false;
+        const meta = effectiveUser?.user_metadata;
+        const updates: Partial<Profile> = {};
+
+        const metaAvatar = meta?.avatar_url || (meta as any)?.picture;
+        if (!prof.avatar_url && metaAvatar) {
+          prof.avatar_url = metaAvatar;
+          updates.avatar_url = metaAvatar;
+          needsUpdate = true;
         }
+
+        const metaFullName = meta?.full_name || meta?.display_name;
+        if ((!prof.full_name || prof.full_name === 'NutriLens Member') && metaFullName) {
+          prof.full_name = metaFullName;
+          prof.display_name = metaFullName;
+          updates.full_name = metaFullName;
+          updates.display_name = metaFullName;
+          needsUpdate = true;
+        }
+
+        if (!prof.username && meta?.username) {
+          prof.username = meta.username;
+          updates.username = meta.username;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate && isSupabaseConfigured) {
+          try {
+            await supabase.from('profiles').update(updates).eq('id', userId);
+          } catch (e) {
+            console.warn('Failed to sync metadata to profiles:', e);
+          }
+        }
+
+        setProfile({ ...prof });
       }
 
       setNutritionPreferences(nut);
