@@ -1145,6 +1145,11 @@ BEGIN
     CREATE POLICY "Users can insert own profile" ON profiles
         FOR INSERT TO authenticated
         WITH CHECK (auth.uid() = id);
+
+    DROP POLICY IF EXISTS "Users can delete own profile" ON profiles;
+    CREATE POLICY "Users can delete own profile" ON profiles
+        FOR DELETE TO authenticated
+        USING (auth.uid() = id);
 EXCEPTION
     WHEN OTHERS THEN NULL;
 END $$;
@@ -1174,28 +1179,38 @@ END $$;
 
 -- 6. RPC function for secure account self-deletion (GDPR / Right to be Forgotten)
 -- Permanently deletes all user tables and completely purges auth.users to block re-login
-CREATE OR REPLACE FUNCTION public.delete_user_account()
-RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION public.delete_user_account(target_user_id UUID DEFAULT NULL)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, storage, pg_catalog
+AS $$
 DECLARE
     v_user_id UUID;
     v_email TEXT;
 BEGIN
-    v_user_id := auth.uid();
+    -- Determine target user: either passed explicitly or obtained from active session
+    v_user_id := COALESCE(target_user_id, auth.uid());
     IF v_user_id IS NULL THEN
-        RAISE EXCEPTION 'Not authenticated';
+        RAISE EXCEPTION 'Not authenticated: Cannot identify user to delete.';
+    END IF;
+
+    -- Security safeguard: authenticated users can ONLY delete themselves
+    IF auth.role() = 'authenticated' AND v_user_id != auth.uid() THEN
+        RAISE EXCEPTION 'Access denied: You can only delete your own account.';
     END IF;
 
     -- Retrieve user email for tracking
     SELECT email INTO v_email FROM auth.users WHERE id = v_user_id;
 
-    -- Record in deleted_accounts tracking table
+    -- 1. Record in deleted_accounts tracking table
     IF v_email IS NOT NULL THEN
         INSERT INTO public.deleted_accounts (user_id, email, deleted_at)
         VALUES (v_user_id, LOWER(v_email), now())
         ON CONFLICT (email) DO UPDATE SET deleted_at = now();
     END IF;
 
-    -- Delete all user relational data
+    -- 2. Delete all application data across all 13 tables
     DELETE FROM public.user_medical_conditions WHERE user_id = v_user_id;
     DELETE FROM public.user_food_allergies WHERE user_id = v_user_id;
     DELETE FROM public.user_food_intolerances WHERE user_id = v_user_id;
@@ -1210,12 +1225,32 @@ BEGIN
     DELETE FROM public.meal_plans WHERE user_id = v_user_id;
     DELETE FROM public.profiles WHERE id = v_user_id;
 
-    -- Permanently wipe from Supabase auth.users table
-    DELETE FROM auth.users WHERE id = v_user_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+    -- 3. Delete user files from storage
+    BEGIN
+        DELETE FROM storage.objects 
+        WHERE (bucket_id IN ('avatars', 'meal-images', 'nutrilens-media') AND owner = v_user_id)
+           OR name LIKE v_user_id::text || '/%';
+    EXCEPTION
+        WHEN OTHERS THEN NULL;
+    END;
 
-GRANT EXECUTE ON FUNCTION public.delete_user_account() TO authenticated;
+    -- 4. Clean up auth schema identities, sessions, and permanently purge auth.users
+    DELETE FROM auth.identities WHERE user_id = v_user_id;
+    DELETE FROM auth.sessions WHERE user_id = v_user_id;
+    DELETE FROM auth.mfa_factors WHERE user_id = v_user_id;
+    DELETE FROM auth.users WHERE id = v_user_id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'deleted_user_id', v_user_id,
+        'deleted_email', v_email,
+        'message', 'User account and all data permanently deleted.'
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.delete_user_account(UUID) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.delete_user_account() TO authenticated, anon;
 
 -- 7. Fix and broaden check constraints on profiles table to avoid constraint violation errors
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_activity_level_check;

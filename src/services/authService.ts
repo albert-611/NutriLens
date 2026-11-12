@@ -549,50 +549,111 @@ export async function deleteUserAccount(): Promise<AuthResponse> {
     const { data: userResp } = await supabase.auth.getUser();
     const currentUser = userResp?.user;
 
-    if (currentUser) {
-      const email = currentUser.email?.toLowerCase();
+    if (!currentUser) {
+      return { error: new Error('No active user session found to delete.') };
+    }
 
-      // 1. Record deletion in deleted_accounts tracking table
-      if (email) {
-        try {
-          await supabase.from('deleted_accounts').upsert(
-            {
-              user_id: currentUser.id,
-              email,
-              deleted_at: new Date().toISOString(),
-            },
-            { onConflict: 'email' }
-          );
-        } catch (e) {
-          console.warn('deleted_accounts record notice:', e);
-        }
+    const userId = currentUser.id;
+    const email = currentUser.email?.toLowerCase();
 
-        // Clean up pending signup storage
-        try {
-          localStorage.removeItem(`nutrilens_pending_signup_${email}`);
-        } catch {}
-      }
+    // 1. Direct purge of all application data across all 13 tables
+    try {
+      await Promise.allSettled([
+        supabase.from('user_medical_conditions').delete().eq('user_id', userId),
+        supabase.from('user_food_allergies').delete().eq('user_id', userId),
+        supabase.from('user_food_intolerances').delete().eq('user_id', userId),
+        supabase.from('user_dietary_preferences_detailed').delete().eq('user_id', userId),
+        supabase.from('user_nutritional_goals_detailed').delete().eq('user_id', userId),
+        supabase.from('user_nutrition_preferences').delete().eq('user_id', userId),
+        supabase.from('user_budget_preferences').delete().eq('user_id', userId),
+        supabase.from('user_food_restrictions').delete().eq('user_id', userId),
+        supabase.from('meal_items').delete().eq('user_id', userId),
+        supabase.from('meal_logs').delete().eq('user_id', userId),
+        supabase.from('meal_reports').delete().eq('user_id', userId),
+        supabase.from('meal_plans').delete().eq('user_id', userId),
+        supabase.from('profiles').delete().eq('id', userId),
+      ]);
+    } catch (e) {
+      console.warn('Direct table cleanup notice:', e);
+    }
 
-      // 2. Mark user_metadata as account_deleted
+    // 2. Remove avatar files from storage if any
+    try {
+      await supabase.storage.from('avatars').remove([
+        `${userId}/avatar.png`,
+        `${userId}/avatar.jpg`,
+        `${userId}/avatar.jpeg`,
+        `${userId}/avatar.webp`,
+      ]);
+    } catch {}
+
+    // 3. Record deletion in deleted_accounts tracking table to block re-login
+    if (email) {
       try {
-        await supabase.auth.updateUser({
-          data: {
-            account_deleted: true,
+        await supabase.from('deleted_accounts').upsert(
+          {
+            user_id: userId,
+            email,
             deleted_at: new Date().toISOString(),
           },
-        });
-      } catch (e) {}
+          { onConflict: 'email' }
+        );
+      } catch (e) {
+        console.warn('deleted_accounts record notice:', e);
+      }
 
-      // 3. Call RPC delete_user_account (permanently deletes from profiles and auth.users)
-      const { error: rpcErr } = await supabase.rpc('delete_user_account');
-      if (rpcErr) {
-        console.warn('RPC delete_user_account notice:', rpcErr);
-        // Fallback: delete profile row
-        await supabase.from('profiles').delete().eq('id', currentUser.id);
+      // Clean up pending signup storage
+      try {
+        localStorage.removeItem(`nutrilens_pending_signup_${email}`);
+      } catch {}
+    }
+
+    // 4. Mark user_metadata as account_deleted in auth
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          account_deleted: true,
+          deleted_at: new Date().toISOString(),
+        },
+      });
+    } catch (e) {}
+
+    // 5. Call PostgreSQL RPC delete_user_account to completely purge auth.users
+    let rpcErr: any = null;
+    try {
+      const res1 = await supabase.rpc('delete_user_account', { target_user_id: userId });
+      rpcErr = res1.error;
+    } catch (e1) {
+      rpcErr = e1;
+    }
+
+    if (rpcErr) {
+      try {
+        const res2 = await supabase.rpc('delete_user_account');
+        rpcErr = res2.error;
+      } catch (e2) {
+        rpcErr = e2;
       }
     }
 
-    // 4. Force sign out and clear all sessions and storage
+    if (rpcErr) {
+      console.error('RPC delete_user_account error:', rpcErr);
+      // If the RPC does not exist yet in the database, alert the user with clear instructions
+      if (
+        rpcErr.code === 'PGRST202' ||
+        rpcErr.message?.includes('function public.delete_user_account') ||
+        rpcErr.message?.includes('does not exist')
+      ) {
+        return {
+          error: new Error(
+            "Database function 'delete_user_account' is missing. Please run the migration script in Supabase SQL Editor to enable complete account purge."
+          ),
+        };
+      }
+      return { error: new Error(rpcErr.message || 'Failed to permanently purge user account from database.') };
+    }
+
+    // 6. Force sign out and clear all sessions and storage
     await supabase.auth.signOut();
     try {
       localStorage.clear();
@@ -601,7 +662,7 @@ export async function deleteUserAccount(): Promise<AuthResponse> {
 
     return { data: { success: true } };
   } catch (err: any) {
-    return { error: err };
+    return { error: err instanceof Error ? err : new Error(String(err)) };
   }
 }
 
