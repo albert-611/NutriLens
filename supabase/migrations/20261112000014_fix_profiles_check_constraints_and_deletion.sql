@@ -103,3 +103,4 @@ ALTER TABLE public.profiles ADD CONSTRAINT profiles_biological_sex_check CHECK (
         'Male', 'Female', 'Prefer not to say'
     )
 );
+
