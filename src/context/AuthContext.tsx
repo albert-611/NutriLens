@@ -277,6 +277,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (mounted) {
           if (data?.session?.user) {
+            if (data.session.user.user_metadata?.account_deleted) {
+              await supabase.auth.signOut();
+              setSession(null);
+              setUser(null);
+              userRef.current = null;
+              setProfile(null);
+              setLoading(false);
+              return;
+            }
+
             setSession(data.session);
             setUser(data.session.user);
             userRef.current = data.session.user;
@@ -317,6 +327,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
         if (!mounted) return;
 
+        // Block deleted users immediately from setting user or session state
+        if (newSession?.user?.user_metadata?.account_deleted) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          userRef.current = null;
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
         setSession(newSession);
         setUser(newSession?.user ?? null);
         userRef.current = newSession?.user ?? null;
@@ -356,9 +377,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const { data, error } = await signInUser(email, password);
-    if (error) return { error };
+    if (error) {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      return { error };
+    }
 
     if (data?.user) {
+      if (data.user.user_metadata?.account_deleted) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        return { error: new Error('This email is not registered. Please sign up.') };
+      }
+
       setUser(data.user);
       setSession(data.session || null);
       await loadUserData(data.user.id);

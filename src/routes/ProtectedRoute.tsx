@@ -21,8 +21,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Require both a verified user object and active JWT session from Supabase
-  if (!user || !session) {
+  // Require both a verified user object and active JWT session from Supabase, and not deleted
+  if (!user || !session || user.user_metadata?.account_deleted) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

@@ -69,7 +69,16 @@ export async function signInUser(
 
   const cleanEmail = email.trim().toLowerCase();
 
-  // 1. Verify email has not been recorded as deleted
+  // 1. Instant check via local blacklist (0ms response, stops session setup & flicker)
+  try {
+    if (localStorage.getItem(`nutrilens_deleted_${cleanEmail}`)) {
+      return {
+        error: new Error('This email is not registered. Please sign up.'),
+      };
+    }
+  } catch {}
+
+  // 2. Verify email has not been recorded as deleted in database
   try {
     const { data: delRec } = await supabase
       .from('deleted_accounts')
@@ -78,10 +87,11 @@ export async function signInUser(
       .maybeSingle();
 
     if (delRec) {
+      try {
+        localStorage.setItem(`nutrilens_deleted_${cleanEmail}`, 'true');
+      } catch {}
       return {
-        error: new Error(
-          'This account has been permanently deleted. Please register a new account if you wish to return.'
-        ),
+        error: new Error('This email is not registered. Please sign up.'),
       };
     }
   } catch {}
@@ -92,15 +102,29 @@ export async function signInUser(
       password,
     });
 
-    if (error) return { error };
+    if (error) {
+      const errMsg = (error.message || '').toLowerCase();
+      if (
+        errMsg.includes('invalid login credentials') ||
+        errMsg.includes('email not found') ||
+        errMsg.includes('invalid credentials') ||
+        errMsg.includes('user not found')
+      ) {
+        return {
+          error: new Error('This email is not registered. Please sign up.'),
+        };
+      }
+      return { error };
+    }
 
-    // 2. Reject if auth metadata indicates account was deleted
+    // 3. Reject if auth metadata indicates account was deleted
     if (data?.user?.user_metadata?.account_deleted) {
       await supabase.auth.signOut();
+      try {
+        localStorage.setItem(`nutrilens_deleted_${cleanEmail}`, 'true');
+      } catch {}
       return {
-        error: new Error(
-          'This account has been permanently deleted. Please register a new account if you wish to return.'
-        ),
+        error: new Error('This email is not registered. Please sign up.'),
       };
     }
 
@@ -602,9 +626,10 @@ export async function deleteUserAccount(): Promise<AuthResponse> {
         console.warn('deleted_accounts record notice:', e);
       }
 
-      // Clean up pending signup storage
+      // Clean up pending signup storage and mark local blacklist
       try {
         localStorage.removeItem(`nutrilens_pending_signup_${email}`);
+        localStorage.setItem(`nutrilens_deleted_${email}`, 'true');
       } catch {}
     }
 
@@ -656,8 +681,11 @@ export async function deleteUserAccount(): Promise<AuthResponse> {
     // 6. Force sign out and clear all sessions and storage
     await supabase.auth.signOut();
     try {
-      localStorage.clear();
       sessionStorage.clear();
+      // Keep only the deleted email blacklist in localStorage
+      if (email) {
+        localStorage.setItem(`nutrilens_deleted_${email}`, 'true');
+      }
     } catch {}
 
     return { data: { success: true } };

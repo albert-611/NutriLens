@@ -21,7 +21,8 @@ export const GuestRoute: React.FC<GuestRouteProps> = ({ children }) => {
   }
 
   // Active authenticated sessions should be routed to the application dashboard
-  if (user && session) {
+  // Only redirect if user exists, session is active, and the account is not marked as deleted
+  if (user && session && !user.user_metadata?.account_deleted) {
     return <Navigate to="/app" replace />;
   }
 
