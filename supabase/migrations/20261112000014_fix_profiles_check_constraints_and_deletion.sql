@@ -1,0 +1,105 @@
+-- NutriLens Database Migration
+-- 20261112000014_fix_profiles_check_constraints_and_deletion.sql
+-- Broadens profiles check constraints and secures user deletion
+
+-- 1. Track permanently deleted accounts to prevent re-login
+CREATE TABLE IF NOT EXISTS public.deleted_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID,
+    email TEXT UNIQUE NOT NULL,
+    deleted_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.deleted_accounts ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    DROP POLICY IF EXISTS "Allow public read of deleted_accounts" ON public.deleted_accounts;
+    CREATE POLICY "Allow public read of deleted_accounts" ON public.deleted_accounts
+        FOR SELECT USING (true);
+
+    DROP POLICY IF EXISTS "Allow authenticated insert to deleted_accounts" ON public.deleted_accounts;
+    CREATE POLICY "Allow authenticated insert to deleted_accounts" ON public.deleted_accounts
+        FOR INSERT WITH CHECK (true);
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- 2. RPC function for secure account self-deletion (GDPR / Right to be Forgotten)
+-- Permanently deletes all user tables and completely purges auth.users to block re-login
+CREATE OR REPLACE FUNCTION public.delete_user_account()
+RETURNS VOID AS $$
+DECLARE
+    v_user_id UUID;
+    v_email TEXT;
+BEGIN
+    v_user_id := auth.uid();
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    -- Retrieve user email for tracking
+    SELECT email INTO v_email FROM auth.users WHERE id = v_user_id;
+
+    -- Record in deleted_accounts tracking table
+    IF v_email IS NOT NULL THEN
+        INSERT INTO public.deleted_accounts (user_id, email, deleted_at)
+        VALUES (v_user_id, LOWER(v_email), now())
+        ON CONFLICT (email) DO UPDATE SET deleted_at = now();
+    END IF;
+
+    -- Delete all user relational data
+    DELETE FROM public.user_medical_conditions WHERE user_id = v_user_id;
+    DELETE FROM public.user_food_allergies WHERE user_id = v_user_id;
+    DELETE FROM public.user_food_intolerances WHERE user_id = v_user_id;
+    DELETE FROM public.user_dietary_preferences_detailed WHERE user_id = v_user_id;
+    DELETE FROM public.user_nutritional_goals_detailed WHERE user_id = v_user_id;
+    DELETE FROM public.user_nutrition_preferences WHERE user_id = v_user_id;
+    DELETE FROM public.user_budget_preferences WHERE user_id = v_user_id;
+    DELETE FROM public.user_food_restrictions WHERE user_id = v_user_id;
+    DELETE FROM public.meal_items WHERE user_id = v_user_id;
+    DELETE FROM public.meal_logs WHERE user_id = v_user_id;
+    DELETE FROM public.meal_reports WHERE user_id = v_user_id;
+    DELETE FROM public.meal_plans WHERE user_id = v_user_id;
+    DELETE FROM public.profiles WHERE id = v_user_id;
+
+    -- Permanently wipe from Supabase auth.users table
+    DELETE FROM auth.users WHERE id = v_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.delete_user_account() TO authenticated;
+
+-- 3. Fix and broaden check constraints on profiles table to avoid constraint violation errors
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_activity_level_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_activity_level_check CHECK (
+    activity_level IS NULL OR activity_level IN (
+        'sedentary', 'lightly_active', 'moderately_active', 'very_active', 'extremely_active',
+        'light', 'moderate', 'active', 'extra_active',
+        'Sedentary (little or no exercise)', 'Lightly active', 'Moderately active', 'Very active', 'Extremely active'
+    )
+);
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_exercise_frequency_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_exercise_frequency_check CHECK (
+    exercise_frequency IS NULL OR exercise_frequency IN (
+        'never', '1_2_days', '3_4_days', '5_6_days', 'every_day',
+        'Never', '1–2 days per week', '3–4 days per week', '5–6 days per week', 'Every day'
+    )
+);
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_sleep_duration_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_sleep_duration_check CHECK (
+    sleep_duration IS NULL OR sleep_duration IN (
+        'less_than_4h', '4_5h', '6_7h', '8_9h', 'more_than_9h',
+        'Less than 4 hours', '4–5 hours', '6–7 hours', '8–9 hours', 'More than 9 hours'
+    )
+);
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_biological_sex_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_biological_sex_check CHECK (
+    biological_sex IS NULL OR biological_sex IN (
+        'male', 'female', 'prefer_not_to_say',
+        'Male', 'Female', 'Prefer not to say'
+    )
+);

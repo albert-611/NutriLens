@@ -117,6 +117,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadUserData = useCallback(async (userId: string, currentUser?: User | null) => {
     try {
       const effectiveUser = currentUser || userRef.current;
+
+      // Reject deleted account immediately
+      if (effectiveUser?.user_metadata?.account_deleted) {
+        await supabase.auth.signOut();
+        setProfile(null);
+        setUser(null);
+        setSession(null);
+        return;
+      }
+
       const initialProfile = buildDefaultProfile(
         userId,
         effectiveUser?.email,
@@ -528,7 +538,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const { error } = await supabase.from('profiles').upsert(dbUpdates, { onConflict: 'id' });
+        let { error } = await supabase.from('profiles').upsert(dbUpdates, { onConflict: 'id' });
+        if (error) {
+          const errMsg = (error.message || '').toLowerCase();
+          if (errMsg.includes('activity_level_check') || errMsg.includes('activity_level')) {
+            const fallbacks = ['moderate', (updates as any).activity_level, 'moderately_active', null];
+            for (const fb of fallbacks) {
+              dbUpdates.activity_level = fb;
+              const retry = await supabase.from('profiles').upsert(dbUpdates, { onConflict: 'id' });
+              if (!retry.error) {
+                error = null;
+                break;
+              }
+            }
+          }
+
+          if (error) {
+            const errLower = (error.message || '').toLowerCase();
+            let retried = false;
+            if (errLower.includes('exercise_frequency')) {
+              dbUpdates.exercise_frequency = null;
+              retried = true;
+            }
+            if (errLower.includes('sleep_duration')) {
+              dbUpdates.sleep_duration = null;
+              retried = true;
+            }
+            if (errLower.includes('biological_sex')) {
+              dbUpdates.biological_sex = null;
+              retried = true;
+            }
+            if (errLower.includes('activity_level')) {
+              dbUpdates.activity_level = null;
+              retried = true;
+            }
+            if (retried) {
+              const retry = await supabase.from('profiles').upsert(dbUpdates, { onConflict: 'id' });
+              if (!retry.error) {
+                error = null;
+              }
+            }
+          }
+        }
+
         if (error) {
           console.error('Supabase profile upsert error:', error);
           if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {

@@ -77,7 +77,9 @@ export const LoginPage: React.FC = () => {
       if (signInError) {
         // Map common Supabase error messages to friendly, accurate text
         const msg = signInError.message || '';
-        if (msg.toLowerCase().includes('invalid login credentials')) {
+        if (msg.toLowerCase().includes('permanently deleted') || msg.toLowerCase().includes('deleted account')) {
+          setError('This account was permanently deleted. You cannot log in with a deleted account.');
+        } else if (msg.toLowerCase().includes('invalid login credentials')) {
           setError('Invalid email or password. Unregistered accounts cannot log in.');
         } else if (msg.toLowerCase().includes('email not confirmed')) {
           setError('Email address has not been confirmed. Please check your inbox for the confirmation link.');

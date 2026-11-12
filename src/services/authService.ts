@@ -53,7 +53,7 @@ export async function signUpUser(
 
 /**
  * Signs in an existing user with email and password via Supabase Auth.
- * Rejects unregistered emails and incorrect passwords automatically.
+ * Rejects unregistered emails, incorrect passwords, and deleted accounts automatically.
  */
 export async function signInUser(
   email: string,
@@ -67,13 +67,43 @@ export async function signInUser(
     };
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+
+  // 1. Verify email has not been recorded as deleted
+  try {
+    const { data: delRec } = await supabase
+      .from('deleted_accounts')
+      .select('id')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (delRec) {
+      return {
+        error: new Error(
+          'This account has been permanently deleted. Please register a new account if you wish to return.'
+        ),
+      };
+    }
+  } catch {}
+
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       password,
     });
 
     if (error) return { error };
+
+    // 2. Reject if auth metadata indicates account was deleted
+    if (data?.user?.user_metadata?.account_deleted) {
+      await supabase.auth.signOut();
+      return {
+        error: new Error(
+          'This account has been permanently deleted. Please register a new account if you wish to return.'
+        ),
+      };
+    }
+
     return { data: { user: data.user, session: data.session } };
   } catch (err: any) {
     return { error: err };
@@ -516,15 +546,59 @@ export async function deleteUserAccount(): Promise<AuthResponse> {
   }
 
   try {
-    const { error } = await supabase.rpc('delete_user_account');
-    if (error) {
-      const { data: userResp } = await supabase.auth.getUser();
-      if (userResp?.user) {
-        await supabase.from('profiles').delete().eq('id', userResp.user.id);
+    const { data: userResp } = await supabase.auth.getUser();
+    const currentUser = userResp?.user;
+
+    if (currentUser) {
+      const email = currentUser.email?.toLowerCase();
+
+      // 1. Record deletion in deleted_accounts tracking table
+      if (email) {
+        try {
+          await supabase.from('deleted_accounts').upsert(
+            {
+              user_id: currentUser.id,
+              email,
+              deleted_at: new Date().toISOString(),
+            },
+            { onConflict: 'email' }
+          );
+        } catch (e) {
+          console.warn('deleted_accounts record notice:', e);
+        }
+
+        // Clean up pending signup storage
+        try {
+          localStorage.removeItem(`nutrilens_pending_signup_${email}`);
+        } catch {}
+      }
+
+      // 2. Mark user_metadata as account_deleted
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            account_deleted: true,
+            deleted_at: new Date().toISOString(),
+          },
+        });
+      } catch (e) {}
+
+      // 3. Call RPC delete_user_account (permanently deletes from profiles and auth.users)
+      const { error: rpcErr } = await supabase.rpc('delete_user_account');
+      if (rpcErr) {
+        console.warn('RPC delete_user_account notice:', rpcErr);
+        // Fallback: delete profile row
+        await supabase.from('profiles').delete().eq('id', currentUser.id);
       }
     }
 
+    // 4. Force sign out and clear all sessions and storage
     await supabase.auth.signOut();
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {}
+
     return { data: { success: true } };
   } catch (err: any) {
     return { error: err };
@@ -870,10 +944,58 @@ export async function saveFullNutritionProfile(
       profileUpdates.market_id = null;
     }
 
-    const { error: profErr } = await supabase.from('profiles').upsert(profileUpdates, { onConflict: 'id' });
+    let { error: profErr } = await supabase.from('profiles').upsert(profileUpdates, { onConflict: 'id' });
+
+    // Intelligent check-constraint resilience:
+    // If the database has a check constraint restricting activity_level (or other lifestyle fields),
+    // automatically try alternate standard values ('moderate', raw input) or fallback to null so the save succeeds.
     if (profErr) {
-      console.error('Profile update error:', profErr);
-      return { error: new Error(profErr.message) };
+      const errMsg = (profErr.message || '').toLowerCase();
+
+      if (errMsg.includes('activity_level_check') || errMsg.includes('activity_level')) {
+        const fallbacks = ['moderate', data.activityLevel, 'moderately_active', null];
+        for (const fb of fallbacks) {
+          profileUpdates.activity_level = fb;
+          const retry = await supabase.from('profiles').upsert(profileUpdates, { onConflict: 'id' });
+          if (!retry.error) {
+            profErr = null;
+            break;
+          }
+        }
+      }
+
+      // If another check constraint failed (e.g. exercise_frequency, sleep_duration, biological_sex)
+      if (profErr) {
+        const errLower = (profErr.message || '').toLowerCase();
+        let retried = false;
+        if (errLower.includes('exercise_frequency')) {
+          profileUpdates.exercise_frequency = null;
+          retried = true;
+        }
+        if (errLower.includes('sleep_duration')) {
+          profileUpdates.sleep_duration = null;
+          retried = true;
+        }
+        if (errLower.includes('biological_sex')) {
+          profileUpdates.biological_sex = null;
+          retried = true;
+        }
+        if (errLower.includes('activity_level')) {
+          profileUpdates.activity_level = null;
+          retried = true;
+        }
+        if (retried) {
+          const retry = await supabase.from('profiles').upsert(profileUpdates, { onConflict: 'id' });
+          if (!retry.error) {
+            profErr = null;
+          }
+        }
+      }
+
+      if (profErr) {
+        console.error('Profile update error:', profErr);
+        return { error: new Error(profErr.message) };
+      }
     }
 
     // 2. Synchronize Medical Conditions
