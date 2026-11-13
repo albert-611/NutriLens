@@ -170,8 +170,14 @@ export async function registerComprehensiveAccount(
       },
     });
 
-    // If Supabase reports already registered, try purging prior deleted account and retry once
-    if (authRes.error && authRes.error.message?.toLowerCase().includes('already registered')) {
+    // If Supabase reports already registered (or returns empty identities via email enumeration protection),
+    // attempt to purge prior deleted ghost account and retry once
+    const isPotentiallyExisting = Boolean(
+      (authRes.error && authRes.error.message?.toLowerCase().includes('already registered')) ||
+      (authRes.data?.user?.identities && authRes.data.user.identities.length === 0)
+    );
+
+    if (isPotentiallyExisting) {
       try {
         const { data: wasPurged } = await supabase.rpc('prepare_email_for_registration', { p_email: cleanEmail });
         if (wasPurged) {
@@ -201,7 +207,9 @@ export async function registerComprehensiveAccount(
             },
           });
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Retry signup after purge notice:', err);
+      }
     }
 
     const authData = authRes.data;
@@ -213,6 +221,14 @@ export async function registerComprehensiveAccount(
 
     if (!authData.user) {
       return { success: false, error: 'User registration failed to create an account.' };
+    }
+
+    // If identities is empty even after purge retry, user is an existing active account
+    if (authData.user.identities && authData.user.identities.length === 0) {
+      return {
+        success: false,
+        error: 'This email is already registered with an active account. Please sign in or use Forgot Password.',
+      };
     }
 
     // Successfully created new account: permanently clear any deletion tracking for this email

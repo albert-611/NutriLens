@@ -1186,22 +1186,37 @@ CREATE OR REPLACE FUNCTION public.prepare_email_for_registration(p_email TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth, pg_catalog
+SET search_path = public, auth, storage, pg_catalog
 AS $$
 DECLARE
     v_user_id UUID;
     v_is_deleted BOOLEAN := false;
+    v_in_deleted_table BOOLEAN := false;
+    v_has_profile BOOLEAN := false;
 BEGIN
     p_email := LOWER(TRIM(p_email));
     
-    -- Check if ghost user exists in auth.users with deleted metadata
+    -- Check if email is explicitly listed in deleted_accounts
+    SELECT EXISTS(SELECT 1 FROM public.deleted_accounts WHERE LOWER(email) = p_email)
+    INTO v_in_deleted_table;
+
+    -- Look up user in auth.users
     SELECT id, COALESCE((raw_user_meta_data->>'account_deleted')::boolean, false)
     INTO v_user_id, v_is_deleted
     FROM auth.users
     WHERE LOWER(email) = p_email;
 
-    -- If user exists and is marked deleted, permanently purge them so re-registration succeeds freshly
-    IF v_user_id IS NOT NULL AND v_is_deleted THEN
+    -- Check if active profile exists
+    IF v_user_id IS NOT NULL THEN
+        SELECT EXISTS(SELECT 1 FROM public.profiles WHERE id = v_user_id)
+        INTO v_has_profile;
+    END IF;
+
+    -- Purge if user exists and:
+    -- 1) is in deleted_accounts tracking, OR
+    -- 2) is marked account_deleted, OR
+    -- 3) has no active profile row (orphaned / half-deleted ghost account)
+    IF v_user_id IS NOT NULL AND (v_in_deleted_table OR v_is_deleted OR NOT v_has_profile) THEN
         DELETE FROM public.user_medical_conditions WHERE user_id = v_user_id;
         DELETE FROM public.user_food_allergies WHERE user_id = v_user_id;
         DELETE FROM public.user_food_intolerances WHERE user_id = v_user_id;
@@ -1215,6 +1230,14 @@ BEGIN
         DELETE FROM public.meal_reports WHERE user_id = v_user_id;
         DELETE FROM public.meal_plans WHERE user_id = v_user_id;
         DELETE FROM public.profiles WHERE id = v_user_id;
+
+        BEGIN
+            DELETE FROM storage.objects 
+            WHERE (bucket_id IN ('avatars', 'meal-images', 'nutrilens-media') AND owner = v_user_id)
+               OR name LIKE v_user_id::text || '/%';
+        EXCEPTION
+            WHEN OTHERS THEN NULL;
+        END;
 
         DELETE FROM auth.identities WHERE user_id = v_user_id;
         DELETE FROM auth.sessions WHERE user_id = v_user_id;
