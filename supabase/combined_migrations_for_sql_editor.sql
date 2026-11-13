@@ -1210,7 +1210,7 @@ BEGIN
         DELETE FROM public.user_nutrition_preferences WHERE user_id = v_user_id;
         DELETE FROM public.user_budget_preferences WHERE user_id = v_user_id;
         DELETE FROM public.user_food_restrictions WHERE user_id = v_user_id;
-        DELETE FROM public.meal_items WHERE user_id = v_user_id;
+        DELETE FROM public.meal_items WHERE meal_log_id IN (SELECT id FROM public.meal_logs WHERE user_id = v_user_id);
         DELETE FROM public.meal_logs WHERE user_id = v_user_id;
         DELETE FROM public.meal_reports WHERE user_id = v_user_id;
         DELETE FROM public.meal_plans WHERE user_id = v_user_id;
@@ -1295,7 +1295,7 @@ BEGIN
     DELETE FROM public.user_nutrition_preferences WHERE user_id = v_user_id;
     DELETE FROM public.user_budget_preferences WHERE user_id = v_user_id;
     DELETE FROM public.user_food_restrictions WHERE user_id = v_user_id;
-    DELETE FROM public.meal_items WHERE user_id = v_user_id;
+    DELETE FROM public.meal_items WHERE meal_log_id IN (SELECT id FROM public.meal_logs WHERE user_id = v_user_id);
     DELETE FROM public.meal_logs WHERE user_id = v_user_id;
     DELETE FROM public.meal_reports WHERE user_id = v_user_id;
     DELETE FROM public.meal_plans WHERE user_id = v_user_id;
