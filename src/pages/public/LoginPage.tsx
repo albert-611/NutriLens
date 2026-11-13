@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { useAuth } from '../../context/AuthContext';
 import { isSupabaseConfigured } from '../../lib/supabaseClient';
+import { resendVerificationEmail } from '../../services/authService';
 import { Button } from '../../components/common/Button';
 import { LangToggle } from '../../components/common/LangToggle';
 import { ThemeToggle } from '../../components/common/ThemeToggle';
@@ -26,11 +27,32 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendStatus, setResendStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const rawFrom = (location.state as any)?.from?.pathname;
   const targetDestination = rawFrom && !['/login', '/register', '/onboarding'].includes(rawFrom) ? rawFrom : '/app';
   const queryParams = new URLSearchParams(location.search);
   const isPendingConfirmation = queryParams.get('registered') === 'pending_confirmation';
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) {
+      setError('Please enter your email address in the field below, then click Resend.');
+      return;
+    }
+    setResendLoading(true);
+    setResendStatus(null);
+    const res = await resendVerificationEmail(email);
+    setResendLoading(false);
+    if (res.error) {
+      setResendStatus({ message: res.error.message, type: 'error' });
+    } else {
+      setResendStatus({
+        message: `Verification email sent to ${email.trim()}. Please check your inbox and spam folder.`,
+        type: 'success',
+      });
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -134,12 +156,41 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {isPendingConfirmation && (
-            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-start gap-2.5">
-              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
-              <div>
-                <strong className="font-semibold block mb-0.5">Account Registered</strong>
-                <span>Please check your inbox to verify your email address before signing in.</span>
+            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 space-y-2">
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <strong className="font-semibold block mb-0.5">Account Registered</strong>
+                  <span>Please check your inbox and spam folder for the verification link. Didn't receive it?</span>
+                </div>
               </div>
+              <div className="pl-6.5">
+                <button
+                  type="button"
+                  onClick={handleResendConfirmation}
+                  disabled={resendLoading}
+                  className="font-bold underline text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 text-xs disabled:opacity-50"
+                >
+                  {resendLoading ? 'Sending email...' : 'Click here to resend verification link'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {resendStatus && (
+            <div
+              className={`p-3 rounded-2xl text-xs flex items-start gap-2 ${
+                resendStatus.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                  : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+              }`}
+            >
+              {resendStatus.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+              )}
+              <span>{resendStatus.message}</span>
             </div>
           )}
 
@@ -191,9 +242,21 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2.5 animate-shake">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 space-y-1.5 animate-shake">
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+              {error.toLowerCase().includes('not been confirmed') && (
+                <button
+                  type="button"
+                  onClick={handleResendConfirmation}
+                  disabled={resendLoading}
+                  className="font-bold underline text-rose-800 dark:text-rose-200 hover:text-rose-900 text-xs block pl-6.5"
+                >
+                  {resendLoading ? 'Sending email...' : 'Resend confirmation link now'}
+                </button>
+              )}
             </div>
           )}
 

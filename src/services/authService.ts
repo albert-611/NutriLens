@@ -124,6 +124,47 @@ export async function signInUser(
 }
 
 /**
+ * Resends the account verification / confirmation email via Supabase Auth.
+ */
+export async function resendVerificationEmail(email: string): Promise<AuthResponse> {
+  if (!isSupabaseConfigured) {
+    return {
+      error: new Error('Supabase is not configured. Unable to resend confirmation email.'),
+    };
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail) {
+    return { error: new Error('Please enter your email address to resend confirmation.') };
+  }
+
+  try {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: cleanEmail,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
+    });
+
+    if (error) {
+      if (error.message?.toLowerCase().includes('rate limit')) {
+        return {
+          error: new Error(
+            'Email rate limit reached in Supabase. Please wait a few minutes before requesting another confirmation email.'
+          ),
+        };
+      }
+      return { error };
+    }
+
+    return { data: { success: true } };
+  } catch (err: any) {
+    return { error: err instanceof Error ? err : new Error(String(err)) };
+  }
+}
+
+/**
  * Signs in or initiates OAuth with Google via Supabase Auth.
  */
 export async function signInWithGoogle(): Promise<
