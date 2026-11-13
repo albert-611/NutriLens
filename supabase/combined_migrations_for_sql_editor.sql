@@ -1173,11 +1173,87 @@ BEGIN
     DROP POLICY IF EXISTS "Allow authenticated insert to deleted_accounts" ON public.deleted_accounts;
     CREATE POLICY "Allow authenticated insert to deleted_accounts" ON public.deleted_accounts
         FOR INSERT WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Allow public delete from deleted_accounts" ON public.deleted_accounts;
+    CREATE POLICY "Allow public delete from deleted_accounts" ON public.deleted_accounts
+        FOR DELETE USING (true);
 EXCEPTION
     WHEN OTHERS THEN NULL;
 END $$;
 
--- 6. RPC function for secure account self-deletion (GDPR / Right to be Forgotten)
+-- 6. Function to prepare an email for fresh re-registration (purges any ghost deleted accounts)
+CREATE OR REPLACE FUNCTION public.prepare_email_for_registration(p_email TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, pg_catalog
+AS $$
+DECLARE
+    v_user_id UUID;
+    v_is_deleted BOOLEAN := false;
+BEGIN
+    p_email := LOWER(TRIM(p_email));
+    
+    -- Check if ghost user exists in auth.users with deleted metadata
+    SELECT id, COALESCE((raw_user_meta_data->>'account_deleted')::boolean, false)
+    INTO v_user_id, v_is_deleted
+    FROM auth.users
+    WHERE LOWER(email) = p_email;
+
+    -- If user exists and is marked deleted, permanently purge them so re-registration succeeds freshly
+    IF v_user_id IS NOT NULL AND v_is_deleted THEN
+        DELETE FROM public.user_medical_conditions WHERE user_id = v_user_id;
+        DELETE FROM public.user_food_allergies WHERE user_id = v_user_id;
+        DELETE FROM public.user_food_intolerances WHERE user_id = v_user_id;
+        DELETE FROM public.user_dietary_preferences_detailed WHERE user_id = v_user_id;
+        DELETE FROM public.user_nutritional_goals_detailed WHERE user_id = v_user_id;
+        DELETE FROM public.user_nutrition_preferences WHERE user_id = v_user_id;
+        DELETE FROM public.user_budget_preferences WHERE user_id = v_user_id;
+        DELETE FROM public.user_food_restrictions WHERE user_id = v_user_id;
+        DELETE FROM public.meal_items WHERE user_id = v_user_id;
+        DELETE FROM public.meal_logs WHERE user_id = v_user_id;
+        DELETE FROM public.meal_reports WHERE user_id = v_user_id;
+        DELETE FROM public.meal_plans WHERE user_id = v_user_id;
+        DELETE FROM public.profiles WHERE id = v_user_id;
+
+        DELETE FROM auth.identities WHERE user_id = v_user_id;
+        DELETE FROM auth.sessions WHERE user_id = v_user_id;
+        DELETE FROM auth.mfa_factors WHERE user_id = v_user_id;
+        DELETE FROM auth.users WHERE id = v_user_id;
+        
+        DELETE FROM public.deleted_accounts WHERE LOWER(email) = p_email;
+        RETURN true;
+    END IF;
+
+    -- Always clear deleted_accounts entry when re-registering
+    DELETE FROM public.deleted_accounts WHERE LOWER(email) = p_email;
+    RETURN false;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.prepare_email_for_registration(TEXT) TO authenticated, anon;
+
+-- 7. Trigger on auth.users: automatically clear any deleted_accounts tracking when new user is created
+CREATE OR REPLACE FUNCTION public.on_auth_user_created_clear_deleted()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM public.deleted_accounts WHERE LOWER(email) = LOWER(NEW.email);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DO $$
+BEGIN
+    DROP TRIGGER IF EXISTS tr_clear_deleted_accounts_on_signup ON auth.users;
+    CREATE TRIGGER tr_clear_deleted_accounts_on_signup
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.on_auth_user_created_clear_deleted();
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- 8. RPC function for secure account self-deletion (GDPR / Right to be Forgotten)
 -- Permanently deletes all user tables and completely purges auth.users to block re-login
 CREATE OR REPLACE FUNCTION public.delete_user_account(target_user_id UUID DEFAULT NULL)
 RETURNS JSONB

@@ -28,9 +28,18 @@ export async function signUpUser(
     };
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+
+  // Clear any past deletion markers so newly re-registered account can sign in smoothly
+  try {
+    localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+    await supabase.rpc('prepare_email_for_registration', { p_email: cleanEmail });
+    await supabase.from('deleted_accounts').delete().eq('email', cleanEmail);
+  } catch {}
+
   try {
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       password,
       options: {
         data: { full_name: fullName.trim() },
@@ -54,6 +63,7 @@ export async function signUpUser(
 /**
  * Signs in an existing user with email and password via Supabase Auth.
  * Rejects unregistered emails, incorrect passwords, and deleted accounts automatically.
+ * Fully supports logging in to freshly re-registered accounts under the same email.
  */
 export async function signInUser(
   email: string,
@@ -68,33 +78,6 @@ export async function signInUser(
   }
 
   const cleanEmail = email.trim().toLowerCase();
-
-  // 1. Instant check via local blacklist (0ms response, stops session setup & flicker)
-  try {
-    if (localStorage.getItem(`nutrilens_deleted_${cleanEmail}`)) {
-      return {
-        error: new Error('This email is not registered. Please sign up.'),
-      };
-    }
-  } catch {}
-
-  // 2. Verify email has not been recorded as deleted in database
-  try {
-    const { data: delRec } = await supabase
-      .from('deleted_accounts')
-      .select('id')
-      .eq('email', cleanEmail)
-      .maybeSingle();
-
-    if (delRec) {
-      try {
-        localStorage.setItem(`nutrilens_deleted_${cleanEmail}`, 'true');
-      } catch {}
-      return {
-        error: new Error('This email is not registered. Please sign up.'),
-      };
-    }
-  } catch {}
 
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -117,7 +100,7 @@ export async function signInUser(
       return { error };
     }
 
-    // 3. Reject if auth metadata indicates account was deleted
+    // Reject if auth metadata indicates account was marked deleted and not yet purged
     if (data?.user?.user_metadata?.account_deleted) {
       await supabase.auth.signOut();
       try {
@@ -127,6 +110,12 @@ export async function signInUser(
         error: new Error('This email is not registered. Please sign up.'),
       };
     }
+
+    // Active, valid user: clear any legacy deletion marker so login is permanently clean
+    try {
+      localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+      await supabase.from('deleted_accounts').delete().eq('email', cleanEmail);
+    } catch {}
 
     return { data: { user: data.user, session: data.session } };
   } catch (err: any) {

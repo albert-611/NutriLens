@@ -134,8 +134,17 @@ export async function registerComprehensiveAccount(
     const safeHeightUnit = String(data.heightUnit || '').toLowerCase().includes('ft') ? 'ft_in' : 'cm';
     const safeWeightUnit = String(data.weightUnit || '').toLowerCase().includes('lb') ? 'lbs' : 'kg';
 
+    // Prepare email for registration: clear any deleted flags and purge any prior deleted ghost accounts
+    try {
+      localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+      await supabase.rpc('prepare_email_for_registration', { p_email: cleanEmail });
+      await supabase.from('deleted_accounts').delete().eq('email', cleanEmail);
+    } catch (e) {
+      console.warn('Prepare email registration notice:', e);
+    }
+
     // 1. Create Supabase Auth User with full metadata
-    const { data: authData, error: authErr } = await supabase.auth.signUp({
+    let authRes = await supabase.auth.signUp({
       email: cleanEmail,
       password: data.password,
       options: {
@@ -161,6 +170,43 @@ export async function registerComprehensiveAccount(
       },
     });
 
+    // If Supabase reports already registered, try purging prior deleted account and retry once
+    if (authRes.error && authRes.error.message?.toLowerCase().includes('already registered')) {
+      try {
+        const { data: wasPurged } = await supabase.rpc('prepare_email_for_registration', { p_email: cleanEmail });
+        if (wasPurged) {
+          authRes = await supabase.auth.signUp({
+            email: cleanEmail,
+            password: data.password,
+            options: {
+              data: {
+                full_name: data.fullName.trim(),
+                display_name: data.fullName.trim(),
+                username: usernameClean,
+                avatar_url: data.avatarUrl || null,
+                age: data.age,
+                biological_sex: safeSex,
+                height_value: data.heightValue || null,
+                height_unit: safeHeightUnit,
+                weight_value: data.weightValue || null,
+                weight_unit: safeWeightUnit,
+                target_weight_value: data.targetWeightValue || null,
+                activity_level: safeActivity,
+                exercise_frequency: safeFreq,
+                sleep_duration: safeSleep,
+                disliked_foods: data.dislikedFoods || null,
+                general_goal: safeGoal,
+              },
+              emailRedirectTo: `${window.location.origin}/login`,
+            },
+          });
+        }
+      } catch {}
+    }
+
+    const authData = authRes.data;
+    const authErr = authRes.error;
+
     if (authErr) {
       return { success: false, error: authErr.message };
     }
@@ -168,6 +214,12 @@ export async function registerComprehensiveAccount(
     if (!authData.user) {
       return { success: false, error: 'User registration failed to create an account.' };
     }
+
+    // Successfully created new account: permanently clear any deletion tracking for this email
+    try {
+      localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+      await supabase.from('deleted_accounts').delete().eq('email', cleanEmail);
+    } catch {}
 
     const createdUser = authData.user;
     const userId = createdUser.id;
