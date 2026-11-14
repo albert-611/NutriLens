@@ -2,9 +2,17 @@
 
 **Nutrition Intelligence — Personalized, localized nutrition guidance**
 
-Version 3.0 | Consolidated 8 November 2026 | Project master document | Time zone: Asia/Dhaka
+Version 3.1 | Updated 14 November 2026 | Architecture: FastAPI + Supabase Hybrid | Time zone: Asia/Dhaka
 
-> **Single source of truth:** This file consolidates the Nutrition Intelligence challenge brief, the NutriLens project documentation, the feature decisions made in this conversation, and the agreed prototype direction. Update this file when the team approves a scope or architecture change.
+> **Single source of truth:** This file consolidates the Nutrition Intelligence challenge brief, the NutriLens project documentation, approved feature decisions, and the newly approved **FastAPI + Supabase Hybrid Architecture**. Update this file whenever the team approves a scope or architecture change.
+
+### Document Change History
+- **Version 3.0 (8 November 2026):** Consolidated initial hackathon specification using a TypeScript-only backend with Supabase Edge Functions.
+- **Version 3.1 (14 November 2026):** Architecture update officially selecting the **FastAPI + Supabase Hybrid Architecture**.
+  - **Backend Transition:** Python + FastAPI becomes the primary application API, business logic, deterministic calculation, and AI orchestration layer.
+  - **Infrastructure Continuity:** Supabase remains the managed infrastructure provider for Authentication (Supabase Auth), PostgreSQL database, migrations, Row Level Security (RLS), private Storage, and pgvector. Prototype Edge Functions coexist as transitional/offload endpoints.
+  - **Roadmap Expansion:** Development roadmap updated from an 8-phase timeline into an approved 9-phase roadmap adding dedicated backend architecture and core service phases.
+  - **Responsibility Clarification:** Deterministic nutrition arithmetic, portion math, constraint solving, and budget optimization are centralized in the FastAPI engine; Gemini API is strictly bounded to candidate proposal and conversational explanation.
 
 **Project name:** NutriLens (working project name).
 
@@ -14,7 +22,7 @@ Version 3.0 | Consolidated 8 November 2026 | Project master document | Time zone
 
 **Prototype-first decision:** Build and demonstrate the complete workflow with a seeded dummy database. Use real multimodal AI for food recognition, but use reviewed food records and deterministic backend code for nutrition calculations, recipe constraints, quantities and costs. Market prices and inventory in the first prototype are synthetic demonstration records and must be visibly labeled as such. Replaceable adapters should make later real-data integration possible.
 
-**Selected technology direction:** React + Vite + TypeScript + Tailwind CSS; Supabase Auth, PostgreSQL, private Storage and Edge Functions; Gemini API for multimodal food recognition and grounded conversation; pgvector inside PostgreSQL for RAG; Vercel for frontend hosting. Keep the frontend and backend in TypeScript. Do not introduce a separate Express server, MongoDB, Pinecone, Python service, microservices or model training into the MVP.
+**Selected technology direction:** **FastAPI + Supabase Hybrid Architecture.** Frontend in React + Vite + TypeScript + Tailwind CSS (hosted on Vercel); Backend API in Python + FastAPI + Pydantic (hosted on Python-compatible hosting); Managed backend infrastructure in Supabase (Supabase Auth, PostgreSQL with Row Level Security, private Storage, and pgvector for RAG); AI integration via Gemini API for multimodal food recognition and grounded conversation. Do not introduce a separate Express server, Node.js backend, MongoDB, Firebase, Pinecone, Django, microservices, Redis, Kubernetes, or custom AI model training into the MVP.
 
 **No model training is required for the prototype.** Use an existing image-capable model, retrieval over reviewed knowledge, and ordinary application code for calculations and business rules.
 
@@ -229,67 +237,133 @@ MVP means the smallest version that completes the user journey. All numbers belo
 | Tool or term | Plain meaning | Its job in NutriLens |
 | --- | --- | --- |
 | Antigravity | The coding workspace and AI assistant you use while building | Help write, explain and review code; it is not the app's hosted backend |
-| HTML + CSS + JavaScript | Page structure, appearance and behavior | Basic web skills beneath the framework |
-| React | A way to assemble screens from reusable pieces | Upload form, editable foods, report and shopping list |
-| TypeScript | JavaScript with checks for data shapes | Catch errors such as missing fields or wrong units |
-| Vite | Development server and production build tool | Run the frontend locally and package it for hosting [S02] |
-| Tailwind CSS | Small styling classes | Consistent spacing, colors and responsive layouts |
-| React Router | A page-navigation library | Move between Analyze, Report, Plan and Settings |
-| Supabase Auth | Login and user-session service | Identify the user securely |
-| Postgres | A relational database: structured tables with relationships | Store foods, recipes, prices, profiles and confirmed meals |
-| Supabase Storage | File storage | Keep uploaded images in a private bucket |
-| Edge Functions | Backend code executed on a server | Validate requests, call AI, calculate nutrients and plan meals |
-| API | A defined way for programs to request information | Your backend asks USDA for a food record |
-| Gemini API | A hosted, already-trained AI model service | Read images, understand requests and explain supplied evidence |
+| React | Component-based user interface library | Assemble screens from modular, declarative pieces: food intake, interactive confirmation, nutrition charts, and shopping list |
+| TypeScript | JavaScript with static type checking | Catch frontend type mismatches, missing fields, and incorrect unit contracts |
+| Vite | Frontend build tool and local dev server | Run the React client locally with fast HMR and bundle it for production hosting [S02] |
+| Tailwind CSS | Utility-first CSS framework | Provide responsive layouts, dark/light themes, and design-system tokens |
+| GSAP | Production animation engine | High-performance interactive transitions, progress steps, and UI animations |
+| React Router | Client-side routing library | Manage navigation across landing, auth, scanner, report, planner, and settings |
+| Python | Versatile, high-performance programming language | Powers the backend API, deterministic arithmetic, data processing, and AI services |
+| FastAPI | Modern, asynchronous web framework for Python APIs | Serves versioned REST endpoints (`/api/v1/`), orchestrates Gemini Vision, verifies JWTs, and executes business logic |
+| Pydantic | Data validation and parsing library for Python | Strictly validates request payloads, AI responses, database outputs, and JSON envelopes |
+| Supabase Auth | Identity and user session management service | User registration, login, password hashing, and cryptographic JWT issuance |
+| PostgreSQL | Robust relational database | Stores foods, recipes, market prices, user profiles, meal logs, and planning state |
+| PostgreSQL RLS | Database Row Level Security | Enforces tenant and user data isolation directly at the database engine level [S20] |
+| Supabase Storage | S3-compatible private object storage | Stores private user food photos and profile avatars with access policy protection |
+| pgvector | Vector-search extension inside PostgreSQL | Stores and queries high-dimensional document embeddings for contextual RAG [S03] |
+| Gemini API | Multimodal AI foundation model | Detects candidate foods from photos and phrases grounded conversational guidance |
+| Vercel | Production frontend hosting platform | Serves the optimized React/Vite single-page application [S04] |
 
-**Keep one main language:** TypeScript for the frontend and backend functions. You do not need to add Python, Django, Express, MongoDB or Pinecone for this prototype.
+**Approved architecture model:** **FastAPI + Supabase Hybrid Architecture.** Frontend in React + Vite + TypeScript (hosted on Vercel); Backend API in Python + FastAPI (hosted on Python-compatible hosting); Managed backend infrastructure in Supabase (Auth, PostgreSQL with RLS, private Storage, and pgvector); AI integration via Gemini API. Do not introduce Express.js, Node.js backend, MongoDB, Firebase, Pinecone, Django, microservices, Redis, Kubernetes, or custom AI model training.
 
 # 05B | Supporting tools and key concepts
 
-These tools support the same small application. They are not separate applications your team needs to build.
+These tools support the application cleanly without unnecessary infrastructure bloat:
 
 | Tool or term | Plain meaning | Its job in NutriLens |
 | --- | --- | --- |
-| RAG | Retrieve relevant evidence, then ask AI to answer with it | Ground chat in approved regional guidance |
-| Embedding | A numeric representation used to search by meaning | Find a paragraph about pulses when asked about affordable protein |
-| pgvector | Vector-search support inside Postgres | Store and search embeddings without another database [S03] |
-| Zod | A data-shape validator | Reject malformed AI output and invalid form requests |
-| i18next | A translation system | Keep interface language separate from business logic |
-| Git + GitHub | Change history and team collaboration | Feature branches, reviews, recovery and a submission repository |
-| Vercel | Frontend hosting | Serve the Vite build; configure page-route fallback [S04] |
+| RAG | Retrieve relevant evidence, then ask AI to answer with it | Ground nutrition assistant responses in approved regional guidelines and user meal state |
+| Embedding | A numeric representation used to search by meaning | Vectorize queries to locate relevant pulses, micronutrients, or preparation excerpts |
+| pgvector | Vector-search support inside PostgreSQL | Native cosine similarity search (`<->`) inside existing database tables without external vector databases [S03] |
+| Pydantic / Zod | Strong schema validators | Pydantic validates API requests/responses in FastAPI; TypeScript contracts mirror shapes in frontend |
+| i18next | Internationalization framework | Separates Bengali (`bn`) and English (`en`) interface strings from application logic |
+| Git + GitHub | Version control and team collaboration | Feature branches, code reviews, schema migrations, and hackathon submission tracking |
+| Uvicorn | High-performance ASGI web server | Runs the production Python FastAPI backend asynchronously |
 
-**Add only what helps the flow:** A chart library is optional; nutrient cards and simple bars are enough initially. A database migration is a versioned change to your tables. A deployment publishes the current application build. Authentication proves who a user is; authorization determines what that user may access.
-
-**How the pieces connect:** React calls your backend API. The backend reads database rows, makes controlled AI requests, calculates results and sends a validated response back. Supabase groups several backend services together so the team has fewer systems to operate.
+**How the pieces connect:** The React frontend communicates over HTTPS with the Python FastAPI backend (`/api/v1/*`) sending the Supabase Auth access token in the `Authorization: Bearer <token>` header. FastAPI verifies the cryptographic JWT, enforces user authorization, queries PostgreSQL (respecting RLS via the user token or scoped client), coordinates with the Gemini API, executes deterministic nutrition calculations, and returns structured Pydantic-validated JSON envelopes back to the browser. Supabase handles managed infrastructure (Auth, PostgreSQL, Storage) so the team operates zero custom database servers.
 
 # 06 | Architecture and responsibilities
 
 <!-- ARCHITECTURE -->
 
-**Browser:** Displays screens and collects confirmed inputs. It can preview formatting, but its computed values are not authoritative. It holds only the Supabase URL and publishable/anon client key, protected by authentication and Row Level Security.
+The NutriLens system is strictly organized into three primary architectural layers with distinct trust boundaries:
 
-**Authentication & Session Architecture:** NutriLens enforces real Supabase Auth authentication with password hashing, email verification, and Supabase-issued JWT access and refresh tokens (`supabase.auth.getSession()` and `onAuthStateChange`). All demo/mock login functions, hardcoded credentials, and simulated sessions have been permanently removed. Unregistered email addresses and invalid passwords are strictly rejected. Protected routes (`/app/*`) enforce active JWT session verification. User-specific tables are isolated by Row Level Security (`auth.uid() = user_id`). All reference datasets (foods, recipes, market observations) remain intact.
+### Layer A. Frontend — React + Vite + TypeScript (Vercel)
+**Responsibilities:**
+1. Render the responsive user interface (desktop, laptop, tablet, mobile).
+2. Manage client-side routing and view state via React Router.
+3. Collect and validate user inputs, dietary exclusions, and budget settings.
+4. Handle food image selection, camera capture, resolution validation, and local preview.
+5. Manage authenticated user sessions via Supabase Auth client SDK (`supabase.auth.getSession()` and `onAuthStateChange`).
+6. Upload meal images directly to private Supabase Storage buckets using user-scoped storage policies where appropriate.
+7. Dispatch authenticated requests to the FastAPI backend with the user's Supabase JWT.
+8. Render validated backend responses, nutrition breakdown cards, evidence receipts, and interactive shopping lists.
+9. Deliver smooth UI animations and status indicators using GSAP.
 
-**Backend:** Verifies the session, checks ownership, validates inputs, calls providers and calculates authoritative results. The user ID comes from the verified session, never from a trusted request-body field. [S05, S06]
+**Frontend Security Boundary:**
+The browser client is an untrusted environment. It must **never** contain:
+- Gemini API keys or credentials.
+- Supabase service-role keys.
+- Database administrative passwords.
+- Trusted nutrition calculations or authoritative portion determinations.
+- Privileged database operations.
 
-**Database:** Stores the food records, source metadata, market observations, recipes and personalized state. Nutrition and price tables use SQL filters and joins; knowledge excerpts use text/vector retrieval. These are different retrieval jobs.
+### Layer B. Backend API — Python + FastAPI (Python-Compatible Hosting)
+FastAPI serves as the core application API, business logic, deterministic calculation, and AI orchestration layer under the versioned prefix `/api/v1/`.
 
-**AI services:** Vision identifies candidates; embeddings help retrieve documents; the chat model phrases an explanation. The model is not permitted to invent food IDs, prices or nutrient measurements.
+**Responsibilities:**
+1. **REST API Architecture:** Clean, modular routers structured under `/api/v1/` with automatic OpenAPI/Swagger documentation at `/docs` and ReDoc at `/redoc`.
+2. **Request & Response Validation:** Exhaustive input parsing and sanitization using Pydantic schemas.
+3. **Supabase JWT Verification:** Cryptographically validates incoming bearer tokens (signature, issuer, audience, expiration) against Supabase Auth configuration.
+4. **User Authorization & Ownership:** Derives user identity from verified JWT claims (`sub`), strictly verifying that callers only access or mutate their own records.
+5. **Application-Specific Database Operations:** Executes structured PostgreSQL queries via user-scoped database sessions to ensure RLS policies are applied.
+6. **Deterministic Nutrition Engine:** Computes exact macronutrients, calories, and micronutrient totals from verified database records using deterministic mathematical formulas.
+7. **Food Matching & Alias Resolution:** Matches recognized candidate labels to canonical database items and standard preparation states.
+8. **Gemini API Orchestration:** Securely invokes Gemini Vision and text models server-side, enforcing structured JSON schemas and handling retries/repairs.
+9. **Food Recognition Response Validation:** Parses and sanitizes raw model output into structured candidate items with explicit uncertainty flags.
+10. **Recipe Constraints & Substitutions:** Evaluates candidate recipe alternatives against user allergies, medical conditions, and cuisine preferences.
+11. **Budget & Cost Calculations:** Computes estimated ingredient quantities, package rounding, and cash requirements against local price observations.
+12. **Meal Planning & Optimization:** Solves affordable, culturally familiar meal pivots that close identified nutrient gaps.
+13. **Market Intelligence Processing:** Formats and serves localized price and inventory observations with clear observation timestamps and data-mode flags.
+14. **RAG Retrieval Orchestration:** Converts user questions into query embeddings, searches knowledge chunks via pgvector, and constructs grounded context.
+15. **Context-Aware Nutrition Assistant:** Generates helpful, evidence-linked conversational responses citing approved knowledge documents.
+16. **Centralized Error Handling:** Formats all application errors into predictable, client-friendly error envelopes with clear retry semantics.
+17. **Production Logging & Telemetry:** Logs structured request IDs, execution latency, model tokens, and status codes while redacting PII and credentials.
+18. **Rate Limiting & Abuse Prevention:** Implements endpoint throttling to protect AI quotas and backend resources.
 
-**Example request:** The browser sends an owned image reference to analyze-meal. The backend returns candidate items. After confirmation, calculate-nutrition reads selected food rows. plan-meals evaluates feasible recipes using price observations. chat retrieves relevant evidence and can explain these computed outputs.
+### Layer C. Infrastructure — Supabase (Managed Cloud Backend)
+Supabase provides hardened, managed infrastructure services:
+- **Supabase Auth:** Primary identity provider handling user registration, password hashing, OAuth (Google), email confirmation, session refresh, and cryptographic JWT issuance.
+- **PostgreSQL Database:** Relational database housing food records, recipes, market observations, user profiles, meal logs, and plans.
+- **Row Level Security (RLS):** Database-level security policies enforcing complete tenant isolation on all user-specific tables (`auth.uid() = user_id`).
+- **Supabase Storage:** Private buckets (`meal-images`, `avatars`) protected by RLS-backed storage access policies.
+- **pgvector Extension:** Native vector storage and indexing for knowledge chunk embeddings (`cosine` distance).
+- **Database Migrations:** Versioned SQL migration scripts defining tables, foreign keys, cascades, indexes, and triggers.
 
-**Minimal external dependence during a demo:** Seed and cache approved food records before the event. Price observations can come from a dated CSV. The real-time model call remains visible. If a model is unavailable, offer manual food search; if using a saved response, label it clearly as a recorded sample.
+*Note on Supabase Edge Functions:* Existing prototype Edge Functions (such as `analyze-meal`) coexist as transitional or edge-offloading endpoints. FastAPI is the primary application backend where business logic, nutrition math, and meal planning reside.
 
-**Dependency rule:** Vision output is a proposal, not a committed meal. A saved plan references a specific confirmed meal version, market snapshot and formula version. Changing portions or market context requires recalculation.
+---
+
+### Authentication and Security Architecture
+
+#### 9-Step Authentication & Authorization Flow
+1. **User Authentication:** The user registers or signs in through the React frontend using Supabase Auth (`signUp`, `signInWithPassword`, or Google OAuth).
+2. **Credential Validation:** Supabase Auth verifies credentials against its secure identity store.
+3. **Token Issuance:** Supabase Auth issues a cryptographically signed JSON Web Token (JWT) containing standard claims (`sub` = user UUID, `email`, `aud` = 'authenticated', `exp`).
+4. **Session Maintenance:** The frontend stores and manages the session via the Supabase client SDK (`detectSessionInUrl: true`, `persistSession: true`).
+5. **Authenticated API Request:** When calling protected FastAPI endpoints (`/api/v1/*`), the frontend attaches the access token in the `Authorization: Bearer <token>` header.
+6. **JWT Verification in FastAPI:** FastAPI's security dependency intercepts the request, verifies the JWT signature against the Supabase JWT secret (or JWKS public keys), and validates token expiration and audience.
+7. **Identity Extraction:** FastAPI derives the authenticated `user_id` directly from the verified `sub` claim. It **never** trusts a client-supplied `user_id` in request headers, query parameters, or request bodies.
+8. **Authorized Execution:** FastAPI executes business logic, verifying that the authenticated user owns any target records (e.g., verifying `meal_log.user_id == authenticated_user_id`).
+9. **User-Scoped Database Access & RLS:** FastAPI executes database queries using the user's access token or within a user-scoped session context so PostgreSQL RLS policies (`auth.uid() = user_id`) continue to strictly enforce data isolation. Privileged service-role access is restricted exclusively to authorized administrative tasks (such as background seed maintenance).
+
+#### Security & Access Control Guardrails
+- **Sole Identity Provider:** Supabase Auth remains the single source of truth for user identity. FastAPI does not implement custom password storage or duplicate user tables.
+- **Zero Secrets in Browser:** The browser receives only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Gemini API keys and Supabase service-role keys remain exclusively in server environment variables.
+- **Strict HTTPS:** All client-to-FastAPI and FastAPI-to-Supabase communication must use TLS/HTTPS in production.
+- **File Upload Protection:** Uploaded images are checked for MIME type (`image/jpeg`, `image/png`, `image/webp`), byte size (maximum 5 MB), and binary signature before processing.
+- **Private Storage Buckets:** All uploaded meal photos and profile pictures are stored in private Supabase Storage buckets accessible only via authenticated ownership policies or temporary signed URLs.
+- **Zero PII Logging:** User chat transcripts, passwords, tokens, and health details are excluded from server logs.
 
 # 07 | Essential APIs and access decisions
 
 | Service | Use now? | Setup and fallback |
 | --- | --- | --- |
-| Gemini multimodal API | Yes | Create a separate API project/key, test image input and schema output; use manual entry if unavailable |
-| Embedding model from the same provider | Yes for vector RAG | Embed approved excerpts once and each search query; exact embedding model/dimension must match stored vectors |
-| USDA FoodData Central | Yes, at least for seeding | Request a data.gov key, search food candidates, verify details, save source IDs; cache approved records |
-| Supabase APIs | Yes | Use Auth, database, Storage and Edge Functions; protect every route and table |
+| Gemini multimodal API | Yes | Server-side key in FastAPI; models `gemini-1.5-flash` or `gemini-2.0-flash`; fallback to manual food search if quota exceeds |
+| Embedding model from Gemini | Yes for vector RAG | Vectorize approved knowledge chunks and user queries; ensure embedding dimensions match pgvector column configuration |
+| USDA FoodData Central | Yes, for seeding | Request a data.gov key, search food candidates, verify details, save source IDs; cache approved records |
+| Supabase Auth & Database APIs | Yes | Primary identity provider, PostgreSQL database with RLS, Storage, and pgvector |
+| FastAPI Application API | Yes | Core REST backend (`/api/v1/*`) serving React frontend; automatic interactive OpenAPI docs at `/docs` |
 | Open Food Facts | Optional | Useful for packaged products, not every cooked dish; product lookup can be a later feature |
 | Local grocery/retailer API | Conditional | Use only if access, territory and terms are confirmed early; otherwise use explicit price observations |
 | Edamam | Defer | A recipe/text nutrition service; adds another provider and source-reconciliation task [S10] |
@@ -746,33 +820,359 @@ This is the normalized reference design. It explains relationships and future im
 
 **Retention and deletion:** Choose a documented prototype policy, such as removing original images after a limited period unless the user opts to keep them. Implement the cleanup and deletion before claiming it. A policy sentence without a working delete path is incomplete.
 
-# 18 | Backend API contracts
+# 18 | Backend API contracts (FastAPI `/api/v1/`)
 
-These are your application's proposed interfaces, not provider endpoints. Put shared types in src/contracts or a small shared package imported by frontend and functions.
+NutriLens structures its primary business and calculation APIs under a versioned FastAPI application prefixed with `/api/v1/`.
 
-| Function | Input | Output |
+Interactive documentation is automatically generated by FastAPI:
+- **Interactive Swagger UI:** `/docs`
+- **ReDoc Technical Reference:** `/redoc`
+- **OpenAPI JSON Schema:** `/openapi.json`
+
+All protected endpoints require the HTTP Authorization header: `Authorization: Bearer <supabase_jwt>`.
+
+### Common Envelopes
+
+**Success Envelope:**
+```json
+{
+  "request_id": "req_01HPX7...",
+  "schema_version": "1.0",
+  "data": { ... },
+  "warnings": [],
+  "provenance": {
+    "calculated_at": "2026-11-14T18:00:00Z",
+    "formula_version": "v1.0.0-fao_bangladesh"
+  }
+}
+```
+
+**Standard Error Envelope:**
+```json
+{
+  "request_id": "req_01HPX7...",
+  "error": {
+    "code": "INVALID_INPUT",
+    "message": "Portion grams must be a positive number.",
+    "details": [{ "field": "confirmed_grams", "issue": "Value must be greater than 0" }],
+    "retryable": false
+  }
+}
+```
+
+| HTTP Status / Code | Semantic Meaning | Behavior |
 | --- | --- | --- |
-| analyze-meal | owned image_path, input_mode, language, market_id | analysis_id, candidates, review questions, schema_version |
-| search-foods | query, market, language, preparation filter | verified candidates with source and supported units |
-| calculate-nutrition | meal_id, expected_revision, confirmed food IDs and grams | report_id, new revision, totals, completeness, evidence IDs |
-| plan-meals | meal/report revision, budget, currency, people, duration, constraints | status, feasible options, nutrient/cost deltas, shopping list, reasons |
-| cooking-info | supported food/recipe IDs, method, input basis and grams | supported flag, output basis, factors, estimates, sourced guidance |
-| chat | session_id, message, current report/plan ID | reply_text, citations, value_refs, proposed_action, limitations |
-| delete-meal | meal_id | deletion result covering dependent records and owned image |
+| 200 OK / 201 Created | Success | Returns data in standard envelope |
+| 400 INVALID_INPUT | Validation error | Pydantic validation failure; explains exact offending fields |
+| 401 UNAUTHENTICATED | Missing or invalid JWT | Token expired, malformed, or untrusted signature |
+| 403 FORBIDDEN | Ownership failure | User attempted to read/modify another user's records |
+| 404 NOT_FOUND | Resource missing | Requested meal, profile, or market does not exist |
+| 409 VERSION_CONFLICT | State collision | Meal revision does not match expected revision |
+| 422 UNPROCESSABLE_ENTITY | Semantic rejection | Excluded allergen cannot be resolved to safe food |
+| 429 RATE_LIMITED | Quota protection | Rate limit exceeded; client should back off |
+| 503 PROVIDER_UNAVAILABLE | Upstream AI down | Gemini API unreachable; fallback offered |
 
-**Shared validation:** Verify authentication, ownership, request size, allowed enum values and numeric bounds. Load the user's authoritative saved constraints on the server rather than trusting everything sent by the browser. Return server-calculated totals only.
+---
 
-**Success envelope:** request_id, schema_version, data, warnings, provenance. **Error envelope:** request_id, error.code, error.message, retryable. Do not return provider credentials or raw internal stack traces.
+### Proposed Core Endpoint Specifications
 
-| Code | Behavior |
-| --- | --- |
-| INVALID_INPUT / 400 | Explain the field to correct |
-| UNAUTHENTICATED / 401 | Restore login without losing draft inputs |
-| FORBIDDEN / 403 | Reveal no information about another user's resource |
-| VERSION_CONFLICT / 409 | Refresh or explicitly reconcile an edited meal |
-| UNSUPPORTED_FOOD / 422 | Offer reviewed food search or manual entry |
-| RATE_LIMITED / 429 | Explain when retry is appropriate; do not loop forever |
-| PROVIDER_UNAVAILABLE / 503 | Preserve draft and offer the documented fallback |
+#### 1. `GET /api/v1/users/me`
+- **Purpose:** Retrieve the authenticated user's profile, health targets, and onboarding status.
+- **Authentication:** Required (`Bearer <jwt>`).
+- **Authorization:** Derives `user_id` from JWT `sub`; only returns own profile.
+- **Request Format:** None (query parameters: none).
+- **Response Format:**
+  ```json
+  {
+    "id": "uuid",
+    "email": "user@example.com",
+    "full_name": "Rahim Ahmed",
+    "age": 28,
+    "activity_level": "moderately_active",
+    "general_goal": "balanced_wellness",
+    "preferred_language": "bn",
+    "currency": "BDT",
+    "onboarding_completed": true
+  }
+  ```
+- **Validation:** Valid JWT signature and valid user claims.
+- **Error Handling:** 401 if token missing/expired; 404 if profile row not yet created.
+- **Database Dependencies:** `public.profiles` via user-scoped query.
+
+#### 2. `PATCH /api/v1/users/me`
+- **Purpose:** Update user settings, dietary exclusions, household budget, and goals.
+- **Authentication:** Required (`Bearer <jwt>`).
+- **Authorization:** Authenticated user can only update their own profile.
+- **Request Format:**
+  ```json
+  {
+    "full_name": "Rahim Ahmed",
+    "activity_level": "very_active",
+    "general_goal": "high_protein",
+    "budget_amount": 6000,
+    "budget_currency": "BDT",
+    "dietary_exclusions": ["beef"],
+    "declared_allergens": ["peanut"]
+  }
+  ```
+- **Validation:** Pydantic schema enforcing non-negative budget, allowed enums for activity/goal/units.
+- **Error Handling:** 400 for invalid enums or negative amounts; 401 unauthenticated.
+- **Database Dependencies:** `public.profiles`, `public.user_nutrition_preferences`, `public.user_food_restrictions`.
+
+#### 3. `POST /api/v1/food/recognize`
+- **Purpose:** Analyze an uploaded food photo or search query and propose detected candidate foods with preparation uncertainty.
+- **Authentication:** Required (`Bearer <jwt>`).
+- **Authorization:** Verifies user is active; enforces per-user rate limit.
+- **Request Format:**
+  ```json
+  {
+    "image_data": "data:image/jpeg;base64,...",
+    "image_path": "user-uuid/meal-123.jpg",
+    "input_mode": "photo",
+    "language": "bn",
+    "manual_query": null
+  }
+  ```
+- **Response Format:**
+  ```json
+  {
+    "analysis_id": "uuid",
+    "input_mode": "photo",
+    "candidates": [
+      {
+        "id": "cand_1",
+        "label": "Cooked White Rice (Parboiled)",
+        "label_bn": "সিদ্ধ সাদা ভাত",
+        "candidate_food_ids": ["33333333-3333-3333-3333-333333333301"],
+        "preparation_state": "boiled",
+        "estimated_grams": null,
+        "portion_basis": "unknown",
+        "uncertainty_reasons": ["Plate depth requires portion confirmation"],
+        "questions": ["How many cups or grams did you serve?"]
+      }
+    ],
+    "review_questions": ["Please confirm portion grams before calculation."],
+    "warnings": ["AI vision proposes candidates with uncertainty. User confirmation required."]
+  }
+  ```
+- **Validation:** Max 5MB image size; MIME type validation (`jpeg`, `png`, `webp`); Pydantic candidate schema validation.
+- **Error Handling:** 400 for invalid image encoding; 503 if Gemini Vision API fails with graceful local catalog fallback.
+- **Database Dependencies:** Matches recognized labels against `public.foods` and `public.food_names` aliases.
+
+#### 4. `POST /api/v1/food/confirm`
+- **Purpose:** Submit user-confirmed food items, preparation states, and confirmed portion weights for a meal log.
+- **Authentication:** Required (`Bearer <jwt>`).
+- **Authorization:** Meal log must be owned by the caller (`meal_logs.user_id == auth.uid()`).
+- **Request Format:**
+  ```json
+  {
+    "meal_id": "uuid",
+    "items": [
+      {
+        "food_id": "33333333-3333-3333-3333-333333333301",
+        "confirmed_grams": 200,
+        "preparation_state": "boiled",
+        "portion_source": "user_entered"
+      }
+    ]
+  }
+  ```
+- **Response Format:**
+  ```json
+  {
+    "meal_id": "uuid",
+    "revision": 2,
+    "status": "confirmed",
+    "items_count": 1,
+    "confirmed_at": "2026-11-14T18:05:00Z"
+  }
+  ```
+- **Validation:** Every item must have positive `confirmed_grams` (> 0); valid `food_id` UUID existing in `foods`.
+- **Error Handling:** 400 for non-positive grams; 404 for unknown food ID; 403 for unauthorized meal ownership.
+- **Database Dependencies:** Inserts into `public.meal_items`, updates `public.meal_logs.status = 'confirmed'`.
+
+#### 5. `POST /api/v1/nutrition/calculate`
+- **Purpose:** Execute deterministic server-side nutritional calculations for confirmed meal items against verified FAO/FCTB records.
+- **Authentication:** Required (`Bearer <jwt>`).
+- **Authorization:** User must own the associated meal record.
+- **Request Format:**
+  ```json
+  {
+    "meal_id": "uuid",
+    "expected_revision": 2
+  }
+  ```
+- **Response Format:**
+  ```json
+  {
+    "report_id": "uuid",
+    "meal_id": "uuid",
+    "revision": 2,
+    "total_energy_kcal": 260.0,
+    "total_protein_g": 5.4,
+    "total_carbohydrate_g": 57.2,
+    "total_fat_g": 0.6,
+    "total_fibre_g": 2.8,
+    "nutrient_completeness": {
+      "energy": "complete",
+      "protein": "complete",
+      "fibre": "complete",
+      "vitamin_c": "incomplete"
+    },
+    "evidence_sources": ["FAO / FCTB Bangladesh 2013, Code 01_001"],
+    "formula_version": "v1.0.0-fao_bangladesh"
+  }
+  ```
+- **Validation:** Meal must be in `confirmed` status; expected revision must match current `meal_logs.revision`.
+- **Error Handling:** 409 for version conflict; 400 if meal has zero confirmed items; 403 for ownership failure.
+- **Database Dependencies:** Reads `public.meal_items`, joins `public.foods`, inserts/updates `public.meal_reports`.
+
+#### 6. `GET /api/v1/nutrition/report`
+- **Purpose:** Retrieve the latest authoritative nutrition report and evidence receipt for a meal.
+- **Authentication:** Required (`Bearer <jwt>`).
+- **Authorization:** Only the meal owner can view the report.
+- **Request Format:** Query parameters: `?meal_id=uuid`.
+- **Response Format:** Returns full `meal_reports` record with itemized food breakdown and completeness metadata.
+- **Validation:** Valid UUID query param.
+- **Error Handling:** 404 if no report exists for the given `meal_id`; 403 if unauthorized.
+- **Database Dependencies:** `public.meal_reports` and `public.meal_logs`.
+
+#### 7. `POST /api/v1/meal-plans/generate`
+- **Purpose:** Generate affordable, culturally familiar meal pivot recommendations that satisfy budget, pantry, and nutrient gap constraints.
+- **Authentication:** Required (`Bearer <jwt>`).
+- **Authorization:** Caller can only generate plans for their own profile and budget.
+- **Request Format:**
+  ```json
+  {
+    "reference_meal_id": "uuid",
+    "target_nutrient_gap": "protein",
+    "max_budget": 150.0,
+    "currency": "BDT",
+    "cuisine_preference": "bangladeshi",
+    "dietary_exclusions": ["beef"]
+  }
+  ```
+- **Response Format:**
+  ```json
+  {
+    "plan_id": "uuid",
+    "status": "feasible",
+    "suggested_recipes": [
+      {
+        "recipe_id": "uuid",
+        "name": "Masoor Dal with Spinach",
+        "name_bn": "পালং শাক দিয়ে মসুর ডাল",
+        "estimated_cost": 85.0,
+        "protein_gain_g": 14.2,
+        "calorie_delta": 45.0,
+        "reason": "Provides 14g affordable plant protein while staying 65 BDT under maximum budget."
+      }
+    ],
+    "shopping_list_preview": [ ... ]
+  }
+  ```
+- **Validation:** `max_budget` must be greater than zero; allowed currency code.
+- **Error Handling:** 400 for negative budget; 422 if constraints cannot be satisfied (with clear explanation).
+- **Database Dependencies:** Queries `public.recipes`, `public.recipe_ingredients`, `public.market_observations`.
+
+#### 8. `GET /api/v1/markets`
+- **Purpose:** Retrieve supported market packs (e.g. Savar, Ashulia, Kawran Bazar) with location and catalog metadata.
+- **Authentication:** Public or optional authenticated.
+- **Authorization:** None (public reference data).
+- **Request Format:** Query parameters: `?country=Bangladesh&city=Dhaka`.
+- **Response Format:** List of market records with ID, name, city, latitude/longitude, and data mode (`synthetic_demo` or `live`).
+- **Validation:** Optional string filters.
+- **Error Handling:** 200 with empty array if no markets match filter.
+- **Database Dependencies:** `public.markets`.
+
+#### 9. `GET /api/v1/markets/prices`
+- **Purpose:** Retrieve localized price observations for ingredients in a target market.
+- **Authentication:** Public or authenticated.
+- **Authorization:** None (public reference observations).
+- **Request Format:** Query parameters: `?market_id=uuid&food_id=uuid`.
+- **Response Format:** List of price observation records with package units, amounts, observation timestamps, and data mode label.
+- **Validation:** Valid UUID parameters.
+- **Error Handling:** 404 if market does not exist.
+- **Database Dependencies:** `public.market_observations`.
+
+#### 10. `POST /api/v1/shopping-lists`
+- **Purpose:** Create a consolidated, purchasable shopping list from a meal plan, merging duplicates, applying pantry deductions, and calculating pack counts.
+- **Authentication:** Required (`Bearer <jwt>`).
+- **Authorization:** Plan must belong to caller.
+- **Request Format:**
+  ```json
+  {
+    "meal_plan_id": "uuid",
+    "market_id": "uuid",
+    "deduct_pantry": true
+  }
+  ```
+- **Response Format:**
+  ```json
+  {
+    "shopping_list_id": "uuid",
+    "market_id": "uuid",
+    "total_estimated_cost": 210.0,
+    "currency": "BDT",
+    "items": [
+      {
+        "food_id": "uuid",
+        "name": "Red Lentils (Masoor Dal)",
+        "needed_quantity_g": 250,
+        "pantry_quantity_g": 50,
+        "to_buy_quantity_g": 200,
+        "pack_unit": "500g pack",
+        "pack_count": 1,
+        "pack_price": 70.0,
+        "estimated_line_cost": 70.0
+      }
+    ]
+  }
+  ```
+- **Validation:** Valid `meal_plan_id` and `market_id`.
+- **Error Handling:** 404 if plan not found; 403 if unauthorized.
+- **Database Dependencies:** `public.meal_plans`, `public.market_observations`, `public.pantry_items`.
+
+#### 11. `POST /api/v1/assistant/chat`
+- **Purpose:** Grounded nutrition assistant chat utilizing pgvector RAG retrieval over approved dietary documents.
+- **Authentication:** Required (`Bearer <jwt>`).
+- **Authorization:** Caller can only retrieve and converse around their own meal context.
+- **Request Format:**
+  ```json
+  {
+    "session_id": "uuid",
+    "message": "Why was Rohu fish curry recommended over beef for my dinner?",
+    "meal_id": "uuid"
+  }
+  ```
+- **Response Format:**
+  ```json
+  {
+    "reply_text": "Rohu fish curry was recommended because your profile specifies a heart-conscious wellness goal and a preference for traditional Bangladeshi fish curries. Additionally, it provides 22g protein for only 120 BDT, fitting within your remaining daily budget.",
+    "citations": [
+      {
+        "document_title": "Dietary Guidelines for Bangladesh 2013",
+        "section": "Fish and Animal Protein in Balanced Diets",
+        "citation_id": "cite_doc_04"
+      }
+    ],
+    "value_refs": {
+      "protein_g": 22.0,
+      "cost_bdt": 120.0
+    },
+    "limitations": "General meal guidance; not a clinical diet prescription."
+  }
+  ```
+- **Validation:** Non-empty message (max 1000 characters); valid session UUID.
+- **Error Handling:** 400 for blank prompt; 503 if embedding/Gemini service unavailable.
+- **Database Dependencies:** Vector similarity search on `public.knowledge_chunks` using `pgvector` (`<->`), joins with `public.knowledge_documents`, context injection from `public.meal_reports`.
+
+---
+
+### Transitional Coexistence and Migration from Prototype Edge Functions
+Early frontend prototypes utilized a lightweight Supabase Edge Function (`supabase/functions/analyze-meal/index.ts`) for quick prototyping. Under the approved **FastAPI + Supabase Hybrid Architecture**, all production business logic, AI orchestration, and calculations are migrated to FastAPI `/api/v1/*`.
+- **Coexistence Plan:** Existing Edge Functions may remain deployed as secondary fallbacks or for lightweight webhooks.
+- **Primary Route:** The React frontend services (`src/services/*`) target the FastAPI endpoint `/api/v1/food/recognize` as the primary API, ensuring complete architectural consistency across the application.
 
 **Reliability:** Use bounded timeouts, one schema-repair attempt and bounded retry for transient failures. An idempotency key avoids duplicate costly jobs from double taps; store the original result for repeated identical requests. A request ID links logs without exposing personal data.
 
@@ -854,105 +1254,377 @@ History and contextual chat can be added after the primary flow works. Menu scan
 
 # 21 | Security, privacy and reliability
 
-**Secret handling:** Gemini, USDA and privileged Supabase keys live only in server secrets. The frontend may use the Supabase URL and publishable/anon key with appropriate RLS. Anything exposed through a VITE_ environment variable is public browser configuration. Keep .env files out of Git and commit only names in .env.example. [S05, S20]
+**Secret handling:** Gemini, USDA and privileged Supabase keys live only in server environment variables on the FastAPI backend (and transitional Edge Function secrets). The frontend may use only the public `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, strictly protected by authentication and Row Level Security. Anything prefixed with `VITE_` is public client-side bundle configuration. Keep `.env` files out of Git and commit only variable names in `.env.example`. [S05, S20]
 
-**Authorization:** Check the session and object ownership for every private operation, including signed image URLs and chat retrieval. Never trust a client-supplied user_id. A service-role client bypasses RLS; restrict its use and scope every privileged query deliberately. [S06]
+**JWT Verification & User Authorization:** FastAPI intercepts every protected request and cryptographically verifies the Supabase Auth JWT (verifying signature, issuer, audience, and expiration). The authenticated user identity is derived strictly from the verified JWT `sub` claim. FastAPI never trusts client-supplied `user_id` values in request bodies, headers, or query parameters. Object ownership is verified on every operation before mutation or retrieval.
 
-**Uploads:** Check byte size, content type and actual file signature. Re-encode images to remove unnecessary metadata where practical. Do not fetch arbitrary image URLs supplied by users; accept owned storage objects to reduce server-side request risks.
+**User-Scoped Database Access & RLS:** FastAPI executes database queries using the authenticated user's context so that PostgreSQL Row Level Security (`auth.uid() = user_id`) policies actively enforce data boundaries. The privileged `service_role` key bypasses RLS and is restricted exclusively to authorized administrative tasks (such as background system migrations or initial catalog seeding). It is never used as the default connection for user-facing API operations.
 
-**Provider privacy:** The documented Gemini terms distinguish paid and unpaid data handling, restrict clinical use and set age/region conditions. For a hackathon, use fictional adult profiles and non-sensitive meal images. Before accepting real personal or health information, review the selected service terms and user consent; a paid plan is not by itself proof of regulatory compliance. [S22]
+**Uploads:** Check byte size (maximum 5 MB), allowed MIME types (`image/jpeg`, `image/png`, `image/webp`), and verify binary magic numbers. Re-encode images to strip EXIF location metadata where practical. Do not fetch arbitrary user-supplied image URLs from the backend; accept user-owned storage objects to eliminate Server-Side Request Forgery (SSRF) risks.
 
-**Minimum data:** Do not collect diagnoses, blood tests, exact GPS or date of birth merely to show personalized meal suggestions. City-level market choice and adult confirmation are adequate for the scoped demo. Keep declared allergy handling server-side where possible instead of sending a full health profile to the model.
+**Provider privacy:** The documented Gemini terms distinguish paid and unpaid data handling, restrict clinical use, and set age/region conditions. For the hackathon, use fictional adult profiles and non-sensitive meal images. Before accepting real personal or health information, review the selected service terms and user consent; a paid plan is not by itself proof of regulatory compliance. [S22]
 
-**Logging:** Log request ID, status, timing, model/version and token usage. Avoid image contents, secrets, personal chat text and health fields in general logs. Do not claim zero retention if the selected provider has its own logging policy.
+**Minimum data:** Do not collect clinical diagnoses, medical records, blood lab values, exact GPS coordinates, or dates of birth. City-level market choice and adult confirmation are adequate for the scoped demo. Enforce declared food allergies and restrictions server-side in FastAPI rather than sending sensitive health profiles to AI models.
 
-**Abuse and cost:** Enforce per-user limits, payload limits and a maximum number of model/tool calls. Deduplicate repeated image jobs. Cache public guidance and stable food records. Mark cached or historical market information accurately.
+**Logging & Privacy:** Log request IDs, HTTP status codes, latency, model versions, and token usage. Redact image payloads, passwords, bearer tokens, personal chat text, and health fields from general application logs.
 
-**Failure behavior:** Preserve user edits; allow manual selection; provide bounded retries; return clear unsupported-data messages. Never replace a failed live request with an unlabeled fabricated result.
+**Abuse and cost:** Enforce per-user rate limits on AI vision and chat endpoints. Deduplicate repeated image recognition jobs. Cache public food composition records and verified market observations.
+
+**Failure behavior:** Preserve user edits in client draft state; allow manual food selection; provide bounded retries; return clear unsupported-data messages. Never replace a failed live request with an unlabeled fabricated result.
 
 # 22 | Repository and Antigravity workflow
 
-**Setup:** Install Git and a Node.js version supported by the current Vite documentation. Set up Antigravity from its official instructions. Open one team repository and keep package versions in the lockfile. Test Supabase function deployment separately from the frontend. [S02, S23]
+**Repository Structure:** The project is organized as a unified monorepo housing the React frontend, the FastAPI backend, and Supabase database infrastructure.
 
-**Starter commands:**
+```text
+nutrilens/
+│
+├── src/                          # React Frontend (Vite + TypeScript)
+│   ├── components/               # Reusable UI components & GSAP animations
+│   ├── contracts/                # Shared TypeScript contracts & schemas
+│   ├── context/                  # AuthContext, ThemeContext, LanguageContext
+│   ├── hooks/                    # Custom React hooks
+│   ├── i18n/                     # Internationalization dictionaries (bn.json, en.json)
+│   ├── lib/                      # Supabase client, local food database helpers
+│   ├── pages/                    # Route pages (Analyze, Confirm, Report, Plan, Settings)
+│   ├── routes/                   # ProtectedRoute, GuestRoute, AppRoutes
+│   └── services/                 # API service clients communicating with FastAPI
+│
+├── backend/                      # Python + FastAPI Application Backend
+│   ├── app/
+│   │   ├── main.py               # FastAPI application entrypoint, CORS & middleware
+│   │   ├── core/                 # Central configuration, security & dependencies
+│   │   │   ├── config.py         # Settings & environment variables (pydantic-settings)
+│   │   │   ├── security.py       # Supabase JWT cryptographic verification
+│   │   │   ├── dependencies.py   # FastAPI dependency injection (get_current_user, get_db)
+│   │   │   └── exceptions.py     # Custom exceptions & global HTTP error handlers
+│   │   │
+│   │   ├── api/                  # Versioned API routes (/api/v1/)
+│   │   │   └── v1/
+│   │   │       ├── users.py      # Current user profile & account management
+│   │   │       ├── profiles.py   # Dietary preferences & health constraints
+│   │   │       ├── food_recognition.py # Gemini Vision integration & candidate proposals
+│   │   │       ├── nutrition.py  # Deterministic nutrition calculations & reports
+│   │   │       ├── meal_plans.py # Budget-aware meal planner & constraint optimizer
+│   │   │       ├── markets.py    # Market catalogs & localized price observations
+│   │   │       ├── shopping.py   # Consolidated shopping list generation
+│   │   │       └── assistant.py  # RAG nutrition assistant with pgvector citations
+│   │   │
+│   │   ├── schemas/              # Pydantic request, response & envelope schemas
+│   │   │   ├── common.py         # Standard success and error envelopes
+│   │   │   ├── user.py           # UserProfile, UserPreferences schemas
+│   │   │   ├── food.py           # CandidateItem, FoodRecord, FoodMatch schemas
+│   │   │   ├── nutrition.py      # NutritionReport, NutrientTotals schemas
+│   │   │   ├── plan.py           # MealPlan, MealSubstitution schemas
+│   │   │   ├── market.py         # MarketInfo, PriceObservation schemas
+│   │   │   └── chat.py           # ChatRequest, ChatResponse, Citation schemas
+│   │   │
+│   │   ├── services/             # Core business logic & calculation services
+│   │   │   ├── gemini_service.py # Gemini multimodal API client & JSON schema repairs
+│   │   │   ├── food_service.py   # Food matching, alias resolution & preparation math
+│   │   │   ├── nutrition_service.py # Deterministic FAO nutrition calculation engine
+│   │   │   ├── meal_planner.py   # Constraint-solving meal pivot & budget optimizer
+│   │   │   ├── market_service.py # Market price retrieval & inventory simulation
+│   │   │   └── rag_service.py    # Query embedding & pgvector retrieval orchestrator
+│   │   │
+│   │   ├── repositories/         # Database access layer
+│   │   │   ├── user_repo.py      # Profile & preference database operations
+│   │   │   ├── food_repo.py      # Foods, aliases & recipe database queries
+│   │   │   ├── meal_repo.py      # Meal logs, confirmed items & report persistence
+│   │   │   └── market_repo.py    # Markets & price observation queries
+│   │   │
+│   │   ├── integrations/         # External service connectors
+│   │   │   ├── supabase.py       # Supabase Python client & user-scoped sessions
+│   │   │   └── gemini.py         # Google Generative AI SDK / REST client
+│   │   │
+│   │   └── utils/                # Pure helper functions (units, currency, math)
+│   │
+│   ├── tests/                    # Backend automated test suite (pytest)
+│   │   ├── test_auth.py          # JWT verification & unauthorized request tests
+│   │   ├── test_nutrition.py     # Deterministic nutrition arithmetic tests
+│   │   ├── test_planner.py       # Budget constraint & allergen exclusion tests
+│   │   ├── test_api_v1.py        # End-to-end endpoint integration tests
+│   │   └── conftest.py           # Test fixtures & mock clients
+│   │
+│   ├── requirements.txt          # Python dependencies (fastapi, uvicorn, pydantic, etc.)
+│   ├── .env.example              # Backend environment variable template
+│   └── README.md                 # Backend setup, execution & testing documentation
+│
+├── supabase/                     # Supabase Infrastructure
+│   ├── migrations/               # Versioned PostgreSQL schema migrations
+│   ├── seeds/                    # Seed data (foods, recipes, markets, observations)
+│   └── functions/                # Transitional / edge-offload functions (analyze-meal)
+│
+├── docs/                         # Architecture, API specifications, and concept book
+├── .env.example                  # Root environment variable template
+├── package.json                  # Frontend dependencies and npm scripts
+└── README.md                     # Monorepo setup, run instructions, and demo guide
+```
 
+### Responsibility of Major Backend Directories
+- `app/core/`: Application lifecycle settings, environment variable parsing via `pydantic-settings`, cryptographic Supabase JWT verification (`security.py`), dependency injection providers (`dependencies.py`), and unified HTTP error handlers (`exceptions.py`).
+- `app/api/v1/`: Versioned REST routers exposing clean endpoints under `/api/v1/` with Pydantic parameter validation, status codes, and OpenAPI metadata.
+- `app/schemas/`: Declarative Pydantic models enforcing strict typing on incoming request bodies and outgoing JSON envelopes.
+- `app/services/`: Isolated business logic and mathematical engines (deterministic nutrition arithmetic, meal plan constraint solving, RAG context assembly). Completely independent of HTTP transport.
+- `app/repositories/`: Database abstraction layer executing user-scoped SQL queries and mutations against Supabase PostgreSQL, ensuring RLS enforcement.
+- `app/integrations/`: Third-party SDK wrappers managing connections to Supabase and Google Gemini API.
+
+### Starter Commands
+
+**Frontend (React + Vite):**
 ```bash
-npm create vite@latest nutrilens -- --template react-ts
-cd nutrilens
 npm install
 npm run dev
 ```
 
-Follow the current official setup for Tailwind and Supabase rather than mixing commands from tutorials for different major versions. Pin the actual working environment in README after the first successful build.
+**Backend (Python + FastAPI):**
+```bash
+cd backend
+python -m venv venv
+# Windows:
+.\venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
 
-**Recommended folders:**
-
-```text
-src/pages/        Analyze, Confirm, Report, Plan, Settings
-src/components/  shared UI and accessible controls
-src/contracts/   request/response schemas
-src/lib/         units, formatting, API client
-src/i18n/        en.json, bn.json
-supabase/functions/  vision, calculation, plan, chat
-supabase/functions/_shared/  pure math and validators
-supabase/migrations/  reviewed schema changes
-data/            approved seeds and provenance
-tests/           fixtures and acceptance cases
-docs/            architecture, API, limitations, evaluation
-PROJECT.md       this specification
-README.md        how to run and demo
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-**Build loop:** Choose one requirement -> ask Antigravity for a small plan -> review the proposed files and acceptance tests -> implement the bounded task -> run checks -> inspect the interface -> commit. Ask it to explain changed code in simple language. Review any new dependency before adopting it.
+# 23 | Nine-phase development roadmap
 
-**Starter instruction to paste:** "Read PROJECT.md completely. Start with FR-01 and a deployable shell. Propose the files and acceptance checks, then implement the approved task. Keep provider secrets server-side. Do not invent food data. Verify desktop, laptop, tablet and mobile, including navigation, content parity, overflow, accessibility and build checks. Explain each changed file and how I can test it."
+The NutriLens development plan is structured into nine sequential, verifiable phases. Each phase establishes explicit responsibilities across the frontend, FastAPI backend, and Supabase infrastructure layers, accompanied by clear acceptance criteria and testing gates.
 
-**Critical rule:** The team must understand the code it submits. AI-generated code is a draft for review, not a correctness guarantee. Never ask for the entire application in a single uncontrolled prompt.
+---
 
-# 23 | Twelve-day execution plan
+### Phase 1 — Project Foundation & Dummy Database
+- **Objectives:** Establish the monorepo workspace, initialize developer tooling, apply the core relational database schema, and seed verified Bangladesh baseline datasets.
+- **Detailed Tasks:**
+  - Initialize the React + Vite + TypeScript frontend with Tailwind CSS and React Router.
+  - Initialize the Python + FastAPI backend project directory with virtual environment and dependency specifications.
+  - Provision the Supabase project; configure database migrations for reference and core tables (`data_sources`, `markets`, `foods`, `food_names`, `recipes`, `recipe_ingredients`, `market_observations`).
+  - Seed the database with reviewed Bangladeshi food records (FAO/FCTB 2013), curated traditional recipes, and synthetic Savar/Ashulia market price observations.
+  - Validate database indexes, foreign key constraints, and seed repeatability scripts.
+- **Frontend Responsibilities:** Deploy a skeleton React shell to Vercel; configure environment variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_BASE_URL`).
+- **FastAPI Responsibilities:** Scaffold `app/main.py` with health-check endpoint (`GET /health`), CORS middleware, and environment configuration.
+- **Supabase Responsibilities:** Execute initial PostgreSQL migration scripts, seed relational tables, and verify public read access grants on reference tables.
+- **Dependencies:** None (foundation phase).
+- **Deliverables:** Working Git repository, deployable frontend shell on Vercel, runnable FastAPI `/health` endpoint, seeded Supabase database.
+- **Acceptance Criteria:** `npm run build` succeeds; FastAPI returns `{"status": "healthy"}`; SQL queries confirm all demo foods and recipes exist.
+- **Testing Requirements:** Database seed verification script; frontend build test; backend health check test.
 
-All dates are in Asia/Dhaka. This is a recommended plan based on your 20 November deadline. Each day ends with a visible, integrated result, not six disconnected branches.
+---
 
-| Date | Main outcome | Gate before moving on |
-| --- | --- | --- |
-| 8 Nov / Day 1 | Scope, roles, API access, repository, deployed shell | Real model call and deployed page work; submission rules checked |
-| 9 Nov / Day 2 | Schema, auth, private storage and reviewed seed foods | Two users isolated; all first-demo ingredients mapped; retailer decision made |
-| 10 Nov / Day 3 | Photo -> candidates -> editable confirmation | New image processed; manual correction and unmatched-food fallback work |
-| 11 Nov / Day 4 | Confirmed foods -> server nutrition report | Hand-calculated tests pass; missing values stay unknown |
-| 12 Nov / Day 5 | Budget planner and merged shopping list | Purchase cost, pantry and currency checks pass |
-| 13 Nov / Day 6 | Complete first loop on deployed app | A teammate unfamiliar with implementation finishes the journey |
-| 14 Nov / Day 7 | RAG chatbot with source links | Approved evidence retrieved; fabricated citations rejected |
-| 15 Nov / Day 8 | Meal-rescue pivot and evidence receipt | Constraint change recalculates all dependent values |
-| 16 Nov / Day 9 | Narrow cooking feature and second market | Only supported comparisons shown; no fake local prices |
-| 17 Nov / Day 10 | Cross-device and security regression | Major errors fixed; no new features after this gate |
-| 18 Nov / Day 11 | Evaluation, concept book and video recording | Results are measured; recording reflects the actual build |
-| 19 Nov / Day 12 | Final deployment, rehearsal and submission buffer | Links work on another device/network; backup video ready |
-| 20 Nov | Provisional internal team milestone from the earlier project brief | Confirm whether this is a team target or an organizer deadline |
+### Phase 2 — UI/UX & Frontend Development
+- **Objectives:** Build the complete client-side interface, design system, responsive layouts, theme toggling, and interactive animations.
+- **Detailed Tasks:**
+  - Implement design system tokens (colors, typography, spacing) reflecting a clean, trust-focused health SaaS aesthetic.
+  - Build navigation shell: responsive sidebar for desktop, accessible bottom drawer for mobile viewports.
+  - Implement core screens with mock fixtures: Landing Page, Dashboard, Food Scanner (`/app/analyze`), Food Confirmation (`/app/confirm`), Nutrition Report (`/app/report`), Bazar Intelligence (`/app/markets`), Meal Planner (`/app/plan`), Smart Shopping (`/app/shopping`), and Profile Settings (`/app/settings`).
+  - Integrate dark and light theme toggling (`ThemeContext`) and English/Bengali language switching (`i18next`).
+  - Implement GSAP animations for screen transitions, plate scanning effects, and card reveals.
+- **Frontend Responsibilities:** All layout construction, form controls, responsive CSS testing (360px to 1440px), accessibility attributes (`aria-*`, keyboard focus).
+- **FastAPI Responsibilities:** Provide mock contract JSON payloads matching Pydantic schemas for frontend decoupling.
+- **Supabase Responsibilities:** Maintain database availability.
+- **Dependencies:** Phase 1 (frontend shell and contracts).
+- **Deliverables:** Complete, navigable frontend prototype with responsive design, theme/language support, and rich GSAP animations.
+- **Acceptance Criteria:** Zero layout overflow across 360px, 768px, 1280px, and 1440px breakpoints; theme toggles without flashing; all routes navigable.
+- **Testing Requirements:** Cross-device browser testing, accessibility keyboard navigation audit, visual regression check.
 
-**If Day 4 slips:** Reduce data breadth and decorative charts. **If Day 6 slips:** Freeze optional menu/barcode features. **If Day 9 slips:** Replace numerical cooking comparison with sourced guidance and document the limitation. Do not sacrifice the main loop to keep every feature claim.
+---
 
-Reserve time each day for integration and verification. Start the README and concept book on Day 1; do not leave documentation until the final night.
+### Phase 3 — Authentication & User Personalization
+- **Objectives:** Implement secure user identity, session management, onboarding personalization, user-scoped preferences, and database Row Level Security.
+- **Detailed Tasks:**
+  - Integrate Supabase Auth for registration, email confirmation, password sign-in, and Google OAuth.
+  - Build client authentication state provider (`AuthContext`), `ProtectedRoute`, and `GuestRoute` route guards preventing unauthenticated access or session flicker.
+  - Create personalization tables: `profiles`, `user_medical_conditions`, `user_food_allergies`, `user_food_intolerances`, `user_dietary_preferences_detailed`, `user_nutritional_goals_detailed`, `user_nutrition_preferences`, `user_budget_preferences`, and `user_food_restrictions`.
+  - Implement user onboarding wizard capturing demographics, activity level, dietary goals, food allergies, and monthly budget.
+  - Implement cascading account self-deletion (Right to be Forgotten) and automated clean re-registration logic.
+  - Apply and verify PostgreSQL Row Level Security (RLS) policies (`auth.uid() = user_id`) across all user tables.
+- **Frontend Responsibilities:** Auth forms (login, register, forgot password), onboarding wizard steps, session token caching, and auth error handling.
+- **FastAPI Responsibilities:** Establish Supabase JWT verification module (`core/security.py`) and user extraction dependency (`get_current_user`).
+- **Supabase Responsibilities:** Supabase Auth service, JWT token signing, RLS enforcement, and `profiles` cascade triggers.
+- **Dependencies:** Phase 1 (database) and Phase 2 (UI screens).
+- **Deliverables:** Production-grade authentication lifecycle, personalized user onboarding, isolated user database rows.
+- **Acceptance Criteria:** User A cannot query or mutate User B's profile; deleted accounts can cleanly re-register; unauthenticated visitors are redirected to `/login`.
+- **Testing Requirements:** Two-user isolation test; JWT expiration test; check constraint validation tests.
+
+---
+
+### Phase 4 — Backend Architecture & Core Services
+- **Objectives:** Construct the production Python + FastAPI application backend, modular routers, Pydantic validation schemas, database repository layer, and error handling.
+- **Detailed Tasks:**
+  - Implement FastAPI application factory in `app/main.py` with structured middleware (CORS, Request ID tracking, timing headers).
+  - Build `app/core/config.py` using `pydantic-settings` to parse and validate environment variables.
+  - Implement cryptographic Supabase JWT verification in `app/core/security.py` using PyJWT / cryptography.
+  - Construct Pydantic schemas in `app/schemas/` covering request envelopes, responses, validation errors, and domain models.
+  - Build the repository abstraction layer in `app/repositories/` executing user-scoped queries against Supabase PostgreSQL.
+  - Expose versioned routers under `/api/v1/`: `/users`, `/profiles`, `/food`, `/nutrition`, `/meal-plans`, `/markets`, `/shopping`, and `/assistant`.
+  - Implement global exception handlers in `app/core/exceptions.py` formatting standard JSON error envelopes (`request_id`, `error.code`, `error.message`).
+  - Configure interactive OpenAPI / Swagger documentation at `/docs` and ReDoc at `/redoc`.
+- **Frontend Responsibilities:** Configure API client service layer (`src/services/apiClient.ts`) attaching `Authorization: Bearer <token>` to all requests.
+- **FastAPI Responsibilities:** Complete REST API framework, Pydantic validation, JWT authentication dependency, error envelopes, and automated tests.
+- **Supabase Responsibilities:** Process database queries originating from FastAPI; enforce RLS policies based on forwarded user tokens.
+- **Dependencies:** Phase 1 (schema) and Phase 3 (Supabase Auth & JWT setup).
+- **Deliverables:** Fully operational FastAPI backend with verified JWT authentication, OpenAPI documentation, and automated test suite.
+- **Acceptance Criteria:** All `/api/v1/*` endpoints reject unauthenticated requests with 401; Pydantic rejects invalid request payloads with 400; `/docs` renders all endpoint schemas.
+- **Testing Requirements:** `pytest` unit test suite covering JWT verification, Pydantic validation models, and API client error responses.
+
+---
+
+### Phase 5 — AI Food Recognition & Analysis
+- **Objectives:** Implement multimodal food image analysis, candidate proposal generation, and Human-in-the-Loop confirmation.
+- **Detailed Tasks:**
+  - Build image upload handler supporting camera capture, file upload, and base64 compression on the frontend.
+  - Implement `POST /api/v1/food/recognize` in FastAPI, orchestrating the Gemini Vision API with structured JSON output formatting.
+  - Implement prompt engineering with explicit system instructions to propose food candidates, preparation states, and uncertainty reasons without claiming authoritative calorie counts.
+  - Implement AI response parsing, JSON schema validation, and automatic single-retry repair in `gemini_service.py`.
+  - Map recognized labels to canonical database items via `food_service.py` and `food_repo.py`.
+  - Implement `POST /api/v1/food/confirm` accepting user corrections (confirmed food ID, preparation method, edible portion grams).
+  - Persist confirmed meals to `public.meal_logs` and `public.meal_items`.
+- **Frontend Responsibilities:** Interactive Food Confirmation screen (`/app/confirm`) with portion sliders, item add/remove, and preparation dropdowns.
+- **FastAPI Responsibilities:** Server-side Gemini Vision call, JSON repair logic, alias resolution against database catalog, meal log persistence.
+- **Supabase Responsibilities:** Store uploaded photos in private `meal-images` storage bucket; store confirmed meal rows with foreign key cascades.
+- **Dependencies:** Phase 2 (Confirm UI), Phase 4 (FastAPI routers).
+- **Deliverables:** Working Vision-to-Confirmation pipeline proposing candidates and saving verified portion weights.
+- **Acceptance Criteria:** Gemini Vision successfully identifies common Bangladeshi dishes; client allows editing grams and preparation; confirmed records persist in `meal_items`.
+- **Testing Requirements:** Image MIME/size validation tests, Gemini mock response tests, malformed JSON repair tests, portion confirmation integration tests.
+
+---
+
+### Phase 6 — Nutrition Intelligence Engine
+- **Objectives:** Execute authoritative, deterministic nutrient calculations from confirmed foods against verified FAO Bangladesh / FCTB data.
+- **Detailed Tasks:**
+  - Implement `nutrition_service.py` in FastAPI executing deterministic arithmetic:
+    $$\text{Nutrient Total} = \sum \left( \frac{\text{Confirmed Edible Grams}}{100} \times \text{Nutrient Value per 100g} \right)$$
+  - Calculate macronutrients (calories, protein, carbohydrates, total fat, dietary fibre) and micronutrient completeness metrics.
+  - Generate qualitative food-group observations (e.g. "Vegetable portion confirmed", "No protein-dense food confirmed") based on dietary guidelines.
+  - Implement `POST /api/v1/nutrition/calculate` and `GET /api/v1/nutrition/report`.
+  - Store computed calculations and data completeness in `public.meal_reports`.
+  - Generate verifiable evidence receipts listing source IDs, publication dates, and formula versions.
+- **Frontend Responsibilities:** Render Nutrition Report screen (`/app/report`) featuring interactive macro progress rings, food-group tags, and expandable evidence receipts.
+- **FastAPI Responsibilities:** Pure mathematical calculation engine, completeness scoring, source attribution assembly, report persistence.
+- **Supabase Responsibilities:** Store `meal_reports` with `ON DELETE CASCADE` from `meal_logs`.
+- **Dependencies:** Phase 1 (food composition records) and Phase 5 (confirmed meal items).
+- **Deliverables:** Deterministic nutrition calculation engine producing verifiable reports and evidence receipts.
+- **Acceptance Criteria:** Calculations match manual reference arithmetic exactly; missing nutrient values are flagged as incomplete (never silently converted to zero).
+- **Testing Requirements:** Hand-calculated unit tests with known food fixture weights; missing nutrient completeness tests; floating-point rounding tests.
+
+---
+
+### Phase 7 — Personalized Meal Planning & Market Intelligence
+- **Objectives:** Generate budget-aware meal pivots and consolidated smart shopping lists based on localized price observations.
+- **Detailed Tasks:**
+  - Implement `market_service.py` serving localized market packs and synthetic price/inventory observations (`GET /api/v1/markets`, `GET /api/v1/markets/prices`).
+  - Clearly tag all market price records with `SIMULATED DEMO DATA` labels and observation timestamps.
+  - Implement `meal_planner.py` constraint-solving engine in FastAPI:
+    - Identifies nutritional gaps from the user's latest meal report (e.g. low protein or high saturated fat).
+    - Filters curated recipes satisfying declared exclusions, medical conditions, and available equipment.
+    - Evaluates total recipe cost against the user's remaining cash budget.
+    - Proposes culturally familiar meal swaps preserving culinary satisfaction.
+  - Implement `POST /api/v1/meal-plans/generate`.
+  - Implement `POST /api/v1/shopping-lists` consolidating ingredient requirements, deducting pantry inventory, and rounding to commercial package units (e.g. 500g lentil pack, 1-litre oil bottle).
+  - Persist generated plans to `public.meal_plans`.
+- **Frontend Responsibilities:** Bazar Intelligence view (`/app/markets`), interactive Meal Planner (`/app/plan`) with what-if budget sliders, Smart Shopping list with checkboxes and pantry toggles.
+- **FastAPI Responsibilities:** Recipe constraint solving, budget math, pantry subtraction, commercial package rounding, shopping cost aggregation.
+- **Supabase Responsibilities:** Maintain `market_observations`, `recipes`, `recipe_ingredients`, and `meal_plans` tables.
+- **Dependencies:** Phase 3 (user constraints), Phase 6 (nutrition gaps), Phase 1 (market seed data).
+- **Deliverables:** Constraint-aware meal pivot planner and consolidated smart shopping list.
+- **Acceptance Criteria:** Suggested meals strictly respect declared allergens and budget limits; shopping list correctly rounds to package units and subtracts owned pantry quantities.
+- **Testing Requirements:** Budget boundary tests, allergen exclusion validation tests, package rounding math tests, pantry deduction tests.
+
+---
+
+### Phase 8 — RAG Nutrition Assistant & Smart Cooking
+- **Objectives:** Deploy a grounded, context-aware nutrition assistant powered by pgvector RAG, citing approved dietary documents without hallucinations.
+- **Detailed Tasks:**
+  - Curate and chunk approved nutritional guidelines (FAO Bangladesh Dietary Guidelines, WHO Healthy Diet factsheets).
+  - Generate text embeddings using Gemini embedding model and store vectors in `public.knowledge_chunks` with `pgvector`.
+  - Implement `rag_service.py` in FastAPI:
+    - Vectorizes user questions.
+    - Performs cosine similarity search (`<->`) via SQL in Supabase PostgreSQL.
+    - Injects retrieved excerpts, current user meal report, and active budget context into the LLM system prompt.
+    - Enforces prompt contracts prohibiting medical diagnoses or fabricated citations.
+  - Implement `POST /api/v1/assistant/chat`.
+  - Implement narrow, verified smart cooking guidance (safe internal temperatures, vegetable nutrient retention under boiling vs. steaming).
+- **Frontend Responsibilities:** Floating contextual chat interface (`/app/chat` sheet), message history, source citation pills with clickable evidence drawers.
+- **FastAPI Responsibilities:** Query vectorization, pgvector search orchestration, prompt assembly, Gemini chat completion, citation verification.
+- **Supabase Responsibilities:** `pgvector` indexing (`ivfflat` or `hnsw`), vector similarity queries, knowledge chunk storage.
+- **Dependencies:** Phase 4 (FastAPI backend), Phase 6 (meal context), Phase 7 (plan context).
+- **Deliverables:** Grounded AI nutrition assistant returning conversational guidance backed by clickable document citations.
+- **Acceptance Criteria:** Assistant answers domain questions citing approved chunks; refuses out-of-scope medical questions; does not fabricate nutrient amounts.
+- **Testing Requirements:** Answerable question tests with citation verification, unsupported question abstention tests, prompt injection resilience tests.
+
+---
+
+### Phase 9 — Testing, Security & Deployment
+- **Objectives:** Execute comprehensive cross-layer testing, security hardening, automated test suites, production deployment, and presentation rehearsal.
+- **Detailed Tasks:**
+  - Execute full FastAPI automated test suite using `pytest` and `httpx.AsyncClient`:
+    - Endpoint status and schema validation tests.
+    - JWT authentication and token expiration tests.
+    - Cross-user data isolation and unauthorized request tests.
+    - Deterministic nutrition calculation unit tests.
+    - Budget optimization and allergen exclusion tests.
+  - Execute frontend regression tests across desktop, laptop, tablet, and mobile viewports.
+  - Verify PostgreSQL Row Level Security (RLS) policies against automated red-team test queries.
+  - Deploy frontend to Vercel production environment with SPA routing fallback rules (`vercel.json`).
+  - Deploy FastAPI backend to production Python hosting with an asynchronous ASGI server (Uvicorn).
+  - Configure production CORS, environment variables, SSL/HTTPS, and health-check monitoring (`/health`).
+  - Record the end-to-end 3–4 minute judge demonstration video using real application outputs.
+  - Compile the Concept Book and final Hackathon submission deliverables.
+- **Frontend Responsibilities:** Vercel deployment, production environment variable configuration, cross-browser validation, demo recording walkthrough.
+- **FastAPI Responsibilities:** Production ASGI deployment, CORS whitelisting, logging verification, automated test reporting.
+- **Supabase Responsibilities:** Production connection pooling, backup snapshots, storage policy verification.
+- **Dependencies:** Phases 1 through 8.
+- **Deliverables:** Live production web application, passing test suite report, Concept Book, demonstration video, public submission repository.
+- **Acceptance Criteria:** 100% of core journey works smoothly on live production URLs; zero unhandled errors in browser console; all cross-user security checks pass.
+- **Testing Requirements:** End-to-end user journey test, load/latency test, mobile responsive regression test, security penetration checklist.
+
+---
+
+### 12-Day Milestone Mapping (Alighed with the 9-Phase Roadmap)
+
+| Date | Active Phase(s) | Main Milestone Outcome | Gate Before Advancing |
+| --- | --- | --- | --- |
+| 8 Nov / Day 1 | Phase 1 | Monorepo setup, FastAPI shell, Supabase schema & initial seeds | Real model test passes; frontend and backend `/health` deployable |
+| 9 Nov / Day 2 | Phase 1, Phase 3 | Relational schema migrations, Supabase Auth & reviewed seeds | Two users isolated; all demo ingredients mapped in database |
+| 10 Nov / Day 3 | Phase 2, Phase 3 | Responsive UI screens, onboarding wizard & RLS policies | Personalization tables populated; dark/light and Bengali/English switch cleanly |
+| 11 Nov / Day 4 | Phase 4 | FastAPI REST architecture, JWT verification & Pydantic models | All protected `/api/v1/*` routes reject unauthorized requests with 401 |
+| 12 Nov / Day 5 | Phase 5 | Gemini Vision candidate recognition & Food Confirmation screen | Photo intake proposes dishes; user confirms portion weights in database |
+| 13 Nov / Day 6 | Phase 6 | Deterministic nutrition calculation engine & Evidence Receipts | Hand-calculated tests pass; complete Vision-to-Report loop verified |
+| 14 Nov / Day 7 | Phase 7 | Market intelligence, meal pivot planner & smart shopping list | Budget constraints, pantry deduction, and package rounding verified |
+| 15 Nov / Day 8 | Phase 8 | pgvector RAG setup, document chunk embeddings & AI Assistant | Assistant cites approved documents; refuses ungrounded medical claims |
+| 16 Nov / Day 9 | Phase 8 | Smart cooking guides, second market pack & feature integration | Full end-to-end Vision-to-Market workflow functions cohesively |
+| 17 Nov / Day 10 | Phase 9 | Cross-device audit, security hardening & automated test suite | Automated tests pass; zero blocking bugs; feature freeze enforced |
+| 18 Nov / Day 11 | Phase 9 | Evaluation metrics, Concept Book compilation & video recording | Live app recorded demonstrating real vision, confirmation, and pivot |
+| 19 Nov / Day 12 | Phase 9 | Production deployment verification, rehearsal & final submission | Production URLs verified on external network; submission buffer ready |
+| 20 Nov | — | Provisional internal team milestone / final readiness buffer | Final team review against organizer submission rubric |
 
 # 24 | Six-person responsibilities and learning
 
-This allocation assumes six members. Assign real names in the team's issue board. Everyone should be able to explain the whole user journey even while specializing.
+This allocation distributes ownership across the full **React + FastAPI + Supabase Hybrid Architecture**. Assign individual team members in the project issue tracker.
 
-| Member | Main ownership | First learning task | Handoff |
+| Member | Main Ownership | Technical Focus | Core Handoff Deliverables |
 | --- | --- | --- | --- |
-| 1: Product/integration | Scope, requirements, merge coordination, deployment | Git branches, request flow, acceptance tests | Working main branch and daily demo |
-| 2: Frontend | Upload, confirm, report, navigation | React components, state, forms, responsive CSS | Screens using shared API contracts |
-| 3: Backend | Auth, schema, storage, Edge Functions, RLS | SQL relations, API validation, ownership | Secure endpoints and migrations |
-| 4: AI/RAG | Vision schema, retrieval, chatbot, evaluation prompts | Structured output, embeddings, grounded answers | Validated candidate and chat responses |
-| 5: Data/planning | Food mapping, prices, recipes, cooking, planner | Units, provenance, recipe math, constraints | Reviewed seeds and deterministic calculations |
-| 6: QA/story | User testing, cross-device checks, concept book, video | Test cases, bug reporting, demo narration | Test evidence and honest submission materials |
+| **1: Product & Integration** | Scope, requirements, deployment, architecture consistency | Monorepo orchestration, Git workflow, Vercel & ASGI hosting | Deployable main branch, daily integration demo, final submission |
+| **2: Frontend Engineer** | React UI, state, forms, responsive layouts & GSAP | React Router, Tailwind CSS, i18next, GSAP animations | Responsive screens integrating with FastAPI `/api/v1/*` endpoints |
+| **3: Backend Engineer** | FastAPI REST API, Pydantic schemas, JWT security & math | Python, FastAPI, Pydantic, Supabase JWT verification, RLS | Production `/api/v1/` routes, deterministic nutrition engine, `/docs` |
+| **4: AI & RAG Engineer** | Gemini multimodal integration, prompt contracts & pgvector | Gemini API, structured JSON output, embeddings, RAG retrieval | Validated vision detection service, grounded assistant with citations |
+| **5: Data & Planning Engineer** | Food composition catalog, recipes, market prices & planner | FAO/FCTB datasets, recipe modeling, constraint solving math | Verified database seeds, meal planner service, shopping list math |
+| **6: QA & Story Lead** | Test automation, cross-device QA, concept book & demo video | pytest, browser testing, evaluation reports, video narration | Test evidence report, Concept Book, recorded judge walkthrough |
 
-**Avoid bottlenecks:** Member 1 pairs with backend during integration; frontend uses agreed fixtures before APIs are ready; AI and data owners agree food IDs early; QA participates from Day 2. Documentation/video work does not mean Member 6 waits until the end.
+**Cross-Discipline Pairing:**
+- Member 1 pairs with Member 3 on API deployment and environment security.
+- Member 2 pairs with Member 3 to align TypeScript contracts with Pydantic schemas.
+- Member 4 pairs with Member 5 to ensure recognized food labels match canonical database food IDs.
+- Member 6 begins test case authoring and concept book documentation from Day 2.
 
-**Suggested daily routine:** A short coordination meeting, focused build time, an integration window, then a demo and blocker review. This is a workflow suggestion, not a required schedule. Adjust to actual availability.
+**Suggested daily routine:** A short 15-minute coordination standup, focused build time, an integration window syncing React with FastAPI `/api/v1/`, and an end-of-day demo reviewing blockers.
 
-**Git discipline:** One branch per bounded feature; small commits; review before merge; run the relevant checks; commit migrations with code; avoid two people changing shared schema files simultaneously. Main should remain deployable. Keep credentials and private data out of commits and screenshots.
+**Git discipline:** One branch per bounded feature (`feat/backend-nutrition-engine`, `feat/auth-jwt-guard`); small commits; review before merge; commit backend migrations alongside corresponding Pydantic schemas; keep main deployable at all times. Keep credentials and private API keys strictly out of commits and screenshots.
 
-**Minimum learning path:** Web request/response -> React forms/state -> TypeScript types -> SQL tables/keys -> authentication versus authorization -> JSON validation -> deterministic calculation -> retrieval -> testing/deployment. Learn each just before implementing its slice; you do not need to master machine learning first.
+**Minimum learning path:** Web request/response -> React forms/state & TypeScript -> FastAPI routers, Pydantic validation & Python async -> SQL tables, foreign keys & PostgreSQL RLS -> Supabase Auth & JWT cryptographic verification -> deterministic nutrition arithmetic -> vector embeddings & pgvector RAG -> automated testing (pytest) & production deployment.
 
 **Daily evidence record:** Requirement ID, owner, current status, blocking dependency, test result, demo URL/commit and next action. This becomes the source for the final project report.
 
@@ -960,11 +1632,16 @@ This allocation assumes six members. Assign real names in the team's issue board
 
 Do not report model accuracy before measuring it. The following evaluation set and thresholds are proposed acceptance targets for this prototype, not observed results or clinical validation.
 
-**Suggested visual set:** 30 team-owned or permitted inputs: 10 simple ingredient images, 10 local plated meals, 5 mixed/ambiguous dishes and 5 difficult or invalid inputs. If menu mode ships, add a separate small menu set. Keep some examples out of prompt development for a modest holdout test.
+### Dedicated FastAPI & System Testing Strategy
+1. **API Endpoint & Contract Tests (`pytest` + `httpx.AsyncClient`):** Verify every `/api/v1/*` route against valid and invalid payloads; verify Pydantic error details on malformed inputs.
+2. **JWT Security & Authorization Tests:** Verify that requests without tokens receive 401; expired tokens receive 401; tokens signed by untrusted issuers receive 401.
+3. **Cross-User Data Isolation Tests:** Explicitly attempt to query or update User A's meal log using User B's JWT; assert that FastAPI and Supabase RLS return 403 or 404.
+4. **Deterministic Nutrition Arithmetic Unit Tests:** Pass fixed portion gram fixtures (e.g. 200g Cooked Rice + 150g Masoor Dal); assert calculated calories, protein, carbs, fat, and fibre match hand-calculated numbers to 2 decimal places.
+5. **Budget & Allergen Constraint Solver Tests:** Verify that meal planning recommendations never include excluded allergens and never exceed declared cash budget amounts.
+6. **Gemini Vision Integration & Mock Tests:** Mock Gemini responses to test JSON repair logic, network timeout handling, and local catalog fallback resilience.
+7. **pgvector Retrieval & Grounding Tests:** Submit 10 in-scope dietary questions (verifying citation presence) and 10 out-of-scope or medical questions (verifying graceful refusal).
 
-**Ground truth:** Record the known ingredients and preparation state. Weigh portions when assessing quantity error. Without weighed references, do not claim calorie-estimation accuracy; evaluate identification and the correction experience instead.
-
-| Test area | Method | Proposed pass condition |
+| Test Area | Method | Proposed Pass Condition |
 | --- | --- | --- |
 | Nutrient math | Known fixture values, mixed units, missing entries | Exact logic with tolerance only for rounding |
 | Budget | Loose goods, pack rounding, pantry, unknown prices | All declared feasible plans satisfy the computed cash budget |
@@ -976,21 +1653,25 @@ Do not report model accuracy before measuring it. The following evaluation set a
 | UX | Primary task on desktop/laptop/tablet/mobile | Every core action works, with no blocking overflow or focus failure |
 | Performance | Record at least 20 end-to-end runs on stated setup | Report median/p95 and failure count; compare with the chosen target |
 
-**Traceability examples:** FR-04 -> Confirm screen -> calculate-nutrition -> T-CONFIRM-01; FR-10 -> Shopping screen -> planner -> T-PACK-02; FR-13 -> Chat -> retrieval/citation validator -> T-RAG-03; FR-16 -> History/Storage -> RLS -> T-ACCESS-01.
-
-**Error metrics:** Food identification precision/recall; portion mean absolute error in grams where measured; macro error in grams where a valid reference exists; user-correction rate; feasible-plan rate; evidence support rate; completion rate. Avoid percentage error for nutrients near zero.
-
-**Report format:** Setup, sample definition, test date, software/data/model versions, results, failures and limitations. "All five demo photos passed" is a narrow demo result, not a general accuracy estimate.
-
 # 26 | Deployment, costs and fallback
 
-**Deployment sequence:** Create Supabase project -> apply reviewed migrations and grants -> load approved seeds -> configure private storage -> set server secrets -> deploy and test functions -> build frontend -> configure public frontend variables -> deploy -> verify deep-link refresh and authentication redirects -> run the complete journey from another device.
+### Production Deployment Architecture
+- **Frontend Client:** Deployed to **Vercel** as a static single-page application build. Rewrites configured in `vercel.json` to handle client-side routing.
+- **Backend API:** Deployed to a **Python-compatible hosting platform** (such as Railway, Render, Fly.io, or AWS) running `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2`.
+- **Database & Authentication:** Hosted on **Supabase** (PostgreSQL with RLS, Supabase Auth, Supabase Storage, and pgvector).
+- **AI Integration:** Hosted **Google Gemini API** (`gemini-1.5-flash` / `gemini-2.0-flash`).
 
-**Environment separation:** Development uses test profiles and safe fixtures. The demo deployment contains only necessary accounts/data. Keep a known-good commit and data snapshot. Document the deployment steps so a second teammate can reproduce them.
-
-**Required checks before final deploy:** Type checking, production build, calculation tests, budget/constraint tests, auth/RLS tests, retrieval/citation checks and the core browser journey. Use a fast test runner for pure functions and a browser test tool where the team can maintain it. Do not add complex infrastructure only for appearances.
-
-**Cost planning:** Actual expense depends on current model rates, input/output tokens, image processing, embeddings, database/storage usage, hosting plan and retailer access. Free tiers and credit availability are not guaranteed. Check your account dashboards and provider pricing on Day 1. [S24]
+### Deployment Sequence
+1. **Supabase Provisioning:** Apply versioned SQL migrations in `supabase/migrations/`; verify RLS policies and grants; execute seed data script; configure private storage buckets (`meal-images`, `avatars`).
+2. **Backend Deployment (FastAPI):**
+   - Configure server-side environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY` (admin only), `GEMINI_API_KEY`, `ALLOWED_ORIGINS`.
+   - Deploy Python application; verify startup logs and probe `/health`.
+   - Verify `/docs` OpenAPI interface.
+3. **Frontend Deployment (Vercel):**
+   - Configure public environment variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_BASE_URL` (pointing to production FastAPI URL).
+   - Trigger production Vite build; verify asset bundling and routing fallback.
+4. **End-to-End Verification:**
+   - Execute user registration, onboarding, image analysis, food confirmation, nutrition calculation, and shopping list generation across desktop and mobile devices.
 
 ```text
 estimated AI cost = input usage * input rate
@@ -1000,41 +1681,25 @@ total project cost = AI + hosting/database + storage/egress
                    + any licensed data/API fees
 ```
 
-Use the provider's billing units consistently. Do not assume one image equals a fixed number of billable tokens. Measure a representative request and multiply by planned test volume. Include retries when estimating.
-
-**Team spending control:** Choose a hard experimental budget before enabling paid usage. For example, a US$30 cap would be a team spending decision, not a prediction of the bill. Add app-side request limits and billing alerts; alerts alone may not stop spending.
-
-**Demo fallback:** Keep permitted sample images and a recorded successful run. If live vision fails, enter confirmed foods manually and continue using real calculations. If price data is a snapshot, show its date. If the entire demonstration is recorded, state that plainly.
-
-**Operational record:** Model IDs, data versions, application commit, build time, evaluation results and any cached sample status. Update the documentation when behavior changes; do not present plans as shipped features.
-
 # 27 | Documentation and hackathon deliverables
 
 **Keep these documents aligned with the actual implementation:**
 
-| Artifact | Required content | Owner |
+| Artifact | Required Content | Owner |
 | --- | --- | --- |
-| PROJECT.md / specification | Scope, requirements, constraints, acceptance criteria | Product + all owners |
-| README | Setup, environment variable names, run/build steps, demo flow, limitations | Integration |
-| Architecture | Component responsibilities, data flow, external calls, trust boundaries | Backend + AI |
-| API/data dictionary | Inputs, outputs, errors, units, provenance, relationships | Backend + data |
-| AI/RAG note | Model IDs, prompts, retrieval policy, citation validation, no-training explanation | AI |
-| Evaluation report | Actual dataset, methods, results and failures | QA |
-| Concept book | Problem, audience, solution, differentiators, feasibility, roadmap | Product + story |
-| Demo video | Real end-to-end use, one correction, one pivot, evidence and limitations | Story + integration |
-| Source/license register | Data links, versions, permissions, image rights and attributions | Data |
-
-**Recommended concept-book structure:** One-line concept; user problem; complete journey; technology and data; distinctive capabilities; delivery and future plan. The supplied companion is a draft concept book, not a claim of validation or traction.
-
-**Recommended video:** A roughly three-minute recording is a planning format only; confirm the organizer's actual limit. Use the supplied narration and storyboard. Record the working app, readable cursor actions and real outputs. Include only features present in the recorded build.
-
-**Submission items to verify with the organizer:** Team-size rules, the actual submission deadline (the 20 November date is only a provisional internal target in this document), allowed prior work, required repository visibility, AI-assistance disclosure, concept-book template/page limit, video duration/file format, hosting accessibility and judging rubric. Do not present unverified details as published competition requirements.
-
-**Final checklist:** Submitted links open outside the owner's session; any demo login is documented securely; no keys in the repository; sources are credited; data modes are visible; optional features are labeled; evaluation results are real; backup recording exists; every teammate can answer how nutrition is calculated and how the app avoids invented prices.
+| NutriLens_MASTER_PROJECT.md | Authoritative scope, architecture, contracts, acceptance criteria | Product + all owners |
+| README.md | Setup, environment variable names, run/build steps, demo flow, limitations | Integration + Backend |
+| Architecture Document | Hybrid architecture, data flow, trust boundaries, JWT & RLS models | Backend + AI |
+| API Specification | OpenAPI schema, `/api/v1/` endpoints, Pydantic models, error codes | Backend |
+| AI/RAG Note | Model IDs, system prompts, retrieval policy, citation validation | AI |
+| Evaluation Report | Test datasets, methods, empirical results, and known limitations | QA |
+| Concept Book | Problem, target audience, solution, differentiators, feasibility, roadmap | Product + story |
+| Demo Video | Real end-to-end journey, food correction, budget pivot, evidence receipts | Story + integration |
+| Source/License Register | Data citations, versions, permissions, and third-party attributions | Data |
 
 # 28 | Risks, future work and project truth
 
-| Risk | Early signal | Response |
+| Risk | Early Signal | Response |
 | --- | --- | --- |
 | Model access or quota fails | Day 1 call unavailable | Select an accessible equivalent; keep model behind one adapter |
 | Local dishes mismatch | Frequent corrections | Curate aliases/recipes and require confirmation |
@@ -1045,31 +1710,23 @@ Use the provider's billing units consistently. Do not assume one image equals a 
 | Integration breaks late | Features work only on separate branches | Integrate daily; freeze new features on Day 10 |
 | International claims overreach | Unsupported region looks fully active | Publish market coverage levels and explicit fallbacks |
 
-**After the hackathon:** Evaluate actual user needs; involve a qualified nutrition professional before extending beyond general wellness; improve recipe/portion ground truth; negotiate retailer integrations; add more tested markets; consider household planning and receipt-based pantry updates.
-
-**Model training later:** Only consider fine-tuning or a custom model after measuring persistent errors, collecting a consented and properly labeled dataset, defining evaluation criteria and demonstrating that prompting, data mapping or retrieval cannot solve the problem economically. Training is not the first milestone.
-
-**Commercial hypotheses:** Individual planning subscriptions, retailer-assisted shopping or institution-supported wellness tools are possibilities to research. No market size, revenue, conversion rate or partnership is established by this document. Avoid conflicts in which paid placements override allergy or budget requirements.
-
-**What to say to judges:** "We use a pre-trained multimodal model to propose foods, user confirmation to correct them, trusted data and code to calculate nutrition, and regional evidence plus market observations to produce an actionable plan. We built a globally extensible architecture with explicitly limited pilot coverage."
+**What to say to judges:** "NutriLens is built on a **FastAPI + Supabase Hybrid Architecture**. We use a pre-trained multimodal model to propose visible food candidates, user confirmation to correct them, trusted database records and a deterministic Python FastAPI backend to calculate nutrition, and regional evidence plus localized market observations to produce an actionable plan. We built a globally extensible architecture with explicitly limited pilot coverage."
 
 **What not to claim:** Medical-grade accuracy; measured metabolism from a photo; guaranteed allergen safety; live worldwide grocery inventory; a trained proprietary nutrition model; clinically proven outcomes; or features that exist only in the specification.
 
-The strongest submission is a working, honest decision loop with measured limitations and a clear next step for the user.
-
 # 28A | Final scope lock and implementation rules
 
-The following scope lock applies to the first hackathon prototype:
+The following scope lock applies to the hackathon prototype:
 
-- **Build now:** Food image upload; Gemini candidate recognition; manual food search; user confirmation of identity/preparation/grams; deterministic nutrition calculation; Bangladesh-first food aliases and recipes; synthetic Savar/Ashulia market observations; constraint-aware meal rescue; cuisine-preserving swaps; budget-aware shopping list; evidence receipt; basic RAG answers with citations; responsive web deployment.
+- **Build now:** Food image upload; Gemini candidate recognition; manual food search; user confirmation of identity/preparation/grams; deterministic FastAPI nutrition calculation; Bangladesh-first food aliases and recipes; synthetic Savar/Ashulia market observations; constraint-aware meal rescue; cuisine-preserving swaps; budget-aware shopping list; evidence receipt; basic RAG answers with citations; responsive web deployment.
 - **Add only after the core flow passes:** What-if portion/ingredient changes, market shock simulation, pantry-first subtraction, rule-based best-next-question and menu-photo parsing.
 - **Do not build in this prototype:** Climate-to-Nutrition Intelligence, AI Food Waste Rescue, glucose/wearable telemetry, metabolic prediction, custom model training, autonomous multi-agent workflow, receipt OCR, family fairness/household planner, full retailer integrations unless access is already confirmed, multi-tenant enterprise administration, billing or native mobile apps.
 
-**Stack lock:** React + Vite + TypeScript + Tailwind; Supabase Auth/Postgres/Storage/Edge Functions; Gemini API; pgvector; Vercel. A change requires a written reason, impact review and team approval. Do not silently switch to Next.js, Express, MySQL, MongoDB or another backend architecture.
+**Stack lock:** **React + Vite + TypeScript + Tailwind CSS; Python + FastAPI + Pydantic; Supabase Auth, PostgreSQL with RLS, private Storage, and pgvector; Gemini API; Vercel.** A change requires a written reason, impact review and team approval. Do not silently switch to Next.js, Express, Node.js backend, MySQL, MongoDB, Django, microservices, or another backend architecture.
 
 **Database-first rule:** Finish reviewed migrations and repeatable dummy seed data before implementing complex UI logic. Build against the agreed API contracts and database records, not hardcoded frontend arrays.
 
-**AI boundary:** AI proposes foods and explanations. The backend validates IDs, reads nutrient/market records, applies rules and performs all authoritative calculations. A malformed or unavailable AI response must not cause the app to invent food, nutrient or market data.
+**AI boundary:** AI proposes foods and explanations. The FastAPI backend validates IDs, reads nutrient/market records, applies rules and performs all authoritative calculations. A malformed or unavailable AI response must not cause the app to invent food, nutrient or market data.
 
 **Truthful demo rule:** Clearly mark synthetic price and stock rows; distinguish snapshots from live inventory; disclose portion assumptions; do not claim clinical validation, global coverage or accuracy that has not been measured.
 
