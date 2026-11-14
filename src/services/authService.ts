@@ -622,7 +622,6 @@ export async function deleteUserAccount(): Promise<AuthResponse> {
         supabase.from('user_budget_preferences').delete().eq('user_id', userId),
         supabase.from('user_food_restrictions').delete().eq('user_id', userId),
         supabase.from('meal_logs').delete().eq('user_id', userId),
-        supabase.from('meal_reports').delete().eq('user_id', userId),
         supabase.from('meal_plans').delete().eq('user_id', userId),
         supabase.from('profiles').delete().eq('id', userId),
       ]);
