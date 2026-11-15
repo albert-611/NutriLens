@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { LocaleProvider } from './context/LocaleContext';
 import { AuthProvider } from './context/AuthContext';
 import { AppRoutes } from './routes/AppRoutes';
+import { CinematicIntro } from './components/animations/CinematicIntro';
 
 export const App: React.FC = () => {
   return (
@@ -12,6 +13,7 @@ export const App: React.FC = () => {
         <LocaleProvider>
           <AuthProvider>
             <AppRoutes />
+            <CinematicIntro />
           </AuthProvider>
         </LocaleProvider>
       </ThemeProvider>

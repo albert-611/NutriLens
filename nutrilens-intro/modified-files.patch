@@ -1,0 +1,170 @@
+diff --git a/index.html b/index.html
+index 36301cd..144125a 100644
+--- a/index.html
++++ b/index.html
+@@ -25,6 +25,20 @@
+       })();
+     </script>
+ 
++    <!-- Cinematic intro: paint the brand green (and lock scroll) before the JS bundle loads -->
++    <script>
++      (function() {
++        try {
++          if (location.pathname !== '/') return;
++          if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
++          var d = document.documentElement;
++          d.classList.add('nl-intro-boot', 'nl-intro-lock');
++          // Failsafe: never leave the page locked if the app fails to start.
++          setTimeout(function() { d.classList.remove('nl-intro-boot', 'nl-intro-lock'); }, 8000);
++        } catch (e) {}
++      })();
++    </script>
++
+     <!-- Hide scrollbars across all viewports -->
+     <style>
+       html, body {
+@@ -42,6 +56,10 @@
+         display: none !important;
+         background: transparent !important;
+       }
++      html.nl-intro-boot,
++      html.nl-intro-boot body { background: #071A14 !important; }
++      html.nl-intro-lock,
++      html.nl-intro-lock body { overflow: hidden !important; }
+     </style>
+   </head>
+   <body class="bg-surface-lightRoot text-slate-800 font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+diff --git a/src/App.tsx b/src/App.tsx
+index 6b2e9d8..c11c502 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
+ import { LocaleProvider } from './context/LocaleContext';
+ import { AuthProvider } from './context/AuthContext';
+ import { AppRoutes } from './routes/AppRoutes';
++import { CinematicIntro } from './components/animations/CinematicIntro';
+ 
+ export const App: React.FC = () => {
+   return (
+@@ -12,6 +13,7 @@ export const App: React.FC = () => {
+         <LocaleProvider>
+           <AuthProvider>
+             <AppRoutes />
++            <CinematicIntro />
+           </AuthProvider>
+         </LocaleProvider>
+       </ThemeProvider>
+diff --git a/src/components/animations/BlurText.tsx b/src/components/animations/BlurText.tsx
+index f192a7f..9f42e51 100644
+--- a/src/components/animations/BlurText.tsx
++++ b/src/components/animations/BlurText.tsx
+@@ -3,6 +3,8 @@
+ import { motion, MotionConfig, type Easing, type MotionStyle, type Transition } from 'motion/react';
+ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+ 
++import { useIntroReleased } from '../../lib/introGate';
++
+ type Snapshot = Record<string, string | number>;
+ type Keyframes = Record<string, Array<string | number>>;
+ type Phase = 'from' | 'in' | 'out' | 'rest';
+@@ -238,6 +240,7 @@ export const BlurText = ({
+   focusOnHover = false
+ }: BlurTextProps) => {
+   const ref = useRef<HTMLParagraphElement>(null);
++  const introReleased = useIntroReleased();
+   const [phase, setPhase] = useState<Phase>(() => startPhase(trigger));
+   const firstPhase = useRef(phase).current;
+   const [focusWord, setFocusWord] = useState(-1);
+@@ -294,7 +297,7 @@ export const BlurText = ({
+   const outTotal = (exitDuration + maxRank * exitStagger) * 1000;
+ 
+   useEffect(() => {
+-    if (phase !== 'from') return undefined;
++    if (phase !== 'from' || !introReleased) return undefined;
+     if (trigger === 'load') {
+       setPhase('in');
+       return undefined;
+@@ -316,7 +319,7 @@ export const BlurText = ({
+     );
+     observer.observe(element);
+     return () => observer.disconnect();
+-  }, [phase, trigger, threshold, rootMargin]);
++  }, [phase, trigger, threshold, rootMargin, introReleased]);
+ 
+   useEffect(() => {
+     let timer = 0;
+diff --git a/src/index.css b/src/index.css
+index cd40c89..6476679 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -147,3 +147,19 @@ body {
+     border-width: 8px;
+   }
+ }
++
++/* Cinematic intro overlay (see components/animations/CinematicIntro.tsx) */
++.nl-intro {
++  position: fixed;
++  top: 0;
++  left: 0;
++  width: 100vw;
++  height: 100vh; /* fallback */
++  height: 100dvh;
++  z-index: 100000;
++  overflow: hidden;
++  isolation: isolate;
++  touch-action: none;
++  overscroll-behavior: none;
++  pointer-events: auto;
++}
+diff --git a/src/pages/public/LandingPage.tsx b/src/pages/public/LandingPage.tsx
+index 5894e80..2d2212a 100644
+--- a/src/pages/public/LandingPage.tsx
++++ b/src/pages/public/LandingPage.tsx
+@@ -11,6 +11,7 @@ import { ProductPreviewSection } from '../../components/landing/ProductPreviewSe
+ import { TrustEvidenceSection } from '../../components/landing/TrustEvidenceSection';
+ import { FinalCTASection } from '../../components/landing/FinalCTASection';
+ import { gsap, prefersReducedMotion } from '../../lib/gsap';
++import { isIntroGateClosed, onIntroRelease } from '../../lib/introGate';
+ 
+ export const LandingPage: React.FC = () => {
+   const pageRef = useRef<HTMLDivElement>(null);
+@@ -19,6 +20,8 @@ export const LandingPage: React.FC = () => {
+     // If reduced motion is preferred, preserve content visibility without transforms
+     if (prefersReducedMotion() || Boolean(pageRef.current) === false) return;
+ 
++    let offGate: (() => void) | undefined;
++
+     // Scoped GSAP animation context for safe lifecycle cleanup
+     const ctx = gsap.context(() => {
+       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+@@ -26,11 +29,15 @@ export const LandingPage: React.FC = () => {
+       sections?.forEach((sec, idx) => {
+         // Hero section immediate entrance
+         if (idx === 0) {
+-          gsap.fromTo(
++          // While the cinematic intro is covering the page, hold the hero entrance
++          // until the reveal begins so it isn't spent behind the overlay.
++          const waitForIntro = isIntroGateClosed();
++          const heroTween = gsap.fromTo(
+             sec,
+             { opacity: 0, y: 20 },
+-            { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }
++            { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', paused: waitForIntro }
+           );
++          if (waitForIntro) offGate = onIntroRelease(() => heroTween.play());
+           return;
+         }
+ 
+@@ -80,7 +87,10 @@ export const LandingPage: React.FC = () => {
+       });
+     }, pageRef);
+ 
+-    return () => ctx.revert();
++    return () => {
++      offGate?.();
++      ctx.revert();
++    };
+   }, []);
+ 
+   return (

@@ -25,6 +25,20 @@
       })();
     </script>
 
+    <!-- Cinematic intro: paint the brand green (and lock scroll) before the JS bundle loads -->
+    <script>
+      (function() {
+        try {
+          if (location.pathname !== '/') return;
+          if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+          var d = document.documentElement;
+          d.classList.add('nl-intro-boot', 'nl-intro-lock');
+          // Failsafe: never leave the page locked if the app fails to start.
+          setTimeout(function() { d.classList.remove('nl-intro-boot', 'nl-intro-lock'); }, 8000);
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- Hide scrollbars across all viewports -->
     <style>
       html, body {
@@ -42,6 +56,10 @@
         display: none !important;
         background: transparent !important;
       }
+      html.nl-intro-boot,
+      html.nl-intro-boot body { background: #071A14 !important; }
+      html.nl-intro-lock,
+      html.nl-intro-lock body { overflow: hidden !important; }
     </style>
   </head>
   <body class="bg-surface-lightRoot text-slate-800 font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">

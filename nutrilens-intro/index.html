@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NutriLens — Bangladesh-First Nutrition Intelligence</title>
+    <meta name="description" content="Turn everyday meals into smarter nutrition decisions. Understand your plate, explore Savar and Ashulia local bazar prices, and discover affordable ways to eat better." />
+    <meta name="page-type" content="software" />
+    <meta name="site-kind" content="software" />
+    <meta name="theme-color" content="#ffffff" />
+    
+    <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono for high-taste typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Light Theme Enforcement Script -->
+    <script>
+      (function() {
+        try {
+          localStorage.setItem('nutrilens_theme', 'light');
+          document.documentElement.classList.remove('dark');
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- Cinematic intro: paint the brand green (and lock scroll) before the JS bundle loads -->
+    <script>
+      (function() {
+        try {
+          if (location.pathname !== '/') return;
+          if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+          var d = document.documentElement;
+          d.classList.add('nl-intro-boot', 'nl-intro-lock');
+          // Failsafe: never leave the page locked if the app fails to start.
+          setTimeout(function() { d.classList.remove('nl-intro-boot', 'nl-intro-lock'); }, 8000);
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- Hide scrollbars across all viewports -->
+    <style>
+      html, body {
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+      }
+      ::-webkit-scrollbar {
+        display: none !important;
+        width: 0px !important;
+        height: 0px !important;
+        background: transparent !important;
+      }
+      ::-webkit-scrollbar-thumb,
+      ::-webkit-scrollbar-track {
+        display: none !important;
+        background: transparent !important;
+      }
+      html.nl-intro-boot,
+      html.nl-intro-boot body { background: #071A14 !important; }
+      html.nl-intro-lock,
+      html.nl-intro-lock body { overflow: hidden !important; }
+    </style>
+  </head>
+  <body class="bg-surface-lightRoot text-slate-800 font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

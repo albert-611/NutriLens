@@ -147,3 +147,19 @@ body {
     border-width: 8px;
   }
 }
+
+/* Cinematic intro overlay (see components/animations/CinematicIntro.tsx) */
+.nl-intro {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh; /* fallback */
+  height: 100dvh;
+  z-index: 100000;
+  overflow: hidden;
+  isolation: isolate;
+  touch-action: none;
+  overscroll-behavior: none;
+  pointer-events: auto;
+}

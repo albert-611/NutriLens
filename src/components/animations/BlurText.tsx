@@ -3,6 +3,8 @@
 import { motion, MotionConfig, type Easing, type MotionStyle, type Transition } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
+import { useIntroReleased } from '../../lib/introGate';
+
 type Snapshot = Record<string, string | number>;
 type Keyframes = Record<string, Array<string | number>>;
 type Phase = 'from' | 'in' | 'out' | 'rest';
@@ -238,6 +240,7 @@ export const BlurText = ({
   focusOnHover = false
 }: BlurTextProps) => {
   const ref = useRef<HTMLParagraphElement>(null);
+  const introReleased = useIntroReleased();
   const [phase, setPhase] = useState<Phase>(() => startPhase(trigger));
   const firstPhase = useRef(phase).current;
   const [focusWord, setFocusWord] = useState(-1);
@@ -294,7 +297,7 @@ export const BlurText = ({
   const outTotal = (exitDuration + maxRank * exitStagger) * 1000;
 
   useEffect(() => {
-    if (phase !== 'from') return undefined;
+    if (phase !== 'from' || !introReleased) return undefined;
     if (trigger === 'load') {
       setPhase('in');
       return undefined;
@@ -316,7 +319,7 @@ export const BlurText = ({
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [phase, trigger, threshold, rootMargin]);
+  }, [phase, trigger, threshold, rootMargin, introReleased]);
 
   useEffect(() => {
     let timer = 0;

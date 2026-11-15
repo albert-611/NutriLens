@@ -11,6 +11,7 @@ import { ProductPreviewSection } from '../../components/landing/ProductPreviewSe
 import { TrustEvidenceSection } from '../../components/landing/TrustEvidenceSection';
 import { FinalCTASection } from '../../components/landing/FinalCTASection';
 import { gsap, prefersReducedMotion } from '../../lib/gsap';
+import { isIntroGateClosed, onIntroRelease } from '../../lib/introGate';
 
 export const LandingPage: React.FC = () => {
   const pageRef = useRef<HTMLDivElement>(null);
@@ -19,6 +20,8 @@ export const LandingPage: React.FC = () => {
     // If reduced motion is preferred, preserve content visibility without transforms
     if (prefersReducedMotion() || Boolean(pageRef.current) === false) return;
 
+    let offGate: (() => void) | undefined;
+
     // Scoped GSAP animation context for safe lifecycle cleanup
     const ctx = gsap.context(() => {
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -26,11 +29,15 @@ export const LandingPage: React.FC = () => {
       sections?.forEach((sec, idx) => {
         // Hero section immediate entrance
         if (idx === 0) {
-          gsap.fromTo(
+          // While the cinematic intro is covering the page, hold the hero entrance
+          // until the reveal begins so it isn't spent behind the overlay.
+          const waitForIntro = isIntroGateClosed();
+          const heroTween = gsap.fromTo(
             sec,
             { opacity: 0, y: 20 },
-            { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }
+            { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', paused: waitForIntro }
           );
+          if (waitForIntro) offGate = onIntroRelease(() => heroTween.play());
           return;
         }
 
@@ -80,7 +87,10 @@ export const LandingPage: React.FC = () => {
       });
     }, pageRef);
 
-    return () => ctx.revert();
+    return () => {
+      offGate?.();
+      ctx.revert();
+    };
   }, []);
 
   return (
