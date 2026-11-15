@@ -51,3 +51,18 @@ async def get_nutrition_report(
         target_calories=2000,
     )
     return ResponseEnvelope(data=report)
+
+
+@router.get("/usda/search", response_model=ResponseEnvelope[list])
+async def search_usda_foods(
+    q: str = Query(..., min_length=1, description="Food search query, e.g. 'burger', 'pizza'"),
+    limit: int = Query(10, ge=1, le=50),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Searches USDA FoodData Central in real-time using FDC API OpenAPI endpoints.
+    """
+    from app.services.usda_service import USDAService
+    results = await USDAService.search_foods(query=q, page_size=limit)
+    return ResponseEnvelope(data=results)
+

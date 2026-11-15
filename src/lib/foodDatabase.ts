@@ -1,4 +1,7 @@
 import type { Food, FoodName, FoodSearchResultItem, PreparationState } from '../contracts';
+import { FCDB_FOODS } from './fcdbFoods';
+import { FOREIGN_FOODS } from './foreignFoods';
+import { FOODNETBD_FOODS } from './foodNetBdFoods';
 
 export interface FoodWithAliases extends Food {
   name_en: string;
@@ -7,7 +10,7 @@ export interface FoodWithAliases extends Food {
   standard_serving_grams: number;
 }
 
-export const FOOD_CATALOG: FoodWithAliases[] = [
+export const BASE_FOOD_CATALOG: FoodWithAliases[] = [
   // Grains & Cereals
   {
     id: '33333333-3333-3333-3333-333333333301',
@@ -571,6 +574,106 @@ export const FOOD_CATALOG: FoodWithAliases[] = [
   },
 ];
 
+const FCDB_CATALOG_ITEMS: FoodWithAliases[] = FCDB_FOODS.map((f) => ({
+  id: f.id,
+  canonical_name: f.canonical_name,
+  name_en: f.name_en,
+  name_bn: f.name_bn,
+  category: f.category as any,
+  preparation_state: f.preparation_state,
+  edible_basis: 'edible_portion_100g',
+  basis_grams: f.basis_grams,
+  energy_kcal: f.energy_kcal,
+  protein_g: f.protein_g,
+  carbohydrate_g: f.carbohydrate_g,
+  fat_g: f.fat_g,
+  fibre_g: f.fibre_g,
+  source_id: '11111111-1111-1111-1111-111111111101',
+  external_record_id: f.external_record_id,
+  review_status: 'approved',
+  nutrient_completeness: 'complete',
+  aliases: f.aliases,
+  standard_serving_grams: f.standard_serving_grams,
+}));
+
+const FOREIGN_CATALOG_ITEMS: FoodWithAliases[] = FOREIGN_FOODS.map((f) => ({
+  id: f.id,
+  canonical_name: f.canonical_name,
+  name_en: f.name_en,
+  name_bn: f.name_bn,
+  category: f.category as any,
+  preparation_state: f.preparation_state,
+  edible_basis: 'edible_portion_100g',
+  basis_grams: f.basis_grams,
+  energy_kcal: f.energy_kcal,
+  protein_g: f.protein_g,
+  carbohydrate_g: f.carbohydrate_g,
+  fat_g: f.fat_g,
+  fibre_g: f.fibre_g,
+  source_id: '11111111-1111-1111-1111-111111111102',
+  external_record_id: f.external_record_id,
+  review_status: 'approved',
+  nutrient_completeness: 'complete',
+  aliases: f.aliases,
+  standard_serving_grams: f.standard_serving_grams,
+}));
+
+const FOODNETBD_CATALOG_ITEMS: FoodWithAliases[] = FOODNETBD_FOODS.map((f) => ({
+  id: f.id,
+  canonical_name: f.canonical_name,
+  name_en: f.name_en,
+  name_bn: f.name_bn,
+  category: f.category as any,
+  preparation_state: f.preparation_state,
+  edible_basis: 'edible_portion_100g',
+  basis_grams: f.basis_grams,
+  energy_kcal: f.energy_kcal,
+  protein_g: f.protein_g,
+  carbohydrate_g: f.carbohydrate_g,
+  fat_g: f.fat_g,
+  fibre_g: f.fibre_g,
+  source_id: '11111111-1111-1111-1111-111111111103',
+  external_record_id: f.external_record_id,
+  review_status: 'approved',
+  nutrient_completeness: 'complete',
+  aliases: f.aliases,
+  standard_serving_grams: f.standard_serving_grams,
+  calcium_mg: f.calcium_mg,
+  iron_mg: f.iron_mg,
+  zinc_mg: f.zinc_mg,
+  vitamin_c_mg: f.vitamin_c_mg,
+  magnesium_mg: f.magnesium_mg,
+  potassium_mg: f.potassium_mg,
+  sodium_mg: f.sodium_mg,
+}));
+
+export const FOOD_CATALOG: FoodWithAliases[] = [
+  ...BASE_FOOD_CATALOG,
+  ...FCDB_CATALOG_ITEMS.filter(
+    (f) => !BASE_FOOD_CATALOG.some((b) => b.external_record_id === f.external_record_id)
+  ),
+  ...FOREIGN_CATALOG_ITEMS.filter(
+    (f) => !BASE_FOOD_CATALOG.some((b) => b.external_record_id === f.external_record_id)
+  ),
+  ...FOODNETBD_CATALOG_ITEMS.filter(
+    (f) =>
+      !BASE_FOOD_CATALOG.some((b) => b.external_record_id === f.external_record_id) &&
+      !FCDB_CATALOG_ITEMS.some((b) => b.external_record_id === f.external_record_id)
+  ),
+];
+
+/**
+ * Registers dynamically fetched USDA or external foods into the active in-memory catalog.
+ */
+export function registerDynamicFood(food: FoodWithAliases): void {
+  const exists = FOOD_CATALOG.some(
+    (f) => f.id === food.id || (f.external_record_id && f.external_record_id === food.external_record_id)
+  );
+  if (!exists) {
+    FOOD_CATALOG.push(food);
+  }
+}
+
 /**
  * Searches the local verified food catalog by query string and optional category/preparation.
  */
@@ -616,29 +719,59 @@ export function searchFoods(
 
 /**
  * Resolves a detected text label (e.g. from Gemini Vision) to the best matching food in catalog.
+ * Uses exact match first, then whole-word boundary matching prioritized by longest match.
+ * Prevents short substrings (like "rui") from false-matching inside words like "fruit"!
  */
 export function resolveFoodAlias(label: string): FoodWithAliases | null {
   const norm = (label || '').trim().toLowerCase();
   if (!norm) return null;
 
-  // 1. Exact match on alias
+  // 1. Exact match on canonical_name, name_en, name_bn, or aliases
   for (const food of FOOD_CATALOG) {
+    if (
+      food.canonical_name.toLowerCase() === norm ||
+      food.name_en.toLowerCase() === norm ||
+      food.name_bn.toLowerCase() === norm
+    ) {
+      return food;
+    }
     if (food.aliases.some((a) => a.toLowerCase() === norm)) {
       return food;
     }
   }
 
-  // 2. Contains match on alias or names
+  // 2. Whole-word boundary match, sorted by alias length descending (longest/most specific first)
+  const candidateMatches: { food: FoodWithAliases; matchLength: number }[] = [];
+
   for (const food of FOOD_CATALOG) {
-    if (food.aliases.some((a) => norm.includes(a.toLowerCase()) || a.toLowerCase().includes(norm))) {
-      return food;
+    for (const alias of food.aliases) {
+      const a = alias.toLowerCase().trim();
+      if (!a) continue;
+
+      if (/^[a-z0-9\s-]+$/i.test(a)) {
+        // Alphanumeric words: require word boundary \b
+        const regex = new RegExp(`(?:\\b|^)${a.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}(?:\\b|$)`, 'i');
+        if (regex.test(norm)) {
+          candidateMatches.push({ food, matchLength: a.length });
+        }
+      } else {
+        // Non-Latin (Bangla/Unicode): check word tokens or exact containment
+        if (norm === a || norm.split(/\s+/).includes(a)) {
+          candidateMatches.push({ food, matchLength: a.length });
+        }
+      }
     }
-    if (norm.includes(food.canonical_name.toLowerCase()) || food.canonical_name.toLowerCase().includes(norm)) {
-      return food;
+
+    // Check canonical name as whole phrase
+    const cName = food.canonical_name.toLowerCase().trim();
+    if (cName.length >= 3 && (norm.includes(cName) || cName.includes(norm))) {
+      candidateMatches.push({ food, matchLength: cName.length });
     }
-    if (norm.includes(food.name_bn) || food.name_bn.includes(norm)) {
-      return food;
-    }
+  }
+
+  if (candidateMatches.length > 0) {
+    candidateMatches.sort((a, b) => b.matchLength - a.matchLength);
+    return candidateMatches[0].food;
   }
 
   return null;

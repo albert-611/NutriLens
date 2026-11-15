@@ -41,3 +41,36 @@ def test_preparation_state_fried_multiplier():
 
     assert res_fried.total_nutrients.fat_g > res_boiled.total_nutrients.fat_g
     assert res_fried.total_nutrients.calories > res_boiled.total_nutrients.calories
+
+def test_international_foods_calculation():
+    # Test Western & International dishes from USDA dataset
+    items = [
+        CalculateItemInput(food_name="Pizza", portion_grams=100.0, preparation_state="roasted"),
+        CalculateItemInput(food_name="Cheeseburger", portion_grams=160.0, preparation_state="commercial"),
+        CalculateItemInput(food_name="Grilled Chicken Breast", portion_grams=150.0, preparation_state="roasted"),
+    ]
+    res = NutritionService.calculate_items_nutrition(items)
+
+    assert len(res.items) == 3
+    # Check that high-protein grilled chicken is recognized
+    chicken_item = next(i for i in res.items if "Chicken" in i.food_name)
+    assert chicken_item.nutrients.protein_g > 40.0 # 31g/100g * 1.5 = 46.5g
+    assert res.total_nutrients.calories > 800.0
+
+def test_foodnetbd_dataset_foods_calculation():
+    # Test items loaded from FoodNetBD dataset (600 entries)
+    items = [
+        CalculateItemInput(food_name="Strawberry", portion_grams=100.0, preparation_state="raw"),
+        CalculateItemInput(food_name="Chanachur (Spiced Mix)", portion_grams=50.0, preparation_state="cooked"),
+        CalculateItemInput(food_name="Watermelon (Tarmuj)", portion_grams=150.0, preparation_state="raw"),
+    ]
+    res = NutritionService.calculate_items_nutrition(items)
+
+    assert len(res.items) == 3
+    # Strawberry should be resolved from FoodNetBD (FNBD_0269)
+    strawberry_item = next(i for i in res.items if "Strawberry" in i.food_name)
+    assert strawberry_item.nutrients.calories > 20.0
+    # Chanachur is energy dense (~485 cal/100g -> ~242 cal for 50g)
+    chanachur_item = next(i for i in res.items if "Chanachur" in i.food_name)
+    assert chanachur_item.nutrients.calories > 200.0
+

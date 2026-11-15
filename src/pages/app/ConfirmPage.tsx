@@ -35,7 +35,10 @@ import {
   searchFoods,
   getFoodById,
   FOOD_CATALOG,
+  registerDynamicFood,
+  resolveFoodAlias,
 } from '../../lib/foodDatabase';
+import { searchUSDAFoodsDirect } from '../../services/usdaService';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface ConfirmedEditableItem {
@@ -105,20 +108,23 @@ export const ConfirmPage: React.FC = () => {
       const mappedItems: ConfirmedEditableItem[] = data.candidates.map((cand, idx) => {
         const dbFood = cand.matched_food_id
           ? getFoodById(cand.matched_food_id)
-          : FOOD_CATALOG[idx % FOOD_CATALOG.length];
+          : (resolveFoodAlias(cand.label) || (cand.label_bn ? resolveFoodAlias(cand.label_bn) : null));
+
+        const foodName = cand.label || dbFood?.name_en || 'Food Item';
+        const foodNameBn = cand.label_bn || dbFood?.name_bn || '';
 
         return {
           id: cand.id || `item-${Date.now()}-${idx}`,
-          foodId: dbFood?.id || '33333333-3333-3333-3333-333333333301',
-          externalRecordId: dbFood?.external_record_id || 'FCTB-01-001',
-          name: dbFood?.name_en || cand.label,
-          nameBn: cand.label_bn || dbFood?.name_bn || 'স্থানীয় খাবার',
-          category: dbFood?.category || 'grains_and_cereals',
-          grams: cand.estimated_grams || 150,
+          foodId: dbFood?.id || cand.matched_food_id || `custom-${Date.now()}-${idx}`,
+          externalRecordId: dbFood?.external_record_id || 'USDA-FDC-CUSTOM',
+          name: foodName,
+          nameBn: foodNameBn,
+          category: dbFood?.category || 'mixed_dishes',
+          grams: cand.estimated_grams || dbFood?.standard_serving_grams || 150,
           preparationState:
             (cand.preparation_state as PreparationState) ||
             (dbFood?.preparation_state as PreparationState) ||
-            'boiled',
+            'raw',
           portionSource: (cand.portion_basis as any) || 'ai_estimated_unconfirmed',
           uncertaintyReasons: cand.uncertainty_reasons || [],
           questions: cand.questions,
@@ -176,12 +182,47 @@ export const ConfirmPage: React.FC = () => {
     }
   }, [location.state]);
 
-  // Synchronize search query
+  // Synchronize search query across local catalog and live USDA FDC API
   useEffect(() => {
+    let isCancelled = false;
+
     if (isSearchOpen) {
-      const results = searchFoods(searchQuery, { limit: 10 });
-      setSearchResults(results);
+      const localResults = searchFoods(searchQuery, { limit: 10 });
+      setSearchResults(localResults);
+
+      // If user typed 2+ chars, query live USDA FoodData Central in real-time
+      if (searchQuery.trim().length >= 2) {
+        searchUSDAFoodsDirect(searchQuery.trim(), 8).then((usdaFoods) => {
+          if (isCancelled) return;
+          usdaFoods.forEach((uf) => registerDynamicFood(uf));
+          const usdaFormatted: FoodSearchResultItem[] = usdaFoods.map((uf) => ({
+            food_id: uf.id,
+            canonical_name: uf.canonical_name,
+            local_name: uf.name_en,
+            local_name_bn: uf.name_bn,
+            category: uf.category,
+            preparation_state: uf.preparation_state,
+            energy_kcal: uf.energy_kcal,
+            protein_g: uf.protein_g,
+            carbohydrate_g: uf.carbohydrate_g,
+            fat_g: uf.fat_g,
+            fibre_g: uf.fibre_g,
+            standard_serving_grams: uf.standard_serving_grams,
+            serving_unit: 'g',
+          }));
+
+          setSearchResults((prev) => {
+            const seen = new Set(prev.map((p) => p.canonical_name.toLowerCase()));
+            const fresh = usdaFormatted.filter((u) => !seen.has(u.canonical_name.toLowerCase()));
+            return [...prev, ...fresh];
+          });
+        });
+      }
     }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [searchQuery, isSearchOpen]);
 
   // Portion & Gram Adjustments
@@ -407,10 +448,10 @@ export const ConfirmPage: React.FC = () => {
             <span>Multimodal Vision Detection Active</span>
           </div>
           <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
-            Bangla Food Catalog: {items.length} Candidates Identified
+            {analysisData?.detected_cuisine === 'international' ? 'International & USDA Food Catalog' : 'Food Composition Catalog (FCDB & USDA)'}: {items.length} Candidates Identified
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            AI vision detects food identities and flags portion uncertainty. Adjust the preparation method and gram weight before proceeding to deterministic calculation against the FAO Bangladesh FCTB.
+            AI vision detects food identities and flags portion uncertainty. Adjust the preparation method and gram weight before proceeding to deterministic calculation against official FCDB & USDA FoodData Central databases.
           </p>
 
           {/* AI Uncertainty Review Questions */}

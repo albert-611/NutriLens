@@ -20,6 +20,7 @@ interface FeasiblePivot {
   id: string;
   name: string;
   nameBn: string;
+  cuisineType: 'bangladeshi' | 'western' | 'mediterranean' | 'asian';
   originalDish: string;
   substitutedIngredient: string;
   replacementIngredient: string;
@@ -35,16 +36,19 @@ export const MealRescuePage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [budget, setBudget] = useState(80);
+  const [budget, setBudget] = useState(120);
   const [servings, setServings] = useState(1);
   const [prepTimeLimit, setPrepTimeLimit] = useState(30);
   const [selectedExclusions, setSelectedExclusions] = useState<string[]>([]);
+  const [selectedCuisine, setSelectedCuisine] = useState<string>('all');
 
-  const pivots: FeasiblePivot[] = [
+  const allPivots: FeasiblePivot[] = [
+    // --- Bangladeshi Traditional ---
     {
       id: 'p1',
       name: 'Dim Bhuna with Sada Bhat & Masoor Dal',
       nameBn: 'ডিম ভুনা ও ডাল-ভাত',
+      cuisineType: 'bangladeshi',
       originalDish: 'Beef Bhuna with Rice (৳220)',
       substitutedIngredient: 'Beef (Lean meat 150g)',
       replacementIngredient: 'Two Farm Fresh Eggs (100g) + Masoor Dal (150g)',
@@ -59,6 +63,7 @@ export const MealRescuePage: React.FC = () => {
       id: 'p2',
       name: 'Pond Tilapia Patla Jhol + Sada Bhat',
       nameBn: 'তেলাপিয়া মাছের পাতলা ঝোল ও ভাত',
+      cuisineType: 'bangladeshi',
       originalDish: 'Rohu Fish Jhol (৳110)',
       substitutedIngredient: 'Rohu Fish steak (180g)',
       replacementIngredient: 'Fresh Pond Tilapia (180g)',
@@ -73,6 +78,7 @@ export const MealRescuePage: React.FC = () => {
       id: 'p3',
       name: 'Chhola Bhuna with Handmade Whole Wheat Roti',
       nameBn: 'ছোলা ভুনা ও আটার রুটি',
+      cuisineType: 'bangladeshi',
       originalDish: 'Chicken Curry with Roti (৳135)',
       substitutedIngredient: 'Chicken Curry (200g)',
       replacementIngredient: 'Boiled Savory Chickpeas (200g)',
@@ -83,7 +89,80 @@ export const MealRescuePage: React.FC = () => {
       cuisineMatch: 'High-Fibre Vegetarian',
       ingredients: ['Whole Wheat Roti (2 pcs)', 'Chickpeas (200g)', 'Onion & Mustard Oil'],
     },
+
+    // --- Western / International ---
+    {
+      id: 'p4',
+      name: 'Grilled Chicken Breast with Steamed Brown Rice & Veggies',
+      nameBn: 'গ্রিল্ড চিকেন ও ব্রাউন রাইস বোল',
+      cuisineType: 'western',
+      originalDish: 'Cheeseburger & Large Fries (৳320)',
+      substitutedIngredient: 'Deep-fried Patty & Fries (30g saturated fat)',
+      replacementIngredient: 'Lean Grilled Chicken Breast (160g) + Steamed Vegetables',
+      savingsBdt: 180.00,
+      newMealCost: 110.00,
+      proteinRetained: '42.0g (135% of original)',
+      prepTime: '20 mins',
+      cuisineMatch: 'Western Clean Eating / High Protein',
+      ingredients: ['Grilled Chicken Breast (160g)', 'Steamed Rice (150g)', 'Broccoli & Carrots', 'Olive Oil & Herbs'],
+    },
+    {
+      id: 'p5',
+      name: 'Whole-Wheat Spaghetti Bolognese (Lean Minced Meat)',
+      nameBn: 'হোল-হুইট স্প্যাগেটি বলনিজ',
+      cuisineType: 'western',
+      originalDish: 'Creamy Bacon Carbonara (৳280)',
+      substitutedIngredient: 'Heavy Cream & Pork Bacon (45g fat)',
+      replacementIngredient: 'Whole-wheat Pasta with slow-cooked Tomato & Lean Beef Sauce',
+      savingsBdt: 140.00,
+      newMealCost: 115.00,
+      proteinRetained: '28.5g (110% of original)',
+      prepTime: '25 mins',
+      cuisineMatch: 'Italian Classic High-Fibre',
+      ingredients: ['Whole Wheat Spaghetti (120g)', 'Lean Minced Meat (100g)', 'Tomato Sauce', 'Garlic & Basil'],
+    },
+
+    // --- Mediterranean & Asian ---
+    {
+      id: 'p6',
+      name: 'Greek Salad with Grilled Chicken & Pita',
+      nameBn: 'গ্রিক চিকেন সালাদ ও পিটা ব্রেড',
+      cuisineType: 'mediterranean',
+      originalDish: 'Crispy Fried Chicken Combo (৳260)',
+      substitutedIngredient: 'Batter-fried Chicken Wings',
+      replacementIngredient: 'Grilled Chicken Strips + Cucumber, Feta & Olive Salad',
+      savingsBdt: 155.00,
+      newMealCost: 95.00,
+      proteinRetained: '32.0g (100% of original)',
+      prepTime: '15 mins',
+      cuisineMatch: 'Mediterranean Heart-Healthy',
+      ingredients: ['Grilled Chicken (140g)', 'Cucumber & Tomato', 'Feta Cheese (30g)', 'Whole Wheat Pita'],
+    },
+    {
+      id: 'p7',
+      name: 'Teriyaki Salmon Fillet with Edamame & Rice',
+      nameBn: 'তেরিয়াকি স্যামন ও রাইস বোল',
+      cuisineType: 'asian',
+      originalDish: 'Deep-Fried Prawn Tempura (৳350)',
+      substitutedIngredient: 'Deep-fried Battered Prawns',
+      replacementIngredient: 'Pan-seared Atlantic Salmon Fillet (140g)',
+      savingsBdt: 160.00,
+      newMealCost: 150.00,
+      proteinRetained: '34.0g (120% of original)',
+      prepTime: '20 mins',
+      cuisineMatch: 'Japanese Omega-3 Rich',
+      ingredients: ['Salmon Fillet (140g)', 'Steamed Jasmine Rice (150g)', 'Soy Glaze', 'Sesame & Greens'],
+    },
   ];
+
+  const pivots = allPivots.filter((p) => {
+    if (selectedCuisine !== 'all' && p.cuisineType !== selectedCuisine) return false;
+    if (p.newMealCost > budget) return false;
+    if (selectedExclusions.some((ex) => p.ingredients.some((ing) => ing.toLowerCase().includes(ex.toLowerCase())))) {
+      return false;
+    }
+    return true;
+  });
 
   const toggleExclusion = (ex: string) => {
     setSelectedExclusions((prev) =>
@@ -222,6 +301,30 @@ export const MealRescuePage: React.FC = () => {
             })}
           </div>
         </div>
+      </div>
+
+      {/* Cuisine Selector */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {[
+          { id: 'all', label: 'All Cuisines' },
+          { id: 'bangladeshi', label: '🇧🇩 Bangladeshi Local' },
+          { id: 'western', label: '🍔 Western / International' },
+          { id: 'mediterranean', label: '🥗 Mediterranean' },
+          { id: 'asian', label: '🍱 Asian' },
+        ].map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => setSelectedCuisine(c.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+              selectedCuisine === c.id
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
       </div>
 
       {/* Recommended Pivots */}

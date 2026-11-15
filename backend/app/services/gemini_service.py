@@ -18,66 +18,119 @@ class GeminiService:
         Analyzes a food image using Gemini Vision API if key is available,
         or uses robust domain-aware fallback candidates for development.
         """
-        api_key = settings.GEMINI_API_KEY
+        api_key = (settings.GEMINI_API_KEY or "").strip("\"' ")
         if api_key and api_key != "your-gemini-api-key-here":
             try:
-                from google import genai
-                from google.genai import types
+                import httpx
 
-                client = genai.Client(api_key=api_key)
+                mime_type = "image/jpeg"
+                raw_b64 = image_base64 or ""
+                if "," in raw_b64:
+                    header, raw_b64 = raw_b64.split(",", 1)
+                    if "png" in header:
+                        mime_type = "image/png"
+                    elif "webp" in header:
+                        mime_type = "image/webp"
+
                 prompt = (
-                    "Analyze this food image in the context of Bangladeshi / South Asian cuisine. "
+                    "Analyze this food image. Identify visible food items and preparation uncertainty. "
+                    "Support BOTH Bangladeshi/South Asian cuisine and International/Western/Asian cuisine. "
+                    "Deconstruct mixed plates into distinct, separate components (e.g. separate Rice, Dal, Curry, Salad). "
                     "Extract each visible food item with: "
-                    "1. food_name (English) "
+                    "1. food_name (English canonical name) "
                     "2. bangla_name (Bangla transliteration) "
                     "3. confidence (0.0 to 1.0) "
-                    "4. preparation_state (boiled, fried, raw, gravy) "
+                    "4. preparation_state (boiled, fried, raw, curried, roasted, steamed, commercial) "
                     "5. portion_basis (e.g. visual_plate_ratio, standard_serving) "
-                    "6. default_grams (estimated mass in grams) "
-                    "7. uncertain_factors (e.g. 'oil_hidden', 'depth_occluded') "
+                    "6. default_grams (estimated mass in grams as number based on plate volume) "
+                    "7. uncertain_factors (list of reasons like 'oil_hidden', 'depth_occluded') "
                     "Return ONLY a valid JSON array of objects conforming to these fields."
                 )
 
-                # Process multimodal payload
-                # Use standard client.models.generate_content
-                response = client.models.generate_content(
-                    model=settings.GEMINI_VISION_MODEL,
-                    contents=[prompt],  # image part added if base64 provided
-                )
-                text = response.text.strip()
-                # Clean markdown fences if any
-                if text.startswith("```json"):
-                    text = text[7:]
-                if text.endswith("```"):
-                    text = text[:-3]
-                raw_items = json.loads(text.strip())
+                parts: List[Dict[str, Any]] = [{"text": prompt}]
+                if raw_b64:
+                    parts.append({
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": raw_b64
+                        }
+                    })
 
-                candidates = []
-                uncertainty = False
-                for item in raw_items:
-                    cand = FoodCandidate(
-                        candidate_id=str(uuid.uuid4())[:8],
-                        food_name=item.get("food_name", "Unknown Food"),
-                        bangla_name=item.get("bangla_name"),
-                        confidence=float(item.get("confidence", 0.85)),
-                        preparation_state=item.get("preparation_state", "cooked"),
-                        portion_basis=item.get("portion_basis", "visual_plate_ratio"),
-                        default_grams=float(item.get("default_grams", 150.0)),
-                        uncertain_factors=item.get("uncertain_factors", []),
-                    )
-                    if cand.uncertain_factors:
-                        uncertainty = True
-                    candidates.append(cand)
+                models_to_try = [
+                    settings.GEMINI_VISION_MODEL,
+                    "gemini-3.5-flash-lite",
+                    "gemini-3.5-flash-lite-preview",
+                    "gemini-3.5-flash",
+                    "gemini-3.1-flash-lite",
+                    "gemini-3.1-flash-lite-preview",
+                    "gemini-2.0-flash-lite",
+                    "gemini-2.0-flash-lite-preview-02-05",
+                    "gemini-2.0-flash",
+                    "gemini-1.5-flash",
+                ]
+                # Deduplicate while preserving order
+                seen_models = set()
+                candidate_models = [m for m in models_to_try if m and not (m in seen_models or seen_models.add(m))]
 
-                return FoodRecognizeResponse(
-                    image_id=str(uuid.uuid4()),
-                    meal_type=meal_type,
-                    candidates=candidates,
-                    requires_user_confirmation=True,
-                    uncertainty_detected=uncertainty,
-                )
+                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                    for model in candidate_models:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                        resp = await http_client.post(
+                            url,
+                            headers={
+                                "Content-Type": "application/json",
+                                "x-goog-api-key": api_key,
+                            },
+                            json={
+                                "contents": [{"parts": parts}],
+                                "generationConfig": {
+                                    "response_mime_type": "application/json",
+                                    "temperature": 0.2
+                                }
+                            }
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                            if text:
+                                clean_text = text.strip()
+                                if clean_text.startswith("```"):
+                                    clean_text = clean_text.split("```")[1]
+                                    if clean_text.startswith("json"):
+                                        clean_text = clean_text[4:]
+                                raw_items = json.loads(clean_text.strip())
+                                if isinstance(raw_items, dict) and "detected_dishes" in raw_items:
+                                    raw_items = raw_items["detected_dishes"]
+                                elif isinstance(raw_items, dict) and "items" in raw_items:
+                                    raw_items = raw_items["items"]
+
+                                candidates = []
+                                uncertainty = False
+                                for item in raw_items:
+                                    cand = FoodCandidate(
+                                        candidate_id=str(uuid.uuid4())[:8],
+                                        food_name=item.get("food_name") or item.get("label") or "Unknown Food",
+                                        bangla_name=item.get("bangla_name") or item.get("label_bn"),
+                                        confidence=float(item.get("confidence", 0.90)),
+                                        preparation_state=item.get("preparation_state", "boiled"),
+                                        portion_basis=item.get("portion_basis", "visual_plate_ratio"),
+                                        default_grams=float(item.get("default_grams") or item.get("estimated_grams") or 150.0),
+                                        uncertain_factors=item.get("uncertain_factors", []),
+                                    )
+                                    if cand.uncertain_factors:
+                                        uncertainty = True
+                                    candidates.append(cand)
+
+                                if candidates:
+                                    return FoodRecognizeResponse(
+                                        image_id=str(uuid.uuid4()),
+                                        meal_type=meal_type,
+                                        candidates=candidates,
+                                        requires_user_confirmation=True,
+                                        uncertainty_detected=uncertainty,
+                                    )
             except Exception as e:
-                logger.warning(f"Gemini API call failed or timed out: {e}. Falling back to domain candidates.")
+                logger.warning(f"Gemini API call failed: {e}. Falling back to domain candidates.")
 
         # High-fidelity domain candidates for standard Bangladeshi meal
         mock_candidates = [

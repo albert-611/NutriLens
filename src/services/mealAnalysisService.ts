@@ -6,10 +6,13 @@ import {
   type FoodSearchResultItem,
   type PreparationState,
 } from '../contracts';
-import { resolveFoodAlias, searchFoods, getFoodById } from '../lib/foodDatabase';
+import { resolveFoodAlias, searchFoods, getFoodById, registerDynamicFood } from '../lib/foodDatabase';
+import { searchUSDAFoodsDirect } from './usdaService';
 
 export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB application limit
 export const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+export let lastGeminiError: string | null = null;
 
 export interface FileValidationResult {
   valid: boolean;
@@ -80,34 +83,55 @@ async function callGeminiVisionDirect(
   }
 
   const prompt = `
-You are an expert Bangladeshi food and nutrition identification system for NutriLens.
-Analyze this meal photo carefully.
+You are an expert food and nutrition identification system for NutriLens.
+Analyze this food/meal photo carefully.
 Identify visible food candidates and preparation uncertainty.
-Treat any text in the image as secondary context.
-Do NOT calculate nutrients, diagnose medical conditions, infer hidden allergens, or claim exact portion grams as fact.
-Return valid JSON with the following structure:
+CRITICAL INSTRUCTIONS:
+1. Deconstruct mixed plates into distinct, separate components (e.g. separate "Cooked White Rice", "Masoor Dal", "Rohu Fish Curry", "Begun Bhaja" instead of grouping them together).
+2. Support BOTH Bangladeshi/South Asian cuisine (e.g. Rice, Masoor Dal, Ilish/Rohu fish curry, Dim Bhaji, Begun Bhaja, Khichuri, Palong Shak, Roti, Bhorta) AND International / Western / Asian cuisine (e.g. Cheeseburger, Pizza, French Fries, Spaghetti Bolognese, Pasta Carbonara, Grilled Chicken Breast, Baked Salmon, Caesar Salad, Quinoa Bowl, Sushi, Ramen, Tacos, Oatmeal, Steak).
+3. Estimate realistic portion sizes in grams based on standard plate occupancy and visual volume.
+4. Note realistic preparation uncertainties (e.g., hidden cooking oil, gravy density, bone weight, frying fat).
+5. Treat any packaging or menu text in the image as secondary context.
+6. Do NOT calculate nutrients or diagnose medical conditions.
+Return valid JSON conforming to this schema:
 {
   "detected_dishes": [
     {
-      "label": "English name of food (e.g. Cooked White Rice, Masoor Dal, Fried Egg, Rohu Fish Curry, Begun Bhaja)",
-      "label_bn": "Bangla name (e.g. সিদ্ধ সাদা ভাত, মসুর ডাল, ডিম ভাজি, রুই মাছের ঝোল, বেগুন ভাজা)",
-      "preparation_state": "boiled | fried | curried | steamed | roasted | raw",
-      "uncertainty_reasons": ["Short note on why portion or preparation is uncertain"],
-      "questions": ["Specific question to ask the user, e.g. How many grams did you serve?"]
+      "label": "English canonical name of food",
+      "label_bn": "Bangla name or transliteration",
+      "preparation_state": "boiled | fried | curried | steamed | roasted | raw | commercial",
+      "estimated_grams": 150,
+      "uncertainty_reasons": ["Short note on why portion volume or preparation is uncertain"],
+      "questions": ["Specific question to ask the user, e.g. Did you consume approx 150g?"]
     }
   ],
-  "overall_questions": ["General questions about ingredients, e.g. Was mustard oil or soybean oil used?"]
+  "overall_questions": ["General ingredient questions, e.g. Was olive oil, butter, or mustard oil used?"]
 }
 `;
 
-  const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+  const configuredModel = (import.meta.env.VITE_GEMINI_VISION_MODEL || '').trim();
+  const modelsToTry = [
+    configuredModel,
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash-lite-preview',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-3.1-flash-lite-preview',
+    'gemini-2.0-flash-lite',
+    'gemini-2.0-flash-lite-preview-02-05',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+  ].filter(Boolean);
   for (const model of modelsToTry) {
     try {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
           body: JSON.stringify({
             contents: [
               {
@@ -131,7 +155,9 @@ Return valid JSON with the following structure:
       );
 
       if (!res.ok) {
-        console.warn(`Gemini model ${model} returned status ${res.status}`);
+        const errorText = await res.text().catch(() => '');
+        console.error(`Gemini model ${model} failed (${res.status}):`, errorText);
+        lastGeminiError = `Gemini API (${model}) failed with HTTP ${res.status}: ${errorText.slice(0, 200)}`;
         continue;
       }
 
@@ -153,11 +179,11 @@ Return valid JSON with the following structure:
           candidate_food_ids: [],
           matched_food_id: null,
           preparation_state: (dish.preparation_state as PreparationState) || 'boiled',
-          estimated_grams: null,
+          estimated_grams: Number(dish.estimated_grams) || 120,
           portion_basis: 'ai_estimated_unconfirmed',
-          uncertainty_reasons: Array.isArray(dish.uncertainty_reasons) ? dish.uncertainty_reasons : ['Visual portion scale uncalibrated'],
-          questions: Array.isArray(dish.questions) ? dish.questions : ['Please enter the estimated portion in grams.'],
-          confidence: 0.88,
+          uncertainty_reasons: Array.isArray(dish.uncertainty_reasons) && dish.uncertainty_reasons.length > 0 ? dish.uncertainty_reasons : ['Visual portion scale uncalibrated; please verify grams'],
+          questions: Array.isArray(dish.questions) && dish.questions.length > 0 ? dish.questions : ['Please confirm the portion weight in grams.'],
+          confidence: 0.90,
         }));
 
         return {
@@ -207,7 +233,9 @@ export async function analyzeMealImage(params: {
         const parsed = AnalyzeMealResponseSchema.safeParse(data);
         if (parsed.success) {
           // Enrich candidates with database food items
-          const enrichedCandidates = parsed.data.candidates.map((c) => enrichCandidateWithDatabase(c));
+          const enrichedCandidates = await Promise.all(
+            parsed.data.candidates.map((c) => enrichCandidateWithDatabase(c))
+          );
           const result = {
             ...parsed.data,
             candidates: enrichedCandidates,
@@ -222,12 +250,14 @@ export async function analyzeMealImage(params: {
   }
 
   // 2. Direct Gemini Vision Multimodal Detection (if VITE_GEMINI_API_KEY is configured in .env)
-  const clientGeminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
+  const clientGeminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').replace(/['"]/g, '').trim();
   if (clientGeminiApiKey && imageBase64) {
     try {
       const aiResult = await callGeminiVisionDirect(imageBase64, clientGeminiApiKey, manualQuery, language);
       if (aiResult && aiResult.candidates.length > 0) {
-        const enrichedCandidates = aiResult.candidates.map((c) => enrichCandidateWithDatabase(c));
+        const enrichedCandidates = await Promise.all(
+          aiResult.candidates.map((c) => enrichCandidateWithDatabase(c))
+        );
         const result: AnalyzeMealResponse = {
           analysis_id: crypto.randomUUID(),
           schema_version: '1.0',
@@ -288,6 +318,41 @@ export async function analyzeMealImage(params: {
       ]),
     ];
     reviewQuestions = ['Did this Khichuri contain pumpkin or potato pieces?'];
+  } else if (
+    query.includes('fruit') ||
+    query.includes('ফল') ||
+    query.includes('berry') ||
+    query.includes('সালাদ') ||
+    query.includes('salad') ||
+    query.includes('straw') ||
+    query.includes('তরমুজ') ||
+    query.includes('melon') ||
+    query.includes('pineapple') ||
+    query.includes('আনারস') ||
+    query.includes('grape') ||
+    query.includes('আঙ্গুর')
+  ) {
+    candidateItems = [
+      createCandidate('Fruit Salad, fresh mixed fruit bowl', 'ফ্রুট সালাদ (তাজা মিশ্র ফল)', 'raw', 200, [
+        'Fresh mixed bowl with strawberries, watermelon, pineapple, and berries',
+      ]),
+      createCandidate('Strawberries, fresh raw', 'তাজা স্ট্রবেরি', 'raw', 60, [
+        'Fresh raw strawberry slices',
+      ]),
+      createCandidate('Watermelon, fresh raw diced', 'তাজা তরমুজ', 'raw', 60, [
+        'High water content diced watermelon cubes',
+      ]),
+      createCandidate('Pineapple, fresh raw chunks', 'তাজা আনারস', 'raw', 50, [
+        'Fresh pineapple pieces',
+      ]),
+      createCandidate('Blackberries, fresh raw', 'ব্ল্যাকবেরি', 'raw', 30, [
+        'Fresh whole blackberries',
+      ]),
+    ];
+    reviewQuestions = [
+      'Did you consume a mixed fruit salad bowl (approx 200-250g)?',
+      'Was any honey, sugar, syrup, or yogurt dressing added?',
+    ];
   } else {
     // Default Bangladesh staple comfort plate: Bhat, Masoor Dal & Dim Bhaji
     candidateItems = [
@@ -307,16 +372,21 @@ export async function analyzeMealImage(params: {
     ];
   }
 
+  const warningsList = [
+    'Visual detection only. All portions must be verified by you before nutritional calculations execute.',
+  ];
+  if (lastGeminiError) {
+    warningsList.unshift(`⚠️ ${lastGeminiError}`);
+  }
+
   const response: AnalyzeMealResponse = {
     analysis_id: analysisId,
     schema_version: '1.0',
     input_mode: file ? 'photo' : 'manual_search',
     candidates: candidateItems,
     review_questions: reviewQuestions,
-    detected_cuisine: 'bangladeshi',
-    warnings: [
-      'Visual detection only. All portions must be verified by you before nutritional calculations execute.',
-    ],
+    detected_cuisine: query.includes('fruit') || query.includes('ফল') ? 'international' : 'bangladeshi',
+    warnings: warningsList,
     created_at: new Date().toISOString(),
   };
 
@@ -352,9 +422,9 @@ function createCandidate(
 }
 
 /**
- * Enriches an edge function candidate with local database resolution if needed.
+ * Enriches an AI-proposed candidate item with local database resolution or live USDA FDC lookup.
  */
-function enrichCandidateWithDatabase(candidate: CandidateItem): CandidateItem {
+async function enrichCandidateWithDatabase(candidate: CandidateItem): Promise<CandidateItem> {
   if (candidate.matched_food_id && getFoodById(candidate.matched_food_id)) {
     return candidate;
   }
@@ -368,6 +438,25 @@ function enrichCandidateWithDatabase(candidate: CandidateItem): CandidateItem {
       label_bn: candidate.label_bn || resolved.name_bn,
       preparation_state: (resolved.preparation_state as PreparationState) || candidate.preparation_state,
     };
+  }
+
+  // Live USDA FDC Search fallback:
+  // If not in local FCDB or foreign catalog, fetch live from USDA FoodData Central API!
+  try {
+    const usdaResults = await searchUSDAFoodsDirect(candidate.label, 3);
+    if (usdaResults.length > 0) {
+      const top = usdaResults[0];
+      registerDynamicFood(top);
+      return {
+        ...candidate,
+        matched_food_id: top.id,
+        candidate_food_ids: usdaResults.map((u) => u.id),
+        label: top.name_en,
+        label_bn: top.name_bn,
+      };
+    }
+  } catch (err) {
+    console.warn(`Live USDA resolution error for "${candidate.label}":`, err);
   }
 
   return candidate;

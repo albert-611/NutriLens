@@ -21,10 +21,13 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: str = "your-supabase-jwt-secret-from-dashboard"
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 
-    # Google Gemini API
+    # Google Gemini API (Flash Lite optimized)
     GEMINI_API_KEY: str = ""
-    GEMINI_VISION_MODEL: str = "gemini-1.5-flash"
-    GEMINI_CHAT_MODEL: str = "gemini-1.5-flash"
+    GEMINI_VISION_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_CHAT_MODEL: str = "gemini-3.5-flash-lite"
+
+    # USDA FoodData Central API
+    USDA_API_KEY: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

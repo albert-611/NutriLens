@@ -139,12 +139,117 @@ FOOD_KEY_ALIASES: Dict[str, str] = {
     "chapati": "roti_whole_wheat",
 }
 
+# Dynamically load official FCDB 2014 comprehensive dataset (381 Bangladesh foods)
+import json
+import os
+
+_DATA_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "fcdb_foods.json")
+if os.path.exists(_DATA_FILE):
+    try:
+        with open(_DATA_FILE, "r", encoding="utf-8") as _f:
+            _fcdb_items = json.load(_f)
+            for _item in _fcdb_items:
+                _code = _item["code"].lower()
+                _canonical = _item.get("canonical_name", _item["name_en"])
+                _key = _canonical.lower().strip().replace("-", "_").replace(" ", "_")
+                _entry = {
+                    "calories": float(_item["energy_kcal"]),
+                    "protein_g": float(_item["protein_g"]),
+                    "carbs_g": float(_item["carbohydrate_g"]),
+                    "fat_g": float(_item["fat_g"]),
+                    "fiber_g": float(_item["fibre_g"]),
+                    "sodium_mg": float(_item.get("sodium_mg", 0.0)),
+                    "potassium_mg": float(_item.get("potassium_mg", 0.0)),
+                    "calcium_mg": float(_item.get("calcium_mg", 0.0)),
+                    "iron_mg": float(_item.get("iron_mg", 0.0)),
+                    "vitamin_c_mg": float(_item.get("vitamin_c_mg", 0.0)),
+                }
+                FCT_DATABASE[_key] = _entry
+                FCT_DATABASE[_code] = _entry
+                FOOD_KEY_ALIASES[_canonical.lower().strip()] = _key
+                if _item.get("name_bn"):
+                    FOOD_KEY_ALIASES[_item["name_bn"].lower().strip()] = _key
+                for _a in _item.get("aliases", []):
+                    FOOD_KEY_ALIASES[_a.lower().strip()] = _key
+    except Exception:
+        pass
+
+# Dynamically load official FoodNet Bangladesh dataset (600 Bangladesh foods)
+_FOODNET_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "foodnetbd_foods.json")
+if os.path.exists(_FOODNET_FILE):
+    try:
+        with open(_FOODNET_FILE, "r", encoding="utf-8") as _f:
+            _foodnet_items = json.load(_f)
+            for _item in _foodnet_items:
+                _code = _item["code"].lower()
+                _canonical = _item.get("canonical_name", _item["name_en"])
+                _key = _canonical.lower().strip().replace("-", "_").replace(" ", "_")
+                _entry = {
+                    "calories": float(_item["energy_kcal"]),
+                    "protein_g": float(_item["protein_g"]),
+                    "carbs_g": float(_item["carbohydrate_g"]),
+                    "fat_g": float(_item["fat_g"]),
+                    "fiber_g": float(_item["fibre_g"]),
+                    "sodium_mg": float(_item.get("sodium_mg", 0.0)),
+                    "potassium_mg": float(_item.get("potassium_mg", 0.0)),
+                    "calcium_mg": float(_item.get("calcium_mg", 0.0)),
+                    "iron_mg": float(_item.get("iron_mg", 0.0)),
+                    "vitamin_c_mg": float(_item.get("vitamin_c_mg", 0.0)),
+                }
+                FCT_DATABASE[_key] = _entry
+                FCT_DATABASE[_code] = _entry
+                FOOD_KEY_ALIASES[_canonical.lower().strip()] = _key
+                if _item.get("name_bn"):
+                    FOOD_KEY_ALIASES[_item["name_bn"].lower().strip()] = _key
+                for _a in _item.get("aliases", []):
+                    FOOD_KEY_ALIASES[_a.lower().strip()] = _key
+    except Exception:
+        pass
+
+# Dynamically load official USDA FoodData Central international/foreign foods dataset
+_FOREIGN_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "foreign_foods.json")
+if os.path.exists(_FOREIGN_FILE):
+    try:
+        with open(_FOREIGN_FILE, "r", encoding="utf-8") as _f:
+            _foreign_items = json.load(_f)
+            for _item in _foreign_items:
+                _code = _item["code"].lower()
+                _canonical = _item.get("canonical_name", _item["name_en"])
+                _key = _canonical.lower().strip().replace("-", "_").replace(" ", "_")
+                _entry = {
+                    "calories": float(_item["energy_kcal"]),
+                    "protein_g": float(_item["protein_g"]),
+                    "carbs_g": float(_item["carbohydrate_g"]),
+                    "fat_g": float(_item["fat_g"]),
+                    "fiber_g": float(_item["fibre_g"]),
+                    "sodium_mg": float(_item.get("sodium_mg", 0.0)),
+                    "potassium_mg": float(_item.get("potassium_mg", 0.0)),
+                    "calcium_mg": float(_item.get("calcium_mg", 0.0)),
+                    "iron_mg": float(_item.get("iron_mg", 0.0)),
+                    "vitamin_c_mg": float(_item.get("vitamin_c_mg", 0.0)),
+                }
+                FCT_DATABASE[_key] = _entry
+                FCT_DATABASE[_code] = _entry
+                FOOD_KEY_ALIASES[_canonical.lower().strip()] = _key
+                if _item.get("name_bn"):
+                    FOOD_KEY_ALIASES[_item["name_bn"].lower().strip()] = _key
+                for _a in _item.get("aliases", []):
+                    FOOD_KEY_ALIASES[_a.lower().strip()] = _key
+    except Exception:
+        pass
+
 def resolve_food_key(name: str) -> str:
     cleaned = name.lower().strip().replace("-", "_").replace(" ", "_")
     if cleaned in FCT_DATABASE:
         return cleaned
     normalized = name.lower().strip()
-    return FOOD_KEY_ALIASES.get(normalized, "steamed_white_rice")
+    if normalized in FOOD_KEY_ALIASES:
+        return FOOD_KEY_ALIASES[normalized]
+    # Check longest alias match first (e.g. "grilled chicken" before "chicken")
+    for alias in sorted(FOOD_KEY_ALIASES.keys(), key=len, reverse=True):
+        if len(alias) >= 4 and (alias in normalized or normalized in alias):
+            return FOOD_KEY_ALIASES[alias]
+    return "steamed_white_rice"
 
 class NutritionService:
     @staticmethod
