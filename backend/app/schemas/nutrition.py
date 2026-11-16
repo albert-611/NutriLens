@@ -18,6 +18,9 @@ class CalculateItemInput(BaseModel):
     food_name: str
     portion_grams: float = Field(..., gt=0)
     preparation_state: str = "cooked"
+    selected_unit: Optional[str] = "g"
+    selected_quantity: Optional[float] = None
+    conversion_note: Optional[str] = None
 
 class CalculatedItemNutrient(BaseModel):
     food_name: str

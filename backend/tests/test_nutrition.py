@@ -74,3 +74,74 @@ def test_foodnetbd_dataset_foods_calculation():
     chanachur_item = next(i for i in res.items if "Chanachur" in i.food_name)
     assert chanachur_item.nutrients.calories > 200.0
 
+
+
+def test_serving_conversion_eggs():
+    # 2 eggs converted using verified FCTB serving (55g per egg = 110g)
+    conv = NutritionService.convert_serving_to_grams(food_name="Boiled Egg", unit="egg", quantity=2)
+    assert conv["grams"] == 110.0
+    assert conv["is_verified"] is True
+    assert conv["requires_weight_input"] is False
+
+    # Calculate nutrition for 2 eggs (110g)
+    items = [CalculateItemInput(food_name="Boiled Egg", portion_grams=conv["grams"], preparation_state="boiled")]
+    res = NutritionService.calculate_items_nutrition(items)
+    # 155 cal / 100g * 1.1 = 170.5 kcal
+    assert res.total_nutrients.calories == round(155.0 * 1.1, 1)
+    assert res.total_nutrients.protein_g > 14.0
+
+def test_serving_conversion_bananas():
+    # 3 bananas -> 300g
+    conv3 = NutritionService.convert_serving_to_grams(food_name="Banana", unit="banana", quantity=3)
+    assert conv3["grams"] == 300.0
+    assert conv3["is_verified"] is True
+
+    # User adjusts from 3 to 2 bananas -> 200g
+    conv2 = NutritionService.convert_serving_to_grams(food_name="Banana", unit="banana", quantity=2)
+    assert conv2["grams"] == 200.0
+
+def test_serving_conversion_biscuit_packet():
+    # 1 packet of biscuits without known weight requires weight input
+    conv_unknown = NutritionService.convert_serving_to_grams(food_name="Biscuits", unit="packet", quantity=1)
+    assert conv_unknown["requires_weight_input"] is True
+    assert conv_unknown["grams"] == 0.0
+
+    # User specifies 75g package net weight
+    conv_confirmed = NutritionService.convert_serving_to_grams(
+        food_name="Biscuits", unit="packet", quantity=1, custom_weight_per_unit=75.0
+    )
+    assert conv_confirmed["grams"] == 75.0
+    assert conv_confirmed["is_verified"] is True
+    assert conv_confirmed["requires_weight_input"] is False
+
+def test_serving_conversion_bread_slices():
+    # 2 slices of bread (38g per slice = 76g)
+    conv = NutritionService.convert_serving_to_grams(food_name="White Bread", unit="slice", quantity=2)
+    assert conv["grams"] == 76.0
+    assert conv["is_verified"] is True
+
+def test_manual_rice_gram_adjustment():
+    # Rice adjusted from 200g to 250g
+    calc_200 = NutritionService.calculate_items_nutrition([
+        CalculateItemInput(food_name="Steamed White Rice", portion_grams=200.0, preparation_state="boiled")
+    ])
+    calc_250 = NutritionService.calculate_items_nutrition([
+        CalculateItemInput(food_name="Steamed White Rice", portion_grams=250.0, preparation_state="boiled")
+    ])
+    assert calc_200.total_nutrients.calories == 260.0
+    # 130 cal/100g * 2.5 = 325.0 kcal
+    assert calc_250.total_nutrients.calories == 325.0
+    assert calc_250.total_nutrients.carbs_g == round(28.2 * 2.5, 1)
+
+def test_preparation_method_preserves_weight_with_oil_multiplier():
+    # 1 egg boiled (55g) vs 1 egg fried (55g)
+    conv = NutritionService.convert_serving_to_grams(food_name="Egg", unit="egg", quantity=1)
+    boiled = NutritionService.calculate_items_nutrition([
+        CalculateItemInput(food_name="Egg", portion_grams=conv["grams"], preparation_state="boiled")
+    ])
+    fried = NutritionService.calculate_items_nutrition([
+        CalculateItemInput(food_name="Egg", portion_grams=conv["grams"], preparation_state="fried")
+    ])
+    assert boiled.items[0].portion_grams == fried.items[0].portion_grams == 55.0
+    assert fried.total_nutrients.fat_g > boiled.total_nutrients.fat_g
+    assert fried.total_nutrients.calories > boiled.total_nutrients.calories

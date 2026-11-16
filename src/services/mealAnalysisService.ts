@@ -102,26 +102,44 @@ Classify the visual outcome into one of three distinct categories:
 2. "NO_FOOD_DETECTED": The image is unrelated to food (e.g. logo, text, screenshot, document, human selfie/portrait, animal, landscape, vehicle, object, medicine, empty plate, non-food packaging).
 3. "UNCERTAIN_IMAGE": The image is too blurry, dark, occluded, or ambiguous to verify whether food is present.
 
-CRITICAL INTEGRITY RULES:
+CRITICAL INTEGRITY & COUNT DETECTION RULES:
 - If NO_FOOD_DETECTED or UNCERTAIN_IMAGE, "detected_dishes" MUST be an empty array [].
 - NEVER hallucinate food items for logos, graphics, documents, or non-food objects.
-- Only if FOOD_DETECTED: Deconstruct the meal into distinct dishes/components (e.g. separate "Cooked White Rice", "Masoor Dal", "Rohu Fish Curry", "Begun Bhaja") with realistic estimated grams.
+- Countable Item Identification:
+  * Distinguish individual countable items (e.g. 2 eggs, 3 bananas, 1 apple, 2 bread slices, 4 biscuits, 1 packet of biscuits, 2 rotis) from amorphous bulk foods (e.g. cooked rice, dal).
+  * If food is countable, set "is_countable": true, "detected_count": number, "count_unit": "egg | banana | apple | slice | biscuit | packet | piece".
+  * Do NOT assume a partially hidden item is an extra item.
+  * Do NOT invent quantities when the view is occluded or unclear.
+  * Do NOT guess the number of biscuits inside an unopened packet; mark "packaging_detected": true.
+  * If packaging shows readable net weight, set "package_net_weight_grams".
+- Separate confidence scores for:
+  * "identity_confidence": 0.0 - 1.0 (confidence in food identity)
+  * "count_confidence": 0.0 - 1.0 (confidence in detected item count)
+  * "weight_confidence": 0.0 - 1.0 (confidence in estimated grams)
 - Support BOTH Bangladeshi/South Asian cuisine AND International/Western/Asian cuisine.
-- Estimate realistic portion sizes in grams based on plate occupancy and visual volume.
+- Estimate realistic portion sizes in grams based on verified serving conversions or visual volume.
 
 Return valid JSON conforming to this schema:
 {
   "outcome": "FOOD_DETECTED" | "NO_FOOD_DETECTED" | "UNCERTAIN_IMAGE",
   "is_food": true | false,
-  "rejection_reason": "Specific explanation if no food was detected (e.g. 'Image appears to be a graphic logo with text rather than food')",
+  "rejection_reason": "Specific explanation if no food was detected",
   "detected_dishes": [
     {
       "label": "English canonical name of food",
       "label_bn": "Bangla name or transliteration",
       "preparation_state": "boiled | fried | curried | steamed | roasted | raw | commercial",
-      "estimated_grams": 150,
+      "is_countable": true | false,
+      "detected_count": 2,
+      "count_unit": "egg | banana | apple | slice | biscuit | packet | piece",
+      "identity_confidence": 0.95,
+      "count_confidence": 0.90,
+      "weight_confidence": 0.85,
+      "estimated_grams": 110,
+      "packaging_detected": false,
+      "package_net_weight_grams": null,
       "uncertainty_reasons": ["Short note on why portion volume or preparation is uncertain"],
-      "questions": ["Specific question to ask the user, e.g. Did you consume approx 150g?"]
+      "questions": ["Specific question to ask the user, e.g. Did you consume 2 eggs (~110g)?"]
     }
   ],
   "overall_questions": ["General ingredient questions, e.g. Was olive oil, butter, or mustard oil used?"]
@@ -242,23 +260,42 @@ Return valid JSON conforming to this schema:
 
         const rawDishes = Array.isArray(aiJson.detected_dishes) ? aiJson.detected_dishes : [];
         if (rawDishes.length > 0) {
-          const candidates: CandidateItem[] = rawDishes.map((dish: any, idx: number) => ({
-            id: `ai-item-${idx + 1}-${Date.now()}`,
-            label: dish.label || dish.food_name || 'Unknown Dish',
-            label_bn: dish.label_bn || dish.bangla_name || '',
-            candidate_food_ids: [],
-            matched_food_id: null,
-            preparation_state: (dish.preparation_state as PreparationState) || 'boiled',
-            estimated_grams: Number(dish.estimated_grams || dish.default_grams) || 120,
-            portion_basis: 'ai_estimated_unconfirmed',
-            uncertainty_reasons: Array.isArray(dish.uncertainty_reasons) && dish.uncertainty_reasons.length > 0
-              ? dish.uncertainty_reasons
-              : ['Visual portion scale uncalibrated; please verify grams'],
-            questions: Array.isArray(dish.questions) && dish.questions.length > 0
-              ? dish.questions
-              : ['Please confirm the portion weight in grams.'],
-            confidence: 0.90,
-          }));
+          const candidates: CandidateItem[] = rawDishes.map((dish: any, idx: number) => {
+            const isCountable = Boolean(dish.is_countable);
+            const detectedCount = dish.detected_count !== undefined && dish.detected_count !== null
+              ? Number(dish.detected_count)
+              : null;
+            const countUnit = dish.count_unit ? String(dish.count_unit) : null;
+            const pkgWeight = dish.package_net_weight_grams !== undefined && dish.package_net_weight_grams !== null
+              ? Number(dish.package_net_weight_grams)
+              : null;
+
+            return {
+              id: `ai-item-${idx + 1}-${Date.now()}`,
+              label: dish.label || dish.food_name || 'Unknown Dish',
+              label_bn: dish.label_bn || dish.bangla_name || '',
+              candidate_food_ids: [],
+              matched_food_id: null,
+              preparation_state: (dish.preparation_state as PreparationState) || 'boiled',
+              estimated_grams: Number(dish.estimated_grams || dish.default_grams) || 120,
+              portion_basis: isCountable && detectedCount ? 'count_verified' : 'ai_estimated_unconfirmed',
+              is_countable: isCountable,
+              detected_count: detectedCount,
+              count_unit: countUnit,
+              identity_confidence: Number(dish.identity_confidence) || 0.90,
+              count_confidence: dish.count_confidence !== undefined ? Number(dish.count_confidence) : undefined,
+              weight_confidence: dish.weight_confidence !== undefined ? Number(dish.weight_confidence) : 0.85,
+              packaging_detected: Boolean(dish.packaging_detected),
+              package_net_weight_grams: pkgWeight,
+              uncertainty_reasons: Array.isArray(dish.uncertainty_reasons) && dish.uncertainty_reasons.length > 0
+                ? dish.uncertainty_reasons
+                : ['Visual portion scale uncalibrated; please verify grams'],
+              questions: Array.isArray(dish.questions) && dish.questions.length > 0
+                ? dish.questions
+                : ['Please confirm the portion weight in grams.'],
+              confidence: 0.90,
+            };
+          });
 
           const isFallback = model !== primaryModel;
           if (isFallback) {
@@ -568,7 +605,10 @@ function createCandidate(
   nameBn: string,
   prep: PreparationState,
   estimatedGrams: number,
-  uncertaintyReasons: string[]
+  uncertaintyReasons: string[],
+  isCountable: boolean = false,
+  detectedCount: number | null = null,
+  countUnit: string | null = null
 ): CandidateItem {
   const matched = resolveFoodAlias(nameEn) || resolveFoodAlias(nameBn);
 
@@ -580,7 +620,15 @@ function createCandidate(
     matched_food_id: matched ? matched.id : null,
     preparation_state: prep,
     estimated_grams: estimatedGrams,
-    portion_basis: 'ai_estimated_unconfirmed',
+    portion_basis: isCountable && detectedCount ? 'standard_reference_serving' : 'ai_estimated_unconfirmed',
+    is_countable: isCountable,
+    detected_count: detectedCount,
+    count_unit: countUnit,
+    identity_confidence: 0.95,
+    count_confidence: isCountable ? 0.90 : undefined,
+    weight_confidence: 0.85,
+    packaging_detected: false,
+    package_net_weight_grams: null,
     uncertainty_reasons: uncertaintyReasons,
     questions: [`Confirm if you ate approx ${estimatedGrams}g of ${nameEn}.`],
     confidence: 0.92,

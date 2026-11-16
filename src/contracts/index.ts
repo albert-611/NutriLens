@@ -392,6 +392,9 @@ export const ConfirmedItemSchema = z.object({
   preparation_state: PreparationStateSchema,
   portion_source: z.enum(['user_entered', 'ai_estimated_unconfirmed', 'standard_reference_serving']).default('user_entered'),
   confidence_notes: z.string().optional(),
+  selected_unit: z.string().optional(),
+  selected_quantity: z.number().optional(),
+  conversion_note: z.string().optional(),
 });
 export type ConfirmedItem = z.infer<typeof ConfirmedItemSchema>;
 
@@ -454,6 +457,14 @@ export const CandidateItemSchema = z.object({
   matched_food_id: z.string().guid().nullable().optional(),
   preparation_state: PreparationStateSchema.default('boiled'),
   estimated_grams: z.number().positive().nullable().default(null),
+  is_countable: z.boolean().default(false),
+  detected_count: z.number().nullable().optional(),
+  count_unit: z.string().nullable().optional(),
+  identity_confidence: z.number().min(0).max(1).optional(),
+  count_confidence: z.number().min(0).max(1).optional(),
+  weight_confidence: z.number().min(0).max(1).optional(),
+  packaging_detected: z.boolean().default(false),
+  package_net_weight_grams: z.number().nullable().optional(),
   portion_basis: z.enum([
     'user_entered',
     'ai_estimated_unconfirmed',

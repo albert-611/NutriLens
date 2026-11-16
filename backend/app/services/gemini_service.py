@@ -39,10 +39,13 @@ class GeminiService:
                     "1. 'FOOD_DETECTED': The image clearly contains one or more recognizable food items or meals.\n"
                     "2. 'NO_FOOD_DETECTED': The image is unrelated to food (e.g. logo, text, screenshot, document, animal, landscape, human portrait, vehicle, object, medicine, empty plate, non-food packaging).\n"
                     "3. 'UNCERTAIN_IMAGE': The image is too blurry, dark, occluded, or ambiguous to verify whether food is present.\n\n"
-                    "CRITICAL INTEGRITY RULES:\n"
+                    "CRITICAL INTEGRITY & COUNT-DETECTION RULES:\n"
                     "- If NO_FOOD_DETECTED or UNCERTAIN_IMAGE, 'detected_dishes' MUST be an empty array [].\n"
                     "- NEVER hallucinate food items for logos, graphics, documents, or non-food objects.\n"
-                    "- Only if FOOD_DETECTED: Deconstruct the meal into distinct dishes/components with portion estimates in grams.\n\n"
+                    "- Distinguish between individual countable food items (e.g. 2 eggs, 3 bananas, 1 apple, 2 bread slices, 4 biscuits, 1 packet of biscuits, 2 rotis) and amorphous bulk foods (e.g. cooked rice, dal soup).\n"
+                    "- Do NOT assume a partially hidden food item is an additional item. Do NOT invent quantities when occluded.\n"
+                    "- Do NOT infer the number of biscuits inside an unopened packet. If packaging is visible, mark 'packaging_detected': true.\n"
+                    "- Provide separate confidence scores for food identity, count detection, and weight estimation.\n\n"
                     "Return ONLY valid JSON conforming to this schema:\n"
                     "{\n"
                     '  "outcome": "FOOD_DETECTED" | "NO_FOOD_DETECTED" | "UNCERTAIN_IMAGE",\n'
@@ -53,9 +56,17 @@ class GeminiService:
                     '      "food_name": "English canonical name",\n'
                     '      "bangla_name": "Bangla name or transliteration",\n'
                     '      "confidence": 0.90,\n'
+                    '      "identity_confidence": 0.95,\n'
+                    '      "count_confidence": 0.90,\n'
+                    '      "weight_confidence": 0.85,\n'
                     '      "preparation_state": "boiled | fried | curried | steamed | roasted | raw | commercial",\n'
-                    '      "portion_basis": "visual_plate_ratio",\n'
-                    '      "default_grams": 150,\n'
+                    '      "is_countable": true | false,\n'
+                    '      "detected_count": 2,\n'
+                    '      "count_unit": "egg | banana | apple | slice | biscuit | packet | piece",\n'
+                    '      "portion_basis": "count_verified | visual_plate_ratio",\n'
+                    '      "default_grams": 110,\n'
+                    '      "packaging_detected": false,\n'
+                    '      "package_net_weight_grams": null,\n'
                     '      "uncertain_factors": ["Short note on uncertainty"]\n'
                     "    }\n"
                     "  ]\n"
@@ -161,6 +172,20 @@ class GeminiService:
                                 candidates = []
                                 uncertainty = False
                                 for item in raw_items:
+                                    det_count = None
+                                    if item.get("detected_count") is not None:
+                                        try:
+                                            det_count = float(item["detected_count"])
+                                        except (ValueError, TypeError):
+                                            det_count = None
+
+                                    pkg_weight = None
+                                    if item.get("package_net_weight_grams") is not None:
+                                        try:
+                                            pkg_weight = float(item["package_net_weight_grams"])
+                                        except (ValueError, TypeError):
+                                            pkg_weight = None
+
                                     cand = FoodCandidate(
                                         candidate_id=str(uuid.uuid4())[:8],
                                         food_name=item.get("food_name") or item.get("label") or "Unknown Food",
@@ -170,6 +195,14 @@ class GeminiService:
                                         portion_basis=item.get("portion_basis", "visual_plate_ratio"),
                                         default_grams=float(item.get("default_grams") or item.get("estimated_grams") or 150.0),
                                         uncertain_factors=item.get("uncertain_factors", []),
+                                        is_countable=bool(item.get("is_countable", False)),
+                                        detected_count=det_count,
+                                        count_unit=item.get("count_unit"),
+                                        identity_confidence=float(item.get("identity_confidence", item.get("confidence", 0.90))),
+                                        count_confidence=float(item["count_confidence"]) if item.get("count_confidence") is not None else None,
+                                        weight_confidence=float(item.get("weight_confidence", 0.80)),
+                                        packaging_detected=bool(item.get("packaging_detected", False)),
+                                        package_net_weight_grams=pkg_weight,
                                     )
                                     if cand.uncertain_factors:
                                         uncertainty = True

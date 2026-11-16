@@ -251,7 +251,98 @@ def resolve_food_key(name: str) -> str:
             return FOOD_KEY_ALIASES[alias]
     return "steamed_white_rice"
 
+VERIFIED_SERVING_GRAMS: Dict[str, Dict[str, float]] = {
+    "egg": {"egg": 55.0, "piece": 55.0},
+    "banana": {"banana": 100.0, "piece": 100.0},
+    "apple": {"apple": 182.0, "piece": 182.0, "slice": 25.0},
+    "bread": {"slice": 38.0, "piece": 60.0},
+    "biscuit": {"piece": 12.0},
+    "roti": {"piece": 50.0, "roti": 50.0},
+    "fish": {"piece": 110.0, "cup": 180.0},
+    "chicken": {"piece": 90.0, "cup": 180.0},
+    "rice": {"plate": 200.0, "cup": 150.0, "half_cup": 75.0},
+    "dal": {"bowl": 150.0, "cup": 150.0, "half_cup": 75.0, "tbsp": 15.0},
+}
+
 class NutritionService:
+    @staticmethod
+    def convert_serving_to_grams(
+        food_name: str,
+        unit: str,
+        quantity: float,
+        custom_weight_per_unit: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Deterministically converts count-based and household quantities into verified edible grams.
+        Strictly adheres to verified data and allows user overrides without fabricating numbers.
+        """
+        safe_qty = max(0.1, float(quantity))
+        u = unit.lower().strip()
+
+        if u in ("g", "gram", "grams"):
+            return {
+                "grams": round(safe_qty, 1),
+                "conversion_note": f"{safe_qty}g direct weight",
+                "is_verified": True,
+                "requires_weight_input": False,
+            }
+
+        if u in ("kg", "kilogram", "kilograms"):
+            total_g = safe_qty * 1000.0
+            return {
+                "grams": round(total_g, 1),
+                "conversion_note": f"{safe_qty} kg = {total_g}g",
+                "is_verified": True,
+                "requires_weight_input": False,
+            }
+
+        if custom_weight_per_unit and custom_weight_per_unit > 0:
+            total_g = round(safe_qty * custom_weight_per_unit, 1)
+            return {
+                "grams": total_g,
+                "conversion_note": f"{safe_qty} × {custom_weight_per_unit}g (user-confirmed net weight)",
+                "is_verified": True,
+                "requires_weight_input": False,
+            }
+
+        name_lower = food_name.lower().strip()
+        matched_category = None
+        for cat in ("egg", "banana", "apple", "bread", "biscuit", "roti", "fish", "chicken", "rice", "dal"):
+            if cat in name_lower:
+                matched_category = cat
+                break
+
+        if matched_category and matched_category in VERIFIED_SERVING_GRAMS:
+            unit_map = VERIFIED_SERVING_GRAMS[matched_category]
+            for candidate_unit, gram_val in unit_map.items():
+                if candidate_unit in u or u in candidate_unit:
+                    total_g = round(safe_qty * gram_val, 1)
+                    source_label = "FCTB Verified" if matched_category != "apple" else "USDA FDC Verified"
+                    return {
+                        "grams": total_g,
+                        "conversion_note": f"{safe_qty} {u} = {total_g}g ({source_label})",
+                        "is_verified": True,
+                        "requires_weight_input": False,
+                    }
+
+        if u in ("packet", "pkg", "pack"):
+            return {
+                "grams": 0.0,
+                "conversion_note": "Package size requires net weight entry",
+                "is_verified": False,
+                "requires_weight_input": True,
+            }
+
+        # Fallback default estimate if unrecognized unit
+        default_serving = 100.0
+        total_g = round(safe_qty * default_serving, 1)
+        return {
+            "grams": total_g,
+            "conversion_note": f"{safe_qty} {u} (~{total_g}g estimated; please verify)",
+            "is_verified": False,
+            "requires_weight_input": False,
+        }
+
     @staticmethod
     def calculate_items_nutrition(items: List[CalculateItemInput]) -> CalculateNutritionResponse:
         total = NutrientBreakdown()

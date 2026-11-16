@@ -239,3 +239,110 @@ def test_scenario_10_food_packaging_rejection():
         body = json.loads(res.body.decode("utf-8"))
         assert body["status"] == "UNCERTAIN_IMAGE"
         assert body["data"]["candidate_count"] == 0
+
+
+# Scenario 11: AI Detects 2 Visible Eggs
+def test_scenario_11_ai_detects_two_eggs():
+    mock_resp = FoodRecognizeResponse(
+        image_id="eggs-11",
+        meal_type="breakfast",
+        recognition_outcome="FOOD_DETECTED",
+        is_food=True,
+        candidates=[
+            FoodCandidate(
+                candidate_id="cand-eggs",
+                food_name="Boiled Chicken Egg",
+                bangla_name="সিদ্ধ ডিম",
+                confidence=0.96,
+                preparation_state="boiled",
+                default_grams=110.0,
+                is_countable=True,
+                detected_count=2.0,
+                count_unit="egg",
+                identity_confidence=0.98,
+                count_confidence=0.95,
+                weight_confidence=0.90,
+            )
+        ],
+        requires_user_confirmation=True,
+    )
+    with patch("app.api.v1.food_recognition.GeminiService.recognize_food_from_image", new_callable=AsyncMock) as mock_fn:
+        mock_fn.return_value = mock_resp
+        req = FoodRecognizeRequest(image_base64="data:image/jpeg;base64,twoeggs", meal_type="breakfast")
+        res = run_sync(recognize_food(request=req, current_user=USER))
+        assert res.data.recognition_outcome == "FOOD_DETECTED"
+        cand = res.data.candidates[0]
+        assert cand.is_countable is True
+        assert cand.detected_count == 2.0
+        assert cand.count_unit == "egg"
+        assert cand.default_grams == 110.0
+
+# Scenario 12: AI Detects 3 Bananas
+def test_scenario_12_ai_detects_three_bananas():
+    mock_resp = FoodRecognizeResponse(
+        image_id="bananas-12",
+        meal_type="snack",
+        recognition_outcome="FOOD_DETECTED",
+        is_food=True,
+        candidates=[
+            FoodCandidate(
+                candidate_id="cand-banana",
+                food_name="Banana (Sagor Kola)",
+                bangla_name="সাগর কলা",
+                confidence=0.95,
+                preparation_state="raw",
+                default_grams=300.0,
+                is_countable=True,
+                detected_count=3.0,
+                count_unit="banana",
+                identity_confidence=0.96,
+                count_confidence=0.92,
+                weight_confidence=0.85,
+            )
+        ],
+        requires_user_confirmation=True,
+    )
+    with patch("app.api.v1.food_recognition.GeminiService.recognize_food_from_image", new_callable=AsyncMock) as mock_fn:
+        mock_fn.return_value = mock_resp
+        req = FoodRecognizeRequest(image_base64="data:image/jpeg;base64,threebananas", meal_type="snack")
+        res = run_sync(recognize_food(request=req, current_user=USER))
+        cand = res.data.candidates[0]
+        assert cand.is_countable is True
+        assert cand.detected_count == 3.0
+        assert cand.default_grams == 300.0
+
+# Scenario 13: AI Detects Biscuit Packet (Packaging detected, net weight not assumed)
+def test_scenario_13_ai_detects_biscuit_packet():
+    mock_resp = FoodRecognizeResponse(
+        image_id="biscuit-pkg-13",
+        meal_type="snack",
+        recognition_outcome="FOOD_DETECTED",
+        is_food=True,
+        candidates=[
+            FoodCandidate(
+                candidate_id="cand-biscuit-pkg",
+                food_name="Biscuits, packaged",
+                bangla_name="বিস্কুট প্যাকেট",
+                confidence=0.92,
+                preparation_state="commercial",
+                default_grams=75.0,
+                is_countable=True,
+                detected_count=1.0,
+                count_unit="packet",
+                packaging_detected=True,
+                package_net_weight_grams=None,  # User must confirm net weight!
+                uncertain_factors=["Packet net weight unverified on label; confirm package size in grams"],
+            )
+        ],
+        requires_user_confirmation=True,
+        uncertainty_detected=True,
+    )
+    with patch("app.api.v1.food_recognition.GeminiService.recognize_food_from_image", new_callable=AsyncMock) as mock_fn:
+        mock_fn.return_value = mock_resp
+        req = FoodRecognizeRequest(image_base64="data:image/jpeg;base64,biscuitpack", meal_type="snack")
+        res = run_sync(recognize_food(request=req, current_user=USER))
+        cand = res.data.candidates[0]
+        assert cand.packaging_detected is True
+        assert cand.count_unit == "packet"
+        assert cand.package_net_weight_grams is None
+        assert "Packet net weight unverified" in cand.uncertain_factors[0]

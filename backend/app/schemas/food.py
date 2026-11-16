@@ -10,6 +10,14 @@ class FoodCandidate(BaseModel):
     portion_basis: str = "visual_plate_ratio"
     default_grams: float = Field(..., gt=0)
     uncertain_factors: List[str] = []
+    is_countable: bool = False
+    detected_count: Optional[float] = None
+    count_unit: Optional[str] = None
+    identity_confidence: float = 0.90
+    count_confidence: Optional[float] = None
+    weight_confidence: float = 0.80
+    packaging_detected: bool = False
+    package_net_weight_grams: Optional[float] = None
 
 class FoodRecognizeRequest(BaseModel):
     image_base64: Optional[str] = None
@@ -34,6 +42,9 @@ class ConfirmedFoodItem(BaseModel):
     preparation_state: str = "cooked"
     portion_grams: float = Field(..., gt=0)
     confidence: float = Field(1.0, ge=0.0, le=1.0)
+    selected_unit: Optional[str] = "g"
+    selected_quantity: Optional[float] = None
+    conversion_note: Optional[str] = None
 
 class FoodConfirmRequest(BaseModel):
     meal_log_id: Optional[str] = None
