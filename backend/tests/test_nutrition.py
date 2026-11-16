@@ -75,6 +75,20 @@ def test_foodnetbd_dataset_foods_calculation():
     assert chanachur_item.nutrients.calories > 200.0
 
 
+def test_daily_nutrition_dataset_calculation():
+    # Test foods ingested from Daily Food and Nutrition Dataset (Kaggle/HF)
+    items = [
+        CalculateItemInput(food_name="Whole Wheat Toast (1 slice)", portion_grams=35.0, preparation_state="commercial"),
+        CalculateItemInput(food_name="Quinoa (1 cup cooked)", portion_grams=160.0, preparation_state="boiled"),
+    ]
+    res = NutritionService.calculate_items_nutrition(items)
+    assert len(res.items) == 2
+    toast = next(i for i in res.items if "Toast" in i.food_name)
+    assert toast.nutrients.calories > 60.0
+    quinoa = next(i for i in res.items if "Quinoa" in i.food_name)
+    assert quinoa.nutrients.protein_g > 3.0
+
+
 
 def test_serving_conversion_eggs():
     # 2 eggs converted using verified FCTB serving (55g per egg = 110g)

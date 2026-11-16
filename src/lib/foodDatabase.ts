@@ -2,6 +2,7 @@ import type { Food, FoodName, FoodSearchResultItem, PreparationState } from '../
 import { FCDB_FOODS } from './fcdbFoods';
 import { FOREIGN_FOODS } from './foreignFoods';
 import { FOODNETBD_FOODS } from './foodNetBdFoods';
+import { DAILY_NUTRITION_FOODS } from './dailyNutritionFoods';
 
 export interface FoodWithAliases extends Food {
   name_en: string;
@@ -647,6 +648,35 @@ const FOODNETBD_CATALOG_ITEMS: FoodWithAliases[] = FOODNETBD_FOODS.map((f) => ({
   sodium_mg: f.sodium_mg,
 }));
 
+const DAILY_NUTRITION_CATALOG_ITEMS: FoodWithAliases[] = DAILY_NUTRITION_FOODS.map((f) => ({
+  id: f.id,
+  canonical_name: f.canonical_name,
+  name_en: f.name_en,
+  name_bn: f.name_bn,
+  category: f.category as any,
+  preparation_state: f.preparation_state,
+  edible_basis: 'edible_portion_100g',
+  basis_grams: f.basis_grams,
+  energy_kcal: f.energy_kcal,
+  protein_g: f.protein_g,
+  carbohydrate_g: f.carbohydrate_g,
+  fat_g: f.fat_g,
+  fibre_g: f.fibre_g,
+  source_id: '11111111-1111-1111-1111-111111111104',
+  external_record_id: f.external_record_id,
+  review_status: 'approved',
+  nutrient_completeness: 'complete',
+  aliases: f.aliases,
+  standard_serving_grams: f.standard_serving_grams,
+  calcium_mg: f.calcium_mg,
+  iron_mg: f.iron_mg,
+  zinc_mg: f.zinc_mg,
+  vitamin_c_mg: f.vitamin_c_mg,
+  magnesium_mg: f.magnesium_mg,
+  potassium_mg: f.potassium_mg,
+  sodium_mg: f.sodium_mg,
+}));
+
 export const FOOD_CATALOG: FoodWithAliases[] = [
   ...BASE_FOOD_CATALOG,
   ...FCDB_CATALOG_ITEMS.filter(
@@ -659,6 +689,12 @@ export const FOOD_CATALOG: FoodWithAliases[] = [
     (f) =>
       !BASE_FOOD_CATALOG.some((b) => b.external_record_id === f.external_record_id) &&
       !FCDB_CATALOG_ITEMS.some((b) => b.external_record_id === f.external_record_id)
+  ),
+  ...DAILY_NUTRITION_CATALOG_ITEMS.filter(
+    (f) =>
+      !BASE_FOOD_CATALOG.some((b) => b.external_record_id === f.external_record_id) &&
+      !FCDB_CATALOG_ITEMS.some((b) => b.external_record_id === f.external_record_id) &&
+      !FOODNETBD_CATALOG_ITEMS.some((b) => b.external_record_id === f.external_record_id)
   ),
 ];
 

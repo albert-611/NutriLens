@@ -238,6 +238,38 @@ if os.path.exists(_FOREIGN_FILE):
     except Exception:
         pass
 
+# Dynamically load Daily Food and Nutrition dataset (651 everyday foods)
+_DAILY_NUTRI_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "daily_nutrition_foods.json")
+if os.path.exists(_DAILY_NUTRI_FILE):
+    try:
+        with open(_DAILY_NUTRI_FILE, "r", encoding="utf-8") as _f:
+            _daily_items = json.load(_f)
+            for _item in _daily_items:
+                _code = _item["code"].lower()
+                _canonical = _item.get("canonical_name", _item["name_en"])
+                _key = _canonical.lower().strip().replace("-", "_").replace(" ", "_")
+                _entry = {
+                    "calories": float(_item["energy_kcal"]),
+                    "protein_g": float(_item["protein_g"]),
+                    "carbs_g": float(_item["carbohydrate_g"]),
+                    "fat_g": float(_item["fat_g"]),
+                    "fiber_g": float(_item["fibre_g"]),
+                    "sodium_mg": float(_item.get("sodium_mg", 0.0)),
+                    "potassium_mg": float(_item.get("potassium_mg", 0.0)),
+                    "calcium_mg": float(_item.get("calcium_mg", 0.0)),
+                    "iron_mg": float(_item.get("iron_mg", 0.0)),
+                    "vitamin_c_mg": float(_item.get("vitamin_c_mg", 0.0)),
+                }
+                FCT_DATABASE[_key] = _entry
+                FCT_DATABASE[_code] = _entry
+                FOOD_KEY_ALIASES[_canonical.lower().strip()] = _key
+                if _item.get("name_bn"):
+                    FOOD_KEY_ALIASES[_item["name_bn"].lower().strip()] = _key
+                for _a in _item.get("aliases", []):
+                    FOOD_KEY_ALIASES[_a.lower().strip()] = _key
+    except Exception:
+        pass
+
 def resolve_food_key(name: str) -> str:
     cleaned = name.lower().strip().replace("-", "_").replace(" ", "_")
     if cleaned in FCT_DATABASE:
