@@ -258,6 +258,17 @@ VERIFIED_SERVING_GRAMS: Dict[str, Dict[str, float]] = {
     "bread": {"slice": 38.0, "piece": 60.0},
     "biscuit": {"piece": 12.0},
     "roti": {"piece": 50.0, "roti": 50.0},
+    "samosa": {"piece": 40.0, "samosa": 40.0},
+    "samossa": {"piece": 40.0},
+    "shingara": {"piece": 40.0},
+    "onion ring": {"piece": 20.0, "ring": 20.0, "cup": 80.0},
+    "onion_ring": {"piece": 20.0, "cup": 80.0},
+    "piyaju": {"piece": 20.0},
+    "pakora": {"piece": 20.0, "cup": 80.0},
+    "chop": {"piece": 55.0},
+    "cutlet": {"piece": 55.0},
+    "roll": {"piece": 50.0},
+    "puri": {"piece": 30.0},
     "fish": {"piece": 110.0, "cup": 180.0},
     "chicken": {"piece": 90.0, "cup": 180.0},
     "rice": {"plate": 200.0, "cup": 150.0, "half_cup": 75.0},
@@ -300,6 +311,7 @@ class NutritionService:
             total_g = round(safe_qty * custom_weight_per_unit, 1)
             return {
                 "grams": total_g,
+                "custom_weight_per_unit": float(custom_weight_per_unit),
                 "conversion_note": f"{safe_qty} × {custom_weight_per_unit}g (user-confirmed net weight)",
                 "is_verified": True,
                 "requires_weight_input": False,
@@ -307,7 +319,29 @@ class NutritionService:
 
         name_lower = food_name.lower().strip()
         matched_category = None
-        for cat in ("egg", "banana", "apple", "bread", "biscuit", "roti", "fish", "chicken", "rice", "dal"):
+        for cat in (
+            "samosa",
+            "samossa",
+            "shingara",
+            "onion ring",
+            "onion_ring",
+            "piyaju",
+            "pakora",
+            "chop",
+            "cutlet",
+            "roll",
+            "puri",
+            "egg",
+            "banana",
+            "apple",
+            "bread",
+            "biscuit",
+            "roti",
+            "fish",
+            "chicken",
+            "rice",
+            "dal",
+        ):
             if cat in name_lower:
                 matched_category = cat
                 break

@@ -410,7 +410,132 @@ const VERIFIED_SERVING_PRESETS: Record<string, FoodServingOption[]> = {
     },
   ],
 
-  // 10. General / Generic food
+  // 10. Snacks, Savories & Street Foods (Samosa, Onion Rings, Pakora, Chops)
+  samosa: [
+    {
+      id: 'samosa_piece',
+      name: 'Piece / Samosa (টি)',
+      nameBn: 'টি সিঙ্গাড়া / সমুচা',
+      unit: 'piece',
+      defaultQuantity: 1,
+      gramEquivalent: 40, // Standard Bangladeshi shingara/samosa = ~40g (FCTB-01-012)
+      ediblePortionRatio: 1.0,
+      source: 'fcdb_bangladesh',
+      verificationStatus: 'verified',
+      isCountable: true,
+      description: '1 standard samosa/shingara = 40g (FCTB)',
+    },
+    {
+      id: 'samosa_grams',
+      name: 'Grams (g)',
+      nameBn: 'গ্রাম (g)',
+      unit: 'g',
+      defaultQuantity: 80,
+      gramEquivalent: 1,
+      ediblePortionRatio: 1.0,
+      source: 'household_measure',
+      verificationStatus: 'verified',
+      isCountable: false,
+    },
+  ],
+
+  onion_rings: [
+    {
+      id: 'onion_ring_piece',
+      name: 'Piece (Ring / Piyaju)',
+      nameBn: 'টি পিঁয়াজু / অনিয়ন রিং',
+      unit: 'piece',
+      defaultQuantity: 4,
+      gramEquivalent: 20, // 1 average onion ring / crispy piyaju = ~20g
+      ediblePortionRatio: 1.0,
+      source: 'fcdb_bangladesh',
+      verificationStatus: 'verified',
+      isCountable: true,
+      description: '1 standard onion ring / piyaju = 20g',
+    },
+    {
+      id: 'onion_ring_cup',
+      name: 'Cup (Portion)',
+      nameBn: 'কাপ',
+      unit: 'cup',
+      defaultQuantity: 1,
+      gramEquivalent: 80, // 1 cup small onion rings/pakoras = ~80g
+      ediblePortionRatio: 1.0,
+      source: 'household_measure',
+      verificationStatus: 'verified',
+      isCountable: false,
+    },
+    {
+      id: 'onion_ring_grams',
+      name: 'Grams (g)',
+      nameBn: 'গ্রাম (g)',
+      unit: 'g',
+      defaultQuantity: 100,
+      gramEquivalent: 1,
+      ediblePortionRatio: 1.0,
+      source: 'household_measure',
+      verificationStatus: 'verified',
+      isCountable: false,
+    },
+  ],
+
+  chops: [
+    {
+      id: 'chop_piece',
+      name: 'Piece / Chop (টি)',
+      nameBn: 'টি চপ / কাটলেট',
+      unit: 'piece',
+      defaultQuantity: 1,
+      gramEquivalent: 55, // 1 standard aloo chop or shami kabab = ~55g
+      ediblePortionRatio: 1.0,
+      source: 'fcdb_bangladesh',
+      verificationStatus: 'verified',
+      isCountable: true,
+      description: '1 standard chop / cutlet = 55g',
+    },
+    {
+      id: 'chop_grams',
+      name: 'Grams (g)',
+      nameBn: 'গ্রাম (g)',
+      unit: 'g',
+      defaultQuantity: 110,
+      gramEquivalent: 1,
+      ediblePortionRatio: 1.0,
+      source: 'household_measure',
+      verificationStatus: 'verified',
+      isCountable: false,
+    },
+  ],
+
+  rolls: [
+    {
+      id: 'roll_piece',
+      name: 'Piece / Roll (টি)',
+      nameBn: 'টি রোল',
+      unit: 'piece',
+      defaultQuantity: 1,
+      gramEquivalent: 50, // 1 spring roll / egg roll = ~50g
+      ediblePortionRatio: 1.0,
+      source: 'household_measure',
+      verificationStatus: 'verified',
+      isCountable: true,
+      description: '1 standard roll = 50g',
+    },
+    {
+      id: 'roll_grams',
+      name: 'Grams (g)',
+      nameBn: 'গ্রাম (g)',
+      unit: 'g',
+      defaultQuantity: 100,
+      gramEquivalent: 1,
+      ediblePortionRatio: 1.0,
+      source: 'household_measure',
+      verificationStatus: 'verified',
+      isCountable: false,
+    },
+  ],
+
+  // 11. General / Generic food
   generic: [
     {
       id: 'generic_grams',
@@ -430,7 +555,7 @@ const VERIFIED_SERVING_PRESETS: Record<string, FoodServingOption[]> = {
       nameBn: 'টি / পিস',
       unit: 'piece',
       defaultQuantity: 1,
-      gramEquivalent: 100,
+      gramEquivalent: 50,
       ediblePortionRatio: 1.0,
       source: 'household_measure',
       verificationStatus: 'unverified',
@@ -539,6 +664,47 @@ export function getServingOptionsForFood(params: {
     return VERIFIED_SERVING_PRESETS.pulses_liquid;
   }
 
+  // 10. Samosa / Shingara
+  if (
+    name.includes('samosa') ||
+    name.includes('samossa') ||
+    name.includes('shingara') ||
+    name.includes('singara') ||
+    name.includes('সমুচা') ||
+    name.includes('সিঙ্গাড়া')
+  ) {
+    return VERIFIED_SERVING_PRESETS.samosa;
+  }
+
+  // 11. Onion Rings / Piyaju / Pakora
+  if (
+    name.includes('onion ring') ||
+    name.includes('onion_ring') ||
+    name.includes('piyaju') ||
+    name.includes('peyaju') ||
+    name.includes('pakora') ||
+    name.includes('পাকোড়া') ||
+    name.includes('পেঁয়াজু')
+  ) {
+    return VERIFIED_SERVING_PRESETS.onion_rings;
+  }
+
+  // 12. Chops / Cutlets
+  if (
+    name.includes('chop') ||
+    name.includes('cutlet') ||
+    name.includes('kabab') ||
+    name.includes('kebab') ||
+    name.includes('চপ')
+  ) {
+    return VERIFIED_SERVING_PRESETS.chops;
+  }
+
+  // 13. Rolls
+  if (name.includes('roll') || name.includes('রোল')) {
+    return VERIFIED_SERVING_PRESETS.rolls;
+  }
+
   return VERIFIED_SERVING_PRESETS.generic;
 }
 
@@ -577,12 +743,12 @@ export function convertQuantityToGrams(params: {
     };
   }
 
-  // 3. User custom weight override provided (e.g. user entered package net weight or custom weight)
+  // 3. User custom weight override provided (e.g. user entered piece/cup weight or package net weight)
   if (customWeightPerUnit && customWeightPerUnit > 0) {
     const totalG = Math.round(safeQty * customWeightPerUnit * 10) / 10;
     return {
       grams: totalG,
-      conversionNote: `${safeQty} × ${customWeightPerUnit}g (user-confirmed net weight)`,
+      conversionNote: `${safeQty} ${unit} × ${customWeightPerUnit}g = ${totalG}g (custom unit weight)`,
       isVerified: true,
       requiresWeightInput: false,
     };

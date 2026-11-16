@@ -129,6 +129,27 @@ export const ConfirmPage: React.FC = () => {
     });
   }, [activeItem]);
 
+  // Current weight per unit (editable for piece, cup, slice, packet, bowl, plate, etc.)
+  const currentUnitWeight = useMemo(() => {
+    if (!activeItem) return 50;
+    if (activeItem.customWeightPerUnit && activeItem.customWeightPerUnit > 0) {
+      return activeItem.customWeightPerUnit;
+    }
+    const opt = activeServingOptions.find((o) => o.unit === activeItem.selectedUnit);
+    if (opt?.gramEquivalent) return opt.gramEquivalent;
+    if (activeItem.aiEstimatedGrams && activeItem.selectedQuantity > 0) {
+      return Math.round((activeItem.aiEstimatedGrams / activeItem.selectedQuantity) * 10) / 10;
+    }
+    return 50;
+  }, [activeItem, activeServingOptions]);
+
+  // AI-detected unit weight for the active item
+  const aiUnitWeight = useMemo(() => {
+    if (!activeItem || !activeItem.aiEstimatedGrams) return null;
+    const count = activeItem.detectedCount && activeItem.detectedCount > 0 ? activeItem.detectedCount : 1;
+    return Math.round((activeItem.aiEstimatedGrams / count) * 10) / 10;
+  }, [activeItem]);
+
   // Allergy and Intolerance Audit (Deduplicated with exact evidence levels & user-reported ingredients)
   const allergyAudit = useMemo(() => {
     const userAllergies = Array.from(
@@ -202,22 +223,40 @@ export const ConfirmPage: React.FC = () => {
 
         let initialUnit: ServingUnitType | string = 'g';
         let initialQuantity = cand.estimated_grams || dbFood?.standard_serving_grams || 150;
+        let initialUnitWeight: number | null = null;
+
+        // Check if food has a countable unit or defaults to one
+        const primaryCountable = servingOptions.find((o) => o.isCountable && o.unit !== 'packet');
 
         if (isCountable && cand.detected_count && cand.detected_count > 0) {
-          const matchedCountUnit = servingOptions.find((o) => o.isCountable);
+          const matchedCountUnit = servingOptions.find((o) => o.isCountable) || primaryCountable;
           if (matchedCountUnit) {
             initialUnit = matchedCountUnit.unit;
             initialQuantity = cand.detected_count;
-          }
-        } else {
-          // Check if food naturally defaults to a countable unit (e.g. egg or banana)
-          const nameLower = foodName.toLowerCase();
-          if (nameLower.includes('egg') || nameLower.includes('banana') || nameLower.includes('apple') || nameLower.includes('bread')) {
-            const primaryCountable = servingOptions.find((o) => o.isCountable && o.unit !== 'packet');
-            if (primaryCountable) {
-              initialUnit = primaryCountable.unit;
-              initialQuantity = cand.detected_count || primaryCountable.defaultQuantity || 1;
+            // Calculate piece/unit weight directly from AI estimated total grams
+            if (cand.estimated_grams && cand.estimated_grams > 0) {
+              initialUnitWeight = Math.round((cand.estimated_grams / cand.detected_count) * 10) / 10;
+            } else if (matchedCountUnit.gramEquivalent) {
+              initialUnitWeight = matchedCountUnit.gramEquivalent;
             }
+          }
+        } else if (primaryCountable) {
+          initialUnit = primaryCountable.unit;
+          initialQuantity = cand.detected_count || primaryCountable.defaultQuantity || 1;
+          if (cand.estimated_grams && cand.estimated_grams > 0) {
+            initialUnitWeight = Math.round((cand.estimated_grams / initialQuantity) * 10) / 10;
+          } else if (primaryCountable.gramEquivalent) {
+            initialUnitWeight = primaryCountable.gramEquivalent;
+          }
+        }
+
+        // If unit is cup/bowl/plate/etc., calculate initial unit weight from AI estimate or preset
+        if (!initialUnitWeight && initialUnit !== 'g' && initialUnit !== 'kg') {
+          const matchedOption = servingOptions.find((o) => o.unit === initialUnit);
+          if (cand.estimated_grams && cand.estimated_grams > 0) {
+            initialUnitWeight = Math.round((cand.estimated_grams / initialQuantity) * 10) / 10;
+          } else if (matchedOption?.gramEquivalent) {
+            initialUnitWeight = matchedOption.gramEquivalent;
           }
         }
 
@@ -226,6 +265,7 @@ export const ConfirmPage: React.FC = () => {
           category,
           unit: initialUnit,
           quantity: initialQuantity,
+          customWeightPerUnit: initialUnitWeight,
         });
 
         const initialGrams = conv.grams > 0 ? conv.grams : (cand.estimated_grams || dbFood?.standard_serving_grams || 150);
@@ -241,7 +281,7 @@ export const ConfirmPage: React.FC = () => {
           aiEstimatedGrams: cand.estimated_grams || initialGrams,
           selectedUnit: initialUnit,
           selectedQuantity: initialQuantity,
-          customWeightPerUnit: null,
+          customWeightPerUnit: initialUnitWeight,
           conversionNote: conv.conversionNote,
           isCountable,
           detectedCount: cand.detected_count,
@@ -460,12 +500,22 @@ export const ConfirmPage: React.FC = () => {
     }
   };
 
-  // Gram Calculator: Direct Gram Update
+  // Gram Calculator: Direct Gram Update (Preserves count/cup unit and recalculates unit weight!)
   const updateGramsDirect = (id: string, val: number) => {
     const safeGrams = Math.max(1, Math.min(2500, Number(val) || 1));
     setItems((prev) =>
       prev.map((it) => {
         if (it.id !== id) return it;
+        if (it.selectedUnit !== 'g' && it.selectedUnit !== 'kg' && it.selectedQuantity > 0) {
+          const newUnitWeight = Math.round((safeGrams / it.selectedQuantity) * 10) / 10;
+          return {
+            ...it,
+            grams: safeGrams,
+            customWeightPerUnit: newUnitWeight,
+            conversionNote: `${it.selectedQuantity} ${it.selectedUnit} × ${newUnitWeight}g/${it.selectedUnit} = ${safeGrams}g (adjusted)`,
+            portionSource: 'user_entered',
+          };
+        }
         return {
           ...it,
           grams: safeGrams,
@@ -484,14 +534,85 @@ export const ConfirmPage: React.FC = () => {
       prev.map((it) => {
         if (it.id !== id) return it;
         const current = it.grams || 100;
-        const updated = Math.max(5, Math.min(2500, Math.round(current + delta)));
+        const updated = Math.max(1, Math.min(2500, Math.round(current + delta)));
+        if (it.selectedUnit !== 'g' && it.selectedUnit !== 'kg' && it.selectedQuantity > 0) {
+          const newUnitWeight = Math.round((updated / it.selectedQuantity) * 10) / 10;
+          return {
+            ...it,
+            grams: updated,
+            customWeightPerUnit: newUnitWeight,
+            conversionNote: `${it.selectedQuantity} ${it.selectedUnit} × ${newUnitWeight}g/${it.selectedUnit} = ${updated}g (adjusted)`,
+            portionSource: 'user_entered',
+          };
+        }
         return {
           ...it,
           grams: updated,
-          selectedUnit: 'g',
           selectedQuantity: updated,
           portionSource: 'user_entered',
-          conversionNote: `${updated}g adjusted manually`,
+          conversionNote: `${updated}g (${delta > 0 ? `+${delta}g` : `${delta}g`})`,
+        };
+      })
+    );
+  };
+
+  // User edits weight per unit directly (e.g. 1 piece samosa = 40g, 1 piece onion ring = 20g, 1 cup = 180g)
+  const handleUnitWeightChange = (id: string, weightPerUnit: number) => {
+    const safeW = Math.max(1, Math.min(2000, Number(weightPerUnit) || 1));
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== id) return it;
+        const qty = it.selectedQuantity || 1;
+        const totalG = Math.round(qty * safeW * 10) / 10;
+        return {
+          ...it,
+          customWeightPerUnit: safeW,
+          grams: totalG,
+          conversionNote: `${qty} ${it.selectedUnit} × ${safeW}g/${it.selectedUnit} = ${totalG}g`,
+          portionSource: 'user_entered',
+        };
+      })
+    );
+  };
+
+  // Stepper for unit weight (+/- 5g, 10g)
+  const adjustUnitWeightDelta = (id: string, delta: number) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== id) return it;
+        const currentW = it.customWeightPerUnit && it.customWeightPerUnit > 0
+          ? it.customWeightPerUnit
+          : (activeServingOptions.find((o) => o.unit === it.selectedUnit)?.gramEquivalent || 50);
+        const updatedW = Math.max(1, Math.min(2000, Math.round(currentW + delta)));
+        const qty = it.selectedQuantity || 1;
+        const totalG = Math.round(qty * updatedW * 10) / 10;
+        return {
+          ...it,
+          customWeightPerUnit: updatedW,
+          grams: totalG,
+          conversionNote: `${qty} ${it.selectedUnit} × ${updatedW}g/${it.selectedUnit} = ${totalG}g`,
+          portionSource: 'user_entered',
+        };
+      })
+    );
+  };
+
+  // Reset piece/cup weight to AI detected unit weight
+  const handleResetUnitWeightToAI = (id: string) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== id) return it;
+        const aiTotal = it.aiEstimatedGrams || it.grams;
+        const count = it.detectedCount && it.detectedCount > 0 ? it.detectedCount : (it.selectedQuantity || 1);
+        const aiUnitW = Math.round((aiTotal / count) * 10) / 10;
+        const qty = it.selectedQuantity || 1;
+        const totalG = Math.round(qty * aiUnitW * 10) / 10;
+        return {
+          ...it,
+          customWeightPerUnit: aiUnitW,
+          grams: totalG,
+          conversionNote: `${qty} ${it.selectedUnit} × ${aiUnitW}g/${it.selectedUnit} = ${totalG}g (AI detected unit weight)`,
+          portionSource: 'ai_estimated_unconfirmed',
         };
       })
     );
@@ -505,15 +626,18 @@ export const ConfirmPage: React.FC = () => {
         const initialAi = it.aiEstimatedGrams || 100;
         let qty = initialAi;
         let unit = 'g';
+        let unitWeight: number | null = null;
         if (it.isCountable && it.detectedCount) {
           qty = it.detectedCount;
           unit = it.countUnit || 'piece';
+          unitWeight = Math.round((initialAi / qty) * 10) / 10;
         }
         const conv = convertQuantityToGrams({
           foodName: it.name,
           category: it.category,
           unit,
           quantity: qty,
+          customWeightPerUnit: unitWeight,
         });
 
         return {
@@ -521,6 +645,7 @@ export const ConfirmPage: React.FC = () => {
           grams: conv.grams > 0 ? conv.grams : initialAi,
           selectedUnit: unit,
           selectedQuantity: qty,
+          customWeightPerUnit: unitWeight,
           portionSource: 'ai_estimated_unconfirmed',
           conversionNote: `Reset to AI suggestion: ${initialAi}g`,
         };
@@ -1467,61 +1592,119 @@ export const ConfirmPage: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Special Handling for Packet (e.g. biscuits) */}
-                  {activeItem.selectedUnit === 'packet' && (
-                    <div className="pt-2 border-t border-slate-200/60 dark:border-forest-border/60 space-y-2">
-                      <label className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                        <Info className="w-3 h-3" />
-                        Packet Net Weight (grams per packet):
+                  {/* Universal Editable Weight per Unit (piece, cup, slice, bowl, plate, packet, etc.) */}
+                  <div className="pt-3 border-t border-slate-200/60 dark:border-forest-border/60 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <Scale className="w-3.5 h-3.5 text-emerald-500" />
+                        Weight per {activeServingOptions.find((o) => o.unit === activeItem.selectedUnit)?.name || activeItem.selectedUnit}:
                       </label>
-                      <div className="flex items-center gap-2">
+                      {aiUnitWeight !== null && (
+                        <button
+                          type="button"
+                          onClick={() => handleResetUnitWeightToAI(activeItem.id)}
+                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
+                          title="Restore AI vision detected weight"
+                        >
+                          <Sparkles className="w-3 h-3" />
+                          AI Weight ({aiUnitWeight}g)
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 bg-white dark:bg-forest-card p-1 rounded-xl border border-slate-200 dark:border-forest-border">
+                        <button
+                          type="button"
+                          onClick={() => adjustUnitWeightDelta(activeItem.id, -5)}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
+                          title="Decrease unit weight by 5g"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
                         <input
                           type="number"
-                          min="10"
-                          max="1000"
-                          step="5"
-                          placeholder="e.g. 75"
-                          value={activeItem.customWeightPerUnit || 75}
+                          min="1"
+                          max="2000"
+                          step="1"
+                          value={currentUnitWeight}
                           onChange={(e) =>
-                            handleCustomPackageWeightChange(
-                              activeItem.id,
-                              parseFloat(e.target.value) || 50
-                            )
+                            handleUnitWeightChange(activeItem.id, parseFloat(e.target.value) || 1)
                           }
-                          className="w-24 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-card text-xs font-bold text-slate-900 dark:text-white text-right"
+                          className="w-16 text-center font-extrabold text-sm text-slate-900 dark:text-white bg-transparent focus:outline-none"
                         />
-                        <span className="text-xs text-slate-500">grams per pack</span>
+                        <button
+                          type="button"
+                          onClick={() => adjustUnitWeightDelta(activeItem.id, 5)}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
+                          title="Increase unit weight by 5g"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <div className="flex items-center gap-1.5 pt-1">
-                        <span className="text-[10px] text-slate-400">Presets:</span>
-                        {[50, 75, 100, 150].map((w) => (
-                          <button
-                            key={w}
-                            type="button"
-                            onClick={() => handleCustomPackageWeightChange(activeItem.id, w)}
-                            className="px-2 py-0.5 text-[10px] rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500"
-                          >
-                            {w}g
-                          </button>
-                        ))}
+                      <span className="text-xs text-slate-500 font-medium">
+                        g / {activeItem.selectedUnit}
+                      </span>
+                    </div>
+
+                    {/* Quick unit weight adjustment pills */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <span className="text-[10px] text-slate-400 font-medium">Adjust:</span>
+                      {[-10, -5, +5, +10].map((delta) => (
+                        <button
+                          key={delta}
+                          type="button"
+                          onClick={() => adjustUnitWeightDelta(activeItem.id, delta)}
+                          className="px-2 py-0.5 text-[10px] rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500 font-semibold"
+                        >
+                          {delta > 0 ? `+${delta}g` : `${delta}g`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Equivalent Total Edible Weight Banner & Direct Gram Sync */}
+                  <div className="pt-3 border-t border-slate-200/60 dark:border-forest-border/60 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600 dark:text-slate-300 font-medium">
+                        Total Weight ({activeItem.selectedQuantity} × {currentUnitWeight}g):
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min="1"
+                          max="5000"
+                          value={activeItem.grams}
+                          onChange={(e) =>
+                            updateGramsDirect(activeItem.id, parseFloat(e.target.value) || 1)
+                          }
+                          className="w-16 px-2 py-0.5 text-right font-extrabold text-sm text-emerald-600 dark:text-emerald-400 bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border rounded-lg"
+                        />
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">g</span>
                       </div>
                     </div>
-                  )}
 
-                  {/* Equivalent Weight Indicator Banner */}
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-forest-border/60 flex items-center justify-between text-xs">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">
-                      Equivalent Edible Weight:
-                    </span>
-                    <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
-                      {activeItem.grams} g
-                    </span>
+                    {/* Total Gram Quick Adjustments */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400 font-medium">Total:</span>
+                      {[-50, -25, +25, +50].map((delta) => (
+                        <button
+                          key={delta}
+                          type="button"
+                          onClick={() => adjustGramsDelta(activeItem.id, delta)}
+                          className="px-2 py-0.5 text-[10px] rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500 font-semibold"
+                        >
+                          {delta > 0 ? `+${delta}g` : `${delta}g`}
+                        </button>
+                      ))}
+                    </div>
+
+                    {activeItem.conversionNote && (
+                      <p className="text-[10px] text-slate-400 leading-tight pt-1">
+                        ℹ️ {activeItem.conversionNote}
+                      </p>
+                    )}
                   </div>
-                  {activeItem.conversionNote && (
-                    <p className="text-[10px] text-slate-400 leading-tight">
-                      ℹ️ {activeItem.conversionNote}
-                    </p>
-                  )}
                 </div>
               ) : (
                 /* Dedicated Gram Calculator / Weight Indicator */

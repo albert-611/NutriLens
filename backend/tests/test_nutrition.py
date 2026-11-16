@@ -145,3 +145,33 @@ def test_preparation_method_preserves_weight_with_oil_multiplier():
     assert boiled.items[0].portion_grams == fried.items[0].portion_grams == 55.0
     assert fried.total_nutrients.fat_g > boiled.total_nutrients.fat_g
     assert fried.total_nutrients.calories > boiled.total_nutrients.calories
+
+def test_serving_conversion_samosa_and_onion_rings():
+    # 1 samosa defaults to 40g (not rigid 100g)
+    conv_samosa = NutritionService.convert_serving_to_grams(food_name="Samosa", unit="piece", quantity=1)
+    assert conv_samosa["grams"] == 40.0
+    assert conv_samosa["is_verified"] is True
+
+    # 4 onion rings default to 20g each = 80g (not rigid 200g)
+    conv_onion = NutritionService.convert_serving_to_grams(food_name="Onion Rings", unit="piece", quantity=4)
+    assert conv_onion["grams"] == 80.0
+    assert conv_onion["is_verified"] is True
+
+def test_serving_conversion_custom_unit_weight_override():
+    # User overrides 1 piece samosa weight to 45g: 2 pieces = 90g
+    conv = NutritionService.convert_serving_to_grams(
+        food_name="Samosa", unit="piece", quantity=2, custom_weight_per_unit=45.0
+    )
+    assert conv["grams"] == 90.0
+    assert conv["custom_weight_per_unit"] == 45.0
+    assert conv["is_verified"] is True
+
+def test_serving_conversion_cup_weight_override():
+    # User overrides cup weight to 180g: 1.5 cups = 270g
+    conv = NutritionService.convert_serving_to_grams(
+        food_name="Lentil Soup (Dal)", unit="cup", quantity=1.5, custom_weight_per_unit=180.0
+    )
+    assert conv["grams"] == 270.0
+    assert conv["custom_weight_per_unit"] == 180.0
+    assert conv["is_verified"] is True
+
