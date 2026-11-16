@@ -135,51 +135,8 @@ export const ConfirmPage: React.FC = () => {
 
       setItems(mappedItems);
     } else {
-      // Fallback default fixture if direct access without analyze
-      const defaultFood1 = getFoodById('33333333-3333-3333-3333-333333333301')!;
-      const defaultFood2 = getFoodById('33333333-3333-3333-3333-333333333308')!;
-      const defaultFood3 = getFoodById('33333333-3333-3333-3333-333333333324')!;
-
-      setItems([
-        {
-          id: 'item-rice',
-          foodId: defaultFood1.id,
-          externalRecordId: defaultFood1.external_record_id || 'FCTB-01-001',
-          name: defaultFood1.name_en,
-          nameBn: defaultFood1.name_bn,
-          category: defaultFood1.category,
-          grams: 200,
-          preparationState: 'boiled',
-          portionSource: 'ai_estimated_unconfirmed',
-          uncertaintyReasons: ['Uncalibrated camera depth. Confirm rice bowl size.'],
-          questions: ['Did you consume 1 standard plate of boiled parboiled rice?'],
-        },
-        {
-          id: 'item-dal',
-          foodId: defaultFood2.id,
-          externalRecordId: defaultFood2.external_record_id || 'FCTB-02-001',
-          name: defaultFood2.name_en,
-          nameBn: defaultFood2.name_bn,
-          category: defaultFood2.category,
-          grams: 150,
-          preparationState: 'boiled',
-          portionSource: 'ai_estimated_unconfirmed',
-          uncertaintyReasons: ['Dilution ratio unknown (Patla vs. Bhuna dal).'],
-          questions: ['Was this runny soup dal or thick bhuna dal?'],
-        },
-        {
-          id: 'item-egg',
-          foodId: defaultFood3.id,
-          externalRecordId: defaultFood3.external_record_id || 'FCTB-04-002',
-          name: defaultFood3.name_en,
-          nameBn: defaultFood3.name_bn,
-          category: defaultFood3.category,
-          grams: 60,
-          preparationState: 'fried',
-          portionSource: 'ai_estimated_unconfirmed',
-          uncertaintyReasons: ['Oil absorption varies depending on cooking method.'],
-        },
-      ]);
+      // Empty state: never inject prototype fallback fixtures
+      setItems([]);
     }
   }, [location.state]);
 

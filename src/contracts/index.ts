@@ -476,10 +476,20 @@ export const AnalyzeMealRequestSchema = z.object({
 });
 export type AnalyzeMealRequest = z.infer<typeof AnalyzeMealRequestSchema>;
 
+export const RecognitionOutcomeSchema = z.enum([
+  'FOOD_DETECTED',
+  'NO_FOOD_DETECTED',
+  'UNCERTAIN_IMAGE',
+]);
+export type RecognitionOutcome = z.infer<typeof RecognitionOutcomeSchema>;
+
 export const AnalyzeMealResponseSchema = z.object({
   analysis_id: z.string().guid(),
   schema_version: z.string().default('1.0'),
   input_mode: z.enum(['photo', 'manual_search', 'menu_text']),
+  recognition_outcome: RecognitionOutcomeSchema.default('FOOD_DETECTED'),
+  is_food: z.boolean().default(true),
+  rejection_reason: z.string().nullable().optional(),
   candidates: z.array(CandidateItemSchema),
   review_questions: z.array(z.string()).default([]),
   detected_cuisine: z.string().default('bangladeshi'),

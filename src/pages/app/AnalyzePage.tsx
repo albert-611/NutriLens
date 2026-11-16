@@ -27,6 +27,11 @@ export const AnalyzePage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [nonFoodError, setNonFoodError] = useState<{
+    status: 'NON_FOOD_IMAGE' | 'UNCERTAIN_IMAGE';
+    title: string;
+    message: string;
+  } | null>(null);
   const [manualQuery, setManualQuery] = useState('');
   const [consentGiven, setConsentGiven] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -57,8 +62,19 @@ export const AnalyzePage: React.FC = () => {
     },
   ];
 
+  const handleReset = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setError(null);
+    setNonFoodError(null);
+    setManualQuery('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
+
   const handleFileChange = (file: File) => {
     setError(null);
+    setNonFoodError(null);
 
     // Validate file using service
     const validation = validateMealImageFile(file);
@@ -91,6 +107,7 @@ export const AnalyzePage: React.FC = () => {
     }
 
     setError(null);
+    setNonFoodError(null);
     setIsAnalyzing(true);
 
     try {
@@ -123,8 +140,31 @@ export const AnalyzePage: React.FC = () => {
       });
     } catch (err: any) {
       console.error('Meal analysis error:', err);
-      setError(err?.message || 'Failed to analyze meal. Please try again.');
       setIsAnalyzing(false);
+
+      if (err?.code === 'NON_FOOD_IMAGE' || err?.status === 'NON_FOOD_IMAGE') {
+        setNonFoodError({
+          status: 'NON_FOOD_IMAGE',
+          title: 'No food detected',
+          message:
+            err?.message ||
+            "We couldn't identify any food in this image. Please upload a clear picture of your meal to continue.",
+        });
+        return;
+      }
+
+      if (err?.code === 'UNCERTAIN_IMAGE' || err?.status === 'UNCERTAIN_IMAGE') {
+        setNonFoodError({
+          status: 'UNCERTAIN_IMAGE',
+          title: 'Uncertain Image Quality',
+          message:
+            err?.message ||
+            'Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.',
+        });
+        return;
+      }
+
+      setError(err?.message || 'Failed to analyze meal. Please try again.');
     }
   };
 
@@ -153,7 +193,36 @@ export const AnalyzePage: React.FC = () => {
         </p>
       </div>
 
-      {error && (
+      {nonFoodError && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500/50 text-rose-900 dark:text-rose-100 space-y-4 shadow-sm animate-shake">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 rounded-2xl bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300 shrink-0">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-extrabold text-base text-rose-950 dark:text-rose-50">
+                {nonFoodError.title}
+              </h3>
+              <p className="text-xs sm:text-sm text-rose-700 dark:text-rose-200">
+                "{nonFoodError.message}"
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 pt-2 border-t border-rose-200/70 dark:border-rose-900/60">
+            <Button
+              onClick={handleReset}
+              variant="primary"
+              size="sm"
+              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm"
+              icon={<RefreshCw className="w-4 h-4" />}
+            >
+              Upload Another Photo
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {error && !nonFoodError && (
         <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2.5 animate-shake">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>

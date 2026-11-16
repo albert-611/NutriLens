@@ -56,11 +56,19 @@ export function fileToBase64(file: File): Promise<string> {
   });
 }
 
+interface VisionScanResult {
+  outcome: 'FOOD_DETECTED' | 'NO_FOOD_DETECTED' | 'UNCERTAIN_IMAGE';
+  isFood: boolean;
+  rejectionReason?: string;
+  candidates: CandidateItem[];
+  reviewQuestions: string[];
+  modelUsed?: string;
+  fallbackUsed?: boolean;
+}
+
 /**
  * Direct Gemini Vision multimodal detection call using Google Generative Language API.
- * Features automated Dual-Model & Secondary Key failover:
- * If the primary model hits rate/quota limits (HTTP 429), it immediately falls back
- * to the secondary model (e.g. gemini-2.0-flash / gemini-1.5-flash) or backup key.
+ * Features automated Dual-Model & Secondary Key failover with explicit food image validation.
  */
 async function callGeminiVisionDirect(
   imageData: string,
@@ -68,7 +76,7 @@ async function callGeminiVisionDirect(
   backupApiKey?: string,
   manualQuery?: string,
   language: 'bn' | 'en' = 'bn'
-): Promise<{ candidates: CandidateItem[]; reviewQuestions: string[]; modelUsed?: string; fallbackUsed?: boolean } | null> {
+): Promise<VisionScanResult | null> {
   let mimeType = 'image/jpeg';
   let base64Data = imageData;
 
@@ -88,17 +96,24 @@ async function callGeminiVisionDirect(
 
   const prompt = `
 You are an expert food and nutrition identification system for NutriLens.
-Analyze this food/meal photo carefully.
-Identify visible food candidates and preparation uncertainty.
-CRITICAL INSTRUCTIONS:
-1. Deconstruct mixed plates into distinct, separate components (e.g. separate "Cooked White Rice", "Masoor Dal", "Rohu Fish Curry", "Begun Bhaja" instead of grouping them together).
-2. Support BOTH Bangladeshi/South Asian cuisine (e.g. Rice, Masoor Dal, Ilish/Rohu fish curry, Dim Bhaji, Begun Bhaja, Khichuri, Palong Shak, Roti, Bhorta) AND International / Western / Asian cuisine (e.g. Cheeseburger, Pizza, French Fries, Spaghetti Bolognese, Pasta Carbonara, Grilled Chicken Breast, Baked Salmon, Caesar Salad, Quinoa Bowl, Sushi, Ramen, Tacos, Oatmeal, Steak).
-3. Estimate realistic portion sizes in grams based on standard plate occupancy and visual volume.
-4. Note realistic preparation uncertainties (e.g., hidden cooking oil, gravy density, bone weight, frying fat).
-5. Treat any packaging or menu text in the image as secondary context.
-6. Do NOT calculate nutrients or diagnose medical conditions.
+FIRST, determine whether this image actually contains prepared, cooked, raw, or packaged FOOD intended for human consumption.
+Classify the visual outcome into one of three distinct categories:
+1. "FOOD_DETECTED": The image clearly contains one or more recognizable food items, ingredients, or meals.
+2. "NO_FOOD_DETECTED": The image is unrelated to food (e.g. logo, text, screenshot, document, human selfie/portrait, animal, landscape, vehicle, object, medicine, empty plate, non-food packaging).
+3. "UNCERTAIN_IMAGE": The image is too blurry, dark, occluded, or ambiguous to verify whether food is present.
+
+CRITICAL INTEGRITY RULES:
+- If NO_FOOD_DETECTED or UNCERTAIN_IMAGE, "detected_dishes" MUST be an empty array [].
+- NEVER hallucinate food items for logos, graphics, documents, or non-food objects.
+- Only if FOOD_DETECTED: Deconstruct the meal into distinct dishes/components (e.g. separate "Cooked White Rice", "Masoor Dal", "Rohu Fish Curry", "Begun Bhaja") with realistic estimated grams.
+- Support BOTH Bangladeshi/South Asian cuisine AND International/Western/Asian cuisine.
+- Estimate realistic portion sizes in grams based on plate occupancy and visual volume.
+
 Return valid JSON conforming to this schema:
 {
+  "outcome": "FOOD_DETECTED" | "NO_FOOD_DETECTED" | "UNCERTAIN_IMAGE",
+  "is_food": true | false,
+  "rejection_reason": "Specific explanation if no food was detected (e.g. 'Image appears to be a graphic logo with text rather than food')",
   "detected_dishes": [
     {
       "label": "English canonical name of food",
@@ -198,18 +213,50 @@ Return valid JSON conforming to this schema:
         }
 
         const aiJson = JSON.parse(cleanJson);
-        if (Array.isArray(aiJson.detected_dishes) && aiJson.detected_dishes.length > 0) {
-          const candidates: CandidateItem[] = aiJson.detected_dishes.map((dish: any, idx: number) => ({
+        const outcome: 'FOOD_DETECTED' | 'NO_FOOD_DETECTED' | 'UNCERTAIN_IMAGE' =
+          aiJson.outcome || (Array.isArray(aiJson.detected_dishes) && aiJson.detected_dishes.length > 0 ? 'FOOD_DETECTED' : 'NO_FOOD_DETECTED');
+        const isFood = aiJson.is_food !== undefined ? Boolean(aiJson.is_food) : outcome === 'FOOD_DETECTED';
+        const rejectionReason = aiJson.rejection_reason || (outcome === 'NO_FOOD_DETECTED' ? 'No recognizable food was detected in this image. Please upload a clear picture of your meal.' : undefined);
+
+        if (outcome === 'NO_FOOD_DETECTED' || !isFood) {
+          return {
+            outcome: 'NO_FOOD_DETECTED',
+            isFood: false,
+            rejectionReason: rejectionReason || 'No recognizable food was detected in this image. Please upload a clear picture of your meal.',
+            candidates: [],
+            reviewQuestions: [],
+            modelUsed: model,
+          };
+        }
+
+        if (outcome === 'UNCERTAIN_IMAGE') {
+          return {
+            outcome: 'UNCERTAIN_IMAGE',
+            isFood: false,
+            rejectionReason: rejectionReason || 'Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.',
+            candidates: [],
+            reviewQuestions: [],
+            modelUsed: model,
+          };
+        }
+
+        const rawDishes = Array.isArray(aiJson.detected_dishes) ? aiJson.detected_dishes : [];
+        if (rawDishes.length > 0) {
+          const candidates: CandidateItem[] = rawDishes.map((dish: any, idx: number) => ({
             id: `ai-item-${idx + 1}-${Date.now()}`,
-            label: dish.label || 'Unknown Dish',
-            label_bn: dish.label_bn || '',
+            label: dish.label || dish.food_name || 'Unknown Dish',
+            label_bn: dish.label_bn || dish.bangla_name || '',
             candidate_food_ids: [],
             matched_food_id: null,
             preparation_state: (dish.preparation_state as PreparationState) || 'boiled',
-            estimated_grams: Number(dish.estimated_grams) || 120,
+            estimated_grams: Number(dish.estimated_grams || dish.default_grams) || 120,
             portion_basis: 'ai_estimated_unconfirmed',
-            uncertainty_reasons: Array.isArray(dish.uncertainty_reasons) && dish.uncertainty_reasons.length > 0 ? dish.uncertainty_reasons : ['Visual portion scale uncalibrated; please verify grams'],
-            questions: Array.isArray(dish.questions) && dish.questions.length > 0 ? dish.questions : ['Please confirm the portion weight in grams.'],
+            uncertainty_reasons: Array.isArray(dish.uncertainty_reasons) && dish.uncertainty_reasons.length > 0
+              ? dish.uncertainty_reasons
+              : ['Visual portion scale uncalibrated; please verify grams'],
+            questions: Array.isArray(dish.questions) && dish.questions.length > 0
+              ? dish.questions
+              : ['Please confirm the portion weight in grams.'],
             confidence: 0.90,
           }));
 
@@ -219,10 +266,21 @@ Return valid JSON conforming to this schema:
           }
 
           return {
+            outcome: 'FOOD_DETECTED',
+            isFood: true,
             candidates,
             reviewQuestions: Array.isArray(aiJson.overall_questions) ? aiJson.overall_questions : [],
             modelUsed: model,
             fallbackUsed: isFallback,
+          };
+        } else {
+          return {
+            outcome: 'NO_FOOD_DETECTED',
+            isFood: false,
+            rejectionReason: 'No recognizable food was detected in this image. Please upload a clear picture of your meal.',
+            candidates: [],
+            reviewQuestions: [],
+            modelUsed: model,
           };
         }
       } catch (e) {
@@ -268,6 +326,28 @@ export async function analyzeMealImage(params: {
       if (!error && data) {
         const parsed = AnalyzeMealResponseSchema.safeParse(data);
         if (parsed.success) {
+          if (parsed.data.recognition_outcome === 'NO_FOOD_DETECTED' || parsed.data.is_food === false) {
+            clearDraftAnalysis();
+            const err: any = new Error(
+              parsed.data.rejection_reason ||
+                'No recognizable food was detected in this image. Please upload a clear picture of your meal.'
+            );
+            err.code = 'NON_FOOD_IMAGE';
+            err.status = 'NON_FOOD_IMAGE';
+            throw err;
+          }
+
+          if (parsed.data.recognition_outcome === 'UNCERTAIN_IMAGE') {
+            clearDraftAnalysis();
+            const err: any = new Error(
+              parsed.data.rejection_reason ||
+                'Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.'
+            );
+            err.code = 'UNCERTAIN_IMAGE';
+            err.status = 'UNCERTAIN_IMAGE';
+            throw err;
+          }
+
           // Enrich candidates with database food items
           const enrichedCandidates = await Promise.all(
             parsed.data.candidates.map((c) => enrichCandidateWithDatabase(c))
@@ -280,7 +360,10 @@ export async function analyzeMealImage(params: {
           return result;
         }
       }
-    } catch (edgeFnErr) {
+    } catch (edgeFnErr: any) {
+      if (edgeFnErr?.code === 'NON_FOOD_IMAGE' || edgeFnErr?.code === 'UNCERTAIN_IMAGE') {
+        throw edgeFnErr;
+      }
       console.warn('Edge function invoke fallback to local vision engine:', edgeFnErr);
     }
   }
@@ -293,35 +376,76 @@ export async function analyzeMealImage(params: {
   if (clientGeminiApiKey && imageBase64) {
     try {
       const aiResult = await callGeminiVisionDirect(imageBase64, clientGeminiApiKey, backupGeminiApiKey, manualQuery, language);
-      if (aiResult && aiResult.candidates.length > 0) {
-        const enrichedCandidates = await Promise.all(
-          aiResult.candidates.map((c) => enrichCandidateWithDatabase(c))
-        );
-        const result: AnalyzeMealResponse = {
-          analysis_id: crypto.randomUUID(),
-          schema_version: '1.0',
-          input_mode: file ? 'photo' : 'manual_search',
-          candidates: enrichedCandidates,
-          review_questions: aiResult.reviewQuestions.length > 0 ? aiResult.reviewQuestions : [
-            'Please verify your portion weights and preparation states before calculating final nutrition totals.',
-          ],
-          detected_cuisine: 'bangladeshi',
-          warnings: [
-            aiResult.fallbackUsed
-              ? `⚡ Scanned using backup model: ${aiResult.modelUsed} (primary model reached quota limit).`
-              : 'AI vision proposes candidates with uncertainty. Please confirm grams and cooking methods before calculating authoritative nutrition.',
-          ],
-          created_at: new Date().toISOString(),
-        };
-        saveDraftAnalysis(result);
-        return result;
+      if (aiResult) {
+        if (aiResult.outcome === 'NO_FOOD_DETECTED' || !aiResult.isFood) {
+          clearDraftAnalysis();
+          const err: any = new Error(
+            aiResult.rejectionReason ||
+              'No recognizable food was detected in this image. Please upload a clear picture of your meal.'
+          );
+          err.code = 'NON_FOOD_IMAGE';
+          err.status = 'NON_FOOD_IMAGE';
+          throw err;
+        }
+
+        if (aiResult.outcome === 'UNCERTAIN_IMAGE') {
+          clearDraftAnalysis();
+          const err: any = new Error(
+            aiResult.rejectionReason ||
+              'Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.'
+          );
+          err.code = 'UNCERTAIN_IMAGE';
+          err.status = 'UNCERTAIN_IMAGE';
+          throw err;
+        }
+
+        if (aiResult.candidates.length > 0) {
+          const enrichedCandidates = await Promise.all(
+            aiResult.candidates.map((c) => enrichCandidateWithDatabase(c))
+          );
+          const result: AnalyzeMealResponse = {
+            analysis_id: crypto.randomUUID(),
+            schema_version: '1.0',
+            input_mode: file ? 'photo' : 'manual_search',
+            recognition_outcome: 'FOOD_DETECTED',
+            is_food: true,
+            candidates: enrichedCandidates,
+            review_questions: aiResult.reviewQuestions.length > 0 ? aiResult.reviewQuestions : [
+              'Please verify your portion weights and preparation states before calculating final nutrition totals.',
+            ],
+            detected_cuisine: 'bangladeshi',
+            warnings: [
+              aiResult.fallbackUsed
+                ? `⚡ Scanned using backup model: ${aiResult.modelUsed} (primary model reached quota limit).`
+                : 'AI vision proposes candidates with uncertainty. Please confirm grams and cooking methods before calculating authoritative nutrition.',
+            ],
+            created_at: new Date().toISOString(),
+          };
+          saveDraftAnalysis(result);
+          return result;
+        }
       }
-    } catch (directAiErr) {
-      console.warn('Direct Gemini Vision call error, falling back to local food catalog:', directAiErr);
+    } catch (directAiErr: any) {
+      if (directAiErr?.code === 'NON_FOOD_IMAGE' || directAiErr?.code === 'UNCERTAIN_IMAGE') {
+        throw directAiErr;
+      }
+      console.warn('Direct Gemini Vision call error:', directAiErr);
     }
   }
 
-  // 3. Local Grounded Vision & Mapping Engine (Safe offline / development fallback)
+  // 3. Strict Image Rejection: If an image was submitted (photo upload) but no food could be verified,
+  // NEVER fall back to seeded foods or prototype candidates!
+  if (file || imageBase64) {
+    clearDraftAnalysis();
+    const err: any = new Error(
+      'No recognizable food was detected in this image. Please upload a clear picture of your meal.'
+    );
+    err.code = 'NON_FOOD_IMAGE';
+    err.status = 'NON_FOOD_IMAGE';
+    throw err;
+  }
+
+  // 4. Manual Text Query / Preset Demo Search (Only when no image was provided)
   await new Promise((r) => setTimeout(r, 600)); // Smooth realistic inference feel
 
   const analysisId = crypto.randomUUID();
@@ -394,23 +518,22 @@ export async function analyzeMealImage(params: {
       'Did you consume a mixed fruit salad bowl (approx 200-250g)?',
       'Was any honey, sugar, syrup, or yogurt dressing added?',
     ];
+  } else if (query.trim().length > 0) {
+    const results = searchFoods(query, { limit: 3 });
+    candidateItems = results.map((f) =>
+      createCandidate(f.local_name, f.local_name_bn, (f.preparation_state as PreparationState) || 'boiled', f.standard_serving_grams || 100, [
+        'Manual query search result; verify portion weight',
+      ])
+    );
+    reviewQuestions = ['Please confirm the portion weight in grams.'];
   } else {
-    // Default Bangladesh staple comfort plate: Bhat, Masoor Dal & Dim Bhaji
-    candidateItems = [
-      createCandidate('Cooked White Rice (Parboiled)', 'সিদ্ধ সাদা ভাত', 'boiled', 200, [
-        'Uncalibrated camera angle; please confirm gram weight',
-      ]),
-      createCandidate('Cooked Red Lentils (Masoor Dal Jhol)', 'মসুর ডাল ঝোল', 'boiled', 150, [
-        'Water-to-lentil ratio differs between Patla and Bhuna dal',
-      ]),
-      createCandidate('Fried Chicken Egg Omelette (Dim Bhaji)', 'ডিম ভাজি', 'fried', 60, [
-        'Estimated as 1 farm chicken egg with onion & chili',
-      ]),
-    ];
-    reviewQuestions = [
-      'Was the rice boiled parboiled (Shiddho) or raw (Atap) rice?',
-      'Was the dal prepared with mild or standard oil seasoning (Bagharr)?',
-    ];
+    clearDraftAnalysis();
+    const err: any = new Error(
+      'No recognizable food was detected. Please enter a food query or upload a clear picture of your meal.'
+    );
+    err.code = 'NON_FOOD_IMAGE';
+    err.status = 'NON_FOOD_IMAGE';
+    throw err;
   }
 
   const warningsList = [
@@ -424,6 +547,8 @@ export async function analyzeMealImage(params: {
     analysis_id: analysisId,
     schema_version: '1.0',
     input_mode: file ? 'photo' : 'manual_search',
+    recognition_outcome: 'FOOD_DETECTED',
+    is_food: true,
     candidates: candidateItems,
     review_questions: reviewQuestions,
     detected_cuisine: query.includes('fruit') || query.includes('ফল') ? 'international' : 'bangladeshi',

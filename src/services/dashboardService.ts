@@ -151,8 +151,18 @@ export function calculatePersonalizedTargets(profile: Profile | null): {
   targetCarbs: number;
   dailyBudget: number;
 } {
-  const weight = profile?.weight_value || 65;
-  const height = profile?.height_value || 170;
+  const rawWeight = profile?.weight_value || 65;
+  const rawHeight = profile?.height_value || 170;
+  const heightUnit = String(profile?.height_unit || 'cm').toLowerCase();
+  const weightUnit = String(profile?.weight_unit || 'kg').toLowerCase();
+
+  // Unit-aware conversions to cm and kg
+  const isFeet = heightUnit.includes('ft') || (rawHeight < 10 && rawHeight > 0);
+  const height = isFeet ? rawHeight * 30.48 : rawHeight;
+
+  const isLbs = weightUnit.includes('lb');
+  const weight = isLbs ? rawWeight * 0.453592 : rawWeight;
+
   const age = profile?.age || 25;
   const sex = profile?.biological_sex || 'male';
   const activity = profile?.activity_level || 'moderately_active';

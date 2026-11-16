@@ -13,7 +13,9 @@ from app.integrations.supabase import get_supabase_client
 
 router = APIRouter(prefix="/food", tags=["Food Recognition"])
 
-@router.post("/recognize", response_model=ResponseEnvelope[FoodRecognizeResponse])
+from fastapi.responses import JSONResponse
+
+@router.post("/recognize")
 async def recognize_food(
     request: FoodRecognizeRequest,
     current_user: CurrentUser = Depends(get_current_user),
@@ -21,12 +23,46 @@ async def recognize_food(
     """
     Multimodal intake endpoint: accepts an image and returns food candidates
     with preparation state, portion basis, and explicit uncertainty detection.
+    Rejects non-food images with HTTP 422.
     """
     result = await GeminiService.recognize_food_from_image(
         image_base64=request.image_base64,
         image_url=request.image_url,
         meal_type=request.meal_type or "lunch",
     )
+
+    if result.recognition_outcome == "UNCERTAIN_IMAGE":
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "status": "UNCERTAIN_IMAGE",
+                "message": result.rejection_reason or "Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.",
+                "data": {
+                    "food_items": [],
+                    "candidate_count": 0,
+                    "nutrition": None,
+                    "clarification_questions": [],
+                },
+            },
+        )
+
+    if result.recognition_outcome == "NO_FOOD_DETECTED" or not result.is_food:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "status": "NON_FOOD_IMAGE",
+                "message": result.rejection_reason or "No recognizable food was detected in this image. Please upload a clear picture of your meal.",
+                "data": {
+                    "food_items": [],
+                    "candidate_count": 0,
+                    "nutrition": None,
+                    "clarification_questions": [],
+                },
+            },
+        )
+
     return ResponseEnvelope(data=result)
 
 @router.post("/confirm", response_model=ResponseEnvelope[FoodConfirmResponse])

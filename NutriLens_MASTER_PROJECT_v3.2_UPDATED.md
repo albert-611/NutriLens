@@ -1480,22 +1480,29 @@ The NutriLens development plan is structured into nine sequential, verifiable ph
 ---
 
 ### Phase 5 — AI Food Recognition & Analysis
-- **Objectives:** Implement multimodal food image analysis, candidate proposal generation, and Human-in-the-Loop confirmation.
+- **Objectives:** Implement multimodal food image analysis, candidate proposal generation, strict food image validation, and Human-in-the-Loop confirmation.
 - **Detailed Tasks:**
   - Build image upload handler supporting camera capture, file upload, and base64 compression on the frontend.
+  - Implement strict food image validation in `gemini_service.py` and `mealAnalysisService.ts` to categorize images into `FOOD_DETECTED`, `NO_FOOD_DETECTED`, or `UNCERTAIN_IMAGE`.
+  - Rejection Protocol: Images without recognizable food (e.g. logos, documents, screenshots, portraits, landscapes) return HTTP 422 with status `NON_FOOD_IMAGE` and empty candidate arrays (`candidates = []`).
+  - Blurry or ambiguous images return HTTP 422 with status `UNCERTAIN_IMAGE`.
+  - Completely eliminate prototype/seeded demo fallbacks (`Steamed White Rice`, `Masoor Dal`, `Egg Omelette`) from image scan workflows.
   - Implement `POST /api/v1/food/recognize` in FastAPI, orchestrating the Gemini Vision API with structured JSON output formatting.
   - Implement prompt engineering with explicit system instructions to propose food candidates, preparation states, and uncertainty reasons without claiming authoritative calorie counts.
   - Implement AI response parsing, JSON schema validation, and automatic single-retry repair in `gemini_service.py`.
   - Map recognized labels to canonical database items via `food_service.py` and `food_repo.py`.
   - Implement `POST /api/v1/food/confirm` accepting user corrections (confirmed food ID, preparation method, edible portion grams).
   - Persist confirmed meals to `public.meal_logs` and `public.meal_items`.
-- **Frontend Responsibilities:** Interactive Food Confirmation screen (`/app/confirm`) with portion sliders, item add/remove, and preparation dropdowns.
-- **FastAPI Responsibilities:** Server-side Gemini Vision call, JSON repair logic, alias resolution against database catalog, meal log persistence.
+- **Frontend Responsibilities:**
+  - Interactive Food Confirmation screen (`/app/confirm`) with portion sliders, item add/remove, and preparation dropdowns.
+  - Non-food error handling in `AnalyzePage.tsx`: renders clear rejection banner ("No food detected: We couldn't identify any food in this image. Please upload a clear picture of your meal to continue.") with "Upload Another Photo" retry button, without navigating to confirmation.
+  - Safeguard `ConfirmPage.tsx` against injecting mock/seeded food items when candidates are empty.
+- **FastAPI Responsibilities:** Server-side Gemini Vision call, JSON repair logic, strict non-food HTTP 422 responses, alias resolution against database catalog, meal log persistence.
 - **Supabase Responsibilities:** Store uploaded photos in private `meal-images` storage bucket; store confirmed meal rows with foreign key cascades.
 - **Dependencies:** Phase 2 (Confirm UI), Phase 4 (FastAPI routers).
-- **Deliverables:** Working Vision-to-Confirmation pipeline proposing candidates and saving verified portion weights.
-- **Acceptance Criteria:** Gemini Vision successfully identifies common Bangladeshi dishes; client allows editing grams and preparation; confirmed records persist in `meal_items`.
-- **Testing Requirements:** Image MIME/size validation tests, Gemini mock response tests, malformed JSON repair tests, portion confirmation integration tests.
+- **Deliverables:** Working Vision-to-Confirmation pipeline proposing candidates and saving verified portion weights, protected by non-food image rejection.
+- **Acceptance Criteria:** Gemini Vision successfully identifies common Bangladeshi dishes; non-food images (such as NutriLens logo or documents) are rejected with HTTP 422 `NON_FOOD_IMAGE` and never produce food candidates; client allows editing grams and preparation; confirmed records persist in `meal_items`.
+- **Testing Requirements:** Image MIME/size validation tests, non-food logo rejection tests (10 scenarios: logo, screenshot, PDF/doc, selfie, landscape, corrupt, single food, multi food, blurry, packaging), Gemini mock response tests, malformed JSON repair tests, portion confirmation integration tests.
 
 ---
 

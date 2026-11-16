@@ -74,13 +74,38 @@ class PersonalNutritionContextService:
 
             if prof_res.data:
                 p = prof_res.data[0]
+                raw_h = p.get("height_value")
+                h_unit = str(p.get("height_unit") or "cm").lower()
+                raw_w = p.get("weight_value")
+                w_unit = str(p.get("weight_unit") or "kg").lower()
+
+                height_str = None
+                weight_str = None
+                bmi = None
+
+                if raw_h:
+                    is_feet = "ft" in h_unit or (0 < float(raw_h) < 10)
+                    h_cm = float(raw_h) * 30.48 if is_feet else float(raw_h)
+                    h_m = h_cm / 100.0
+                    height_str = f"{raw_h} ft ({round(h_cm)} cm)" if is_feet else f"{raw_h} cm"
+
+                    if raw_w and h_m > 0:
+                        is_lbs = "lb" in w_unit
+                        w_kg = float(raw_w) * 0.453592 if is_lbs else float(raw_w)
+                        weight_str = f"{raw_w} {'lbs' if is_lbs else 'kg'}"
+                        bmi = round(w_kg / (h_m * h_m), 1)
+                elif raw_w:
+                    is_lbs = "lb" in w_unit
+                    weight_str = f"{raw_w} {'lbs' if is_lbs else 'kg'}"
+
                 context["profile"] = {
                     "display_name": p.get("display_name"),
                     "language": p.get("language") or "en",
                     "biological_sex": p.get("biological_sex"),
-                    "height": f"{p.get('height_value')} {p.get('height_unit')}" if p.get("height_value") else None,
-                    "weight": f"{p.get('weight_value')} {p.get('weight_unit')}" if p.get("weight_value") else None,
+                    "height": height_str,
+                    "weight": weight_str,
                     "activity_level": p.get("activity_level"),
+                    "bmi": bmi,
                 }
                 
                 # Weight goals

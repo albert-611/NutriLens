@@ -33,18 +33,33 @@ class GeminiService:
                         mime_type = "image/webp"
 
                 prompt = (
-                    "Analyze this food image. Identify visible food items and preparation uncertainty. "
-                    "Support BOTH Bangladeshi/South Asian cuisine and International/Western/Asian cuisine. "
-                    "Deconstruct mixed plates into distinct, separate components (e.g. separate Rice, Dal, Curry, Salad). "
-                    "Extract each visible food item with: "
-                    "1. food_name (English canonical name) "
-                    "2. bangla_name (Bangla transliteration) "
-                    "3. confidence (0.0 to 1.0) "
-                    "4. preparation_state (boiled, fried, raw, curried, roasted, steamed, commercial) "
-                    "5. portion_basis (e.g. visual_plate_ratio, standard_serving) "
-                    "6. default_grams (estimated mass in grams as number based on plate volume) "
-                    "7. uncertain_factors (list of reasons like 'oil_hidden', 'depth_occluded') "
-                    "Return ONLY a valid JSON array of objects conforming to these fields."
+                    "You are an expert food and nutrition identification system for NutriLens.\n"
+                    "FIRST, determine whether this image actually contains prepared, cooked, raw, or packaged FOOD intended for human consumption.\n"
+                    "Classify the image into one of three visual outcomes:\n"
+                    "1. 'FOOD_DETECTED': The image clearly contains one or more recognizable food items or meals.\n"
+                    "2. 'NO_FOOD_DETECTED': The image is unrelated to food (e.g. logo, text, screenshot, document, animal, landscape, human portrait, vehicle, object, medicine, empty plate, non-food packaging).\n"
+                    "3. 'UNCERTAIN_IMAGE': The image is too blurry, dark, occluded, or ambiguous to verify whether food is present.\n\n"
+                    "CRITICAL INTEGRITY RULES:\n"
+                    "- If NO_FOOD_DETECTED or UNCERTAIN_IMAGE, 'detected_dishes' MUST be an empty array [].\n"
+                    "- NEVER hallucinate food items for logos, graphics, documents, or non-food objects.\n"
+                    "- Only if FOOD_DETECTED: Deconstruct the meal into distinct dishes/components with portion estimates in grams.\n\n"
+                    "Return ONLY valid JSON conforming to this schema:\n"
+                    "{\n"
+                    '  "outcome": "FOOD_DETECTED" | "NO_FOOD_DETECTED" | "UNCERTAIN_IMAGE",\n'
+                    '  "is_food": true | false,\n'
+                    '  "rejection_reason": "Explanation if no food was detected",\n'
+                    '  "detected_dishes": [\n'
+                    "    {\n"
+                    '      "food_name": "English canonical name",\n'
+                    '      "bangla_name": "Bangla name or transliteration",\n'
+                    '      "confidence": 0.90,\n'
+                    '      "preparation_state": "boiled | fried | curried | steamed | roasted | raw | commercial",\n'
+                    '      "portion_basis": "visual_plate_ratio",\n'
+                    '      "default_grams": 150,\n'
+                    '      "uncertain_factors": ["Short note on uncertainty"]\n'
+                    "    }\n"
+                    "  ]\n"
+                    "}"
                 )
 
                 parts: List[Dict[str, Any]] = [{"text": prompt}]
@@ -107,11 +122,41 @@ class GeminiService:
                                     clean_text = clean_text.split("```")[1]
                                     if clean_text.startswith("json"):
                                         clean_text = clean_text[4:]
-                                raw_items = json.loads(clean_text.strip())
-                                if isinstance(raw_items, dict) and "detected_dishes" in raw_items:
-                                    raw_items = raw_items["detected_dishes"]
-                                elif isinstance(raw_items, dict) and "items" in raw_items:
-                                    raw_items = raw_items["items"]
+                                ai_json = json.loads(clean_text.strip())
+                                
+                                outcome = ai_json.get("outcome", "FOOD_DETECTED")
+                                is_food = ai_json.get("is_food", True)
+                                rejection_reason = ai_json.get("rejection_reason")
+
+                                if outcome == "NO_FOOD_DETECTED" or not is_food:
+                                    return FoodRecognizeResponse(
+                                        image_id=str(uuid.uuid4()),
+                                        meal_type=meal_type,
+                                        recognition_outcome="NO_FOOD_DETECTED",
+                                        is_food=False,
+                                        rejection_reason=rejection_reason or "No recognizable food was detected in this image. Please upload a clear picture of your meal.",
+                                        candidates=[],
+                                        requires_user_confirmation=False,
+                                        uncertainty_detected=False,
+                                    )
+
+                                if outcome == "UNCERTAIN_IMAGE":
+                                    return FoodRecognizeResponse(
+                                        image_id=str(uuid.uuid4()),
+                                        meal_type=meal_type,
+                                        recognition_outcome="UNCERTAIN_IMAGE",
+                                        is_food=False,
+                                        rejection_reason=rejection_reason or "Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.",
+                                        candidates=[],
+                                        requires_user_confirmation=False,
+                                        uncertainty_detected=True,
+                                    )
+
+                                raw_items = ai_json.get("detected_dishes", [])
+                                if not raw_items and isinstance(ai_json, list):
+                                    raw_items = ai_json
+                                elif not raw_items and isinstance(ai_json, dict) and "items" in ai_json:
+                                    raw_items = ai_json["items"]
 
                                 candidates = []
                                 uncertainty = False
@@ -134,53 +179,49 @@ class GeminiService:
                                     return FoodRecognizeResponse(
                                         image_id=str(uuid.uuid4()),
                                         meal_type=meal_type,
+                                        recognition_outcome="FOOD_DETECTED",
+                                        is_food=True,
                                         candidates=candidates,
                                         requires_user_confirmation=True,
                                         uncertainty_detected=uncertainty,
                                     )
+                                else:
+                                    return FoodRecognizeResponse(
+                                        image_id=str(uuid.uuid4()),
+                                        meal_type=meal_type,
+                                        recognition_outcome="NO_FOOD_DETECTED",
+                                        is_food=False,
+                                        rejection_reason="No recognizable food was detected in this image. Please upload a clear picture of your meal.",
+                                        candidates=[],
+                                        requires_user_confirmation=False,
+                                        uncertainty_detected=False,
+                                    )
             except Exception as e:
-                logger.warning(f"Gemini API call failed: {e}. Falling back to domain candidates.")
+                logger.warning(f"Gemini API call failed: {e}.")
 
-        # High-fidelity domain candidates for standard Bangladeshi meal
-        mock_candidates = [
-            FoodCandidate(
-                candidate_id="cand_rice_01",
-                food_name="Steamed White Rice",
-                bangla_name="সাদা ভাত",
-                confidence=0.96,
-                preparation_state="boiled",
-                portion_basis="visual_plate_ratio_40pct",
-                default_grams=220.0,
-                uncertain_factors=[],
-            ),
-            FoodCandidate(
-                candidate_id="cand_dal_02",
-                food_name="Masoor Dal Cooked",
-                bangla_name="মসুর ডাল",
-                confidence=0.88,
-                preparation_state="gravy",
-                portion_basis="bowl_volume_standard",
-                default_grams=120.0,
-                uncertain_factors=["dilution_factor_uncertain"],
-            ),
-            FoodCandidate(
-                candidate_id="cand_chicken_03",
-                food_name="Chicken Curry",
-                bangla_name="মুরগির মাংস কারি",
-                confidence=0.91,
-                preparation_state="gravy",
-                portion_basis="piece_count_2_pieces",
-                default_grams=140.0,
-                uncertain_factors=["gravy_oil_hidden_volume"],
-            ),
-        ]
+        # If an image was submitted but AI failed or was unreachable:
+        # NEVER return prototype/mock food candidates for real images.
+        if image_base64 or image_url:
+            return FoodRecognizeResponse(
+                image_id=str(uuid.uuid4()),
+                meal_type=meal_type,
+                recognition_outcome="UNCERTAIN_IMAGE",
+                is_food=False,
+                rejection_reason="Could not verify food in the uploaded image. Please ensure your meal is well-lit and clearly visible.",
+                candidates=[],
+                requires_user_confirmation=False,
+                uncertainty_detected=True,
+            )
 
+        # Only for development/testing without any image input:
         return FoodRecognizeResponse(
             image_id=str(uuid.uuid4()),
             meal_type=meal_type,
-            candidates=mock_candidates,
+            recognition_outcome="FOOD_DETECTED",
+            is_food=True,
+            candidates=[],
             requires_user_confirmation=True,
-            uncertainty_detected=True,
+            uncertainty_detected=False,
         )
 
     @staticmethod

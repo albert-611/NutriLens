@@ -807,11 +807,39 @@ export const assistantService = {
       });
     }
 
-    // Calculate BMI if weight and height are present
+    // Calculate BMI with rigorous unit conversion (height ft_in / cm, weight lbs / kg)
     let bmi: number | undefined;
-    if (profileData.weight_value && profileData.height_value) {
-      const hM = profileData.height_value / 100;
-      bmi = Number((profileData.weight_value / (hM * hM)).toFixed(1));
+    let heightDisplay: string | undefined;
+    let weightDisplay: string | undefined;
+
+    if (profileData.height_value) {
+      const rawH = profileData.height_value;
+      const hUnit = String(profileData.height_unit || 'cm').toLowerCase();
+      const isFeet = hUnit.includes('ft') || (rawH < 10 && rawH > 0);
+
+      // Height in cm and meters
+      const heightCm = isFeet ? rawH * 30.48 : rawH;
+      const heightM = heightCm / 100;
+
+      if (isFeet) {
+        heightDisplay = `${rawH} ft (${Math.round(heightCm)} cm)`;
+      } else {
+        heightDisplay = `${rawH} cm`;
+      }
+
+      if (profileData.weight_value && heightM > 0) {
+        const rawW = profileData.weight_value;
+        const wUnit = String(profileData.weight_unit || 'kg').toLowerCase();
+        const isLbs = wUnit.includes('lb');
+        const weightKg = isLbs ? rawW * 0.453592 : rawW;
+
+        weightDisplay = `${rawW} ${isLbs ? 'lbs' : 'kg'}`;
+        bmi = Number((weightKg / (heightM * heightM)).toFixed(1));
+      }
+    } else if (profileData.weight_value) {
+      const rawW = profileData.weight_value;
+      const wUnit = String(profileData.weight_unit || 'kg').toLowerCase();
+      weightDisplay = `${rawW} ${wUnit.includes('lb') ? 'lbs' : 'kg'}`;
     }
 
     const dailyBudget = targets.dailyBudget;
@@ -824,8 +852,8 @@ export const assistantService = {
         display_name: profileData.display_name || profileData.full_name || user?.user_metadata?.full_name || 'Valued User',
         biological_sex: profileData.biological_sex || undefined,
         age: profileData.age || undefined,
-        weight: profileData.weight_value ? `${profileData.weight_value} kg` : undefined,
-        height: profileData.height_value ? `${profileData.height_value} cm` : undefined,
+        weight: weightDisplay || (profileData.weight_value ? `${profileData.weight_value} kg` : undefined),
+        height: heightDisplay || (profileData.height_value ? `${profileData.height_value} cm` : undefined),
         activity_level: profileData.activity_level ? profileData.activity_level.replace(/_/g, ' ') : undefined,
         bmi,
       },

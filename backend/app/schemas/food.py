@@ -20,7 +20,10 @@ class FoodRecognizeRequest(BaseModel):
 class FoodRecognizeResponse(BaseModel):
     image_id: Optional[str] = None
     meal_type: str
-    candidates: List[FoodCandidate]
+    recognition_outcome: str = "FOOD_DETECTED" # FOOD_DETECTED | NO_FOOD_DETECTED | UNCERTAIN_IMAGE
+    is_food: bool = True
+    rejection_reason: Optional[str] = None
+    candidates: List[FoodCandidate] = []
     requires_user_confirmation: bool = True
     uncertainty_detected: bool = False
 
