@@ -59,12 +59,11 @@ class GeminiService:
                 models_to_try = [
                     settings.GEMINI_VISION_MODEL,
                     settings.GEMINI_FALLBACK_MODEL,
-                    "gemini-3.1-flash-lite",
-                    "gemini-3.1-flash-lite-preview",
                     "gemini-3.5-flash-lite",
-                    "gemini-2.0-flash",
-                    "gemini-2.5-flash",
-                    "gemini-1.5-flash",
+                    "gemini-3.1-flash-lite",
+                    "gemini-flash-lite-latest",
+                    "gemini-flash-latest",
+                    "gemini-3.1-flash-lite-preview",
                 ]
                 # Deduplicate while preserving order
                 seen_models = set()

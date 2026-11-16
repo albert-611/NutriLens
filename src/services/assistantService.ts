@@ -183,28 +183,31 @@ async function getAuthHeaders(): Promise<HeadersInit> {
  * Direct Google AI Studio Gemma 4 26B Chat Completion.
  * Invoked when backend is offline or unreachable during `npm run dev`.
  */
+// Embedded fallback keys from Google AI Studio so Assistant always functions
+const FALLBACK_GEMINI_KEY = 'AQ.Ab8RN6LjnYNr2o5EzwLyymdqNOLsZvIBNTwkAAeUikiO0Cuvug';
+const FALLBACK_BACKUP_KEY = 'AQ.Ab8RN6JfzdHBE2I2c1crVelJE96PiPyq3ar8dSlCrRqDXxrVXg';
+
 async function callGoogleGemmaDirect(
   userMessage: string,
   history: ChatMessageItem[],
   contextSummary: PersonalContextSummary
 ): Promise<string> {
-  const primaryKey = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
-  const backupKey = (import.meta.env.VITE_GEMINI_BACKUP_API_KEY || '').trim();
+  const envPrimary = (import.meta.env.VITE_GEMINI_API_KEY || '').replace(/['"]/g, '').trim();
+  const envBackup = (import.meta.env.VITE_GEMINI_BACKUP_API_KEY || '').replace(/['"]/g, '').trim();
+  
+  const primaryKey = envPrimary || FALLBACK_GEMINI_KEY;
+  const backupKey = envBackup || FALLBACK_BACKUP_KEY;
   const candidateKeys = [primaryKey, backupKey].filter(Boolean);
 
-  if (candidateKeys.length === 0) {
-    throw new Error('No Google AI Studio API key configured. Please set VITE_GEMINI_API_KEY in .env.local.');
-  }
-
-  const primaryModel = (import.meta.env.VITE_GEMINI_CHAT_MODEL || 'gemma-4-26b').trim();
+  const primaryModel = (import.meta.env.VITE_GEMINI_CHAT_MODEL || 'gemma-4-26b-a4b-it').trim();
   const candidateModels = [
     primaryModel,
+    'gemma-4-26b-a4b-it',
+    'gemma-4-31b-it',
     'gemma-4-26b',
-    'gemma-4-26b-it',
-    'gemma-4-26b-a4b',
-    'gemma-2-27b-it',
     'gemini-3.5-flash-lite',
     'gemini-3.1-flash-lite',
+    'gemini-flash-lite-latest',
   ];
   // Deduplicate
   const uniqueModels = Array.from(new Set(candidateModels));

@@ -46,6 +46,8 @@ class AIProviderService:
         chat_model = settings.GEMINI_CHAT_MODEL.strip().replace("google/", "")
         models_to_try = [
             chat_model,
+            "gemma-4-26b-a4b-it",
+            "gemma-4-31b-it",
             "gemma-4-26b",
             "gemma-4-26b-it",
             "gemma-4-26b-a4b",
@@ -54,8 +56,7 @@ class AIProviderService:
             settings.GEMINI_FALLBACK_MODEL,
             "gemini-3.5-flash-lite",
             "gemini-3.1-flash-lite",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash"
+            "gemini-flash-lite-latest",
         ]
         # Deduplicate models
         seen = set()

@@ -121,12 +121,11 @@ Return valid JSON conforming to this schema:
   const rawModels = [
     primaryModel,
     secondaryModel,
-    'gemini-3.1-flash-lite',
-    'gemini-3.1-flash-lite-preview',
     'gemini-3.5-flash-lite',
-    'gemini-2.0-flash',
-    'gemini-2.5-flash',
-    'gemini-1.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-flash-latest',
+    'gemini-3.1-flash-lite-preview',
   ];
   const seenModels = new Set<string>();
   const modelsToTry = rawModels.filter((m) => {
@@ -282,8 +281,10 @@ export async function analyzeMealImage(params: {
   }
 
   // 2. Direct Gemini Vision Multimodal Detection (with Dual-Model and Backup Key Failover)
-  const clientGeminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').replace(/['"]/g, '').trim();
-  const backupGeminiApiKey = (import.meta.env.VITE_GEMINI_BACKUP_API_KEY || '').replace(/['"]/g, '').trim();
+  const FALLBACK_GEMINI_KEY = 'AQ.Ab8RN6LjnYNr2o5EzwLyymdqNOLsZvIBNTwkAAeUikiO0Cuvug';
+  const FALLBACK_BACKUP_KEY = 'AQ.Ab8RN6JfzdHBE2I2c1crVelJE96PiPyq3ar8dSlCrRqDXxrVXg';
+  const clientGeminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').replace(/['"]/g, '').trim() || FALLBACK_GEMINI_KEY;
+  const backupGeminiApiKey = (import.meta.env.VITE_GEMINI_BACKUP_API_KEY || '').replace(/['"]/g, '').trim() || FALLBACK_BACKUP_KEY;
   if (clientGeminiApiKey && imageBase64) {
     try {
       const aiResult = await callGeminiVisionDirect(imageBase64, clientGeminiApiKey, backupGeminiApiKey, manualQuery, language);
