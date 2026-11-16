@@ -377,7 +377,7 @@ export const ConfirmPage: React.FC = () => {
     const carbs = Number(((food?.carbohydrate_g ?? 28.2) * mult).toFixed(1));
     const fat = Number(((food?.fat_g ?? 0.3) * mult * fatMult).toFixed(1));
     const fibre = Number(((food?.fibre_g ?? 0.4) * mult).toFixed(1));
-    const cost = calculateItemCost(it.category || food?.category, grams);
+    const cost = calculateItemCost(it.category || food?.category, grams, it.name || food?.name_en);
 
     return { calories, protein, carbs, fat, fibre, cost };
   };

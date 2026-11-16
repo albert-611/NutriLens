@@ -1,126 +1,75 @@
-from typing import List
+import json
+import os
+from typing import List, Optional
 from app.schemas.market import MarketInfo, MarketPriceObservation
+
+_DATA_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "wfp_market_prices.json")
+_WFP_OBSERVATIONS: List[dict] = []
+
+if os.path.exists(_DATA_FILE):
+    try:
+        with open(_DATA_FILE, "r", encoding="utf-8") as _f:
+            _WFP_OBSERVATIONS = json.load(_f)
+    except Exception:
+        _WFP_OBSERVATIONS = []
 
 class MarketService:
     @staticmethod
     def get_supported_markets() -> List[MarketInfo]:
-        return [
-            MarketInfo(
-                id="mkt_karwan_bazar",
-                name="Karwan Bazar Wholesale Market",
-                bangla_name="কাওরান বাজার পাইকারি আড়ত",
-                district="Dhaka",
-                thana="Tejgaon",
-                market_tier="Wholesale",
-            ),
-            MarketInfo(
-                id="mkt_krishi_market",
-                name="Mohammadpur Krishi Market",
-                bangla_name="মোহাম্মদপুর কৃষি মার্কেট",
-                district="Dhaka",
-                thana="Mohammadpur",
-                market_tier="Retail",
-            ),
-            MarketInfo(
-                id="mkt_mirpur_1",
-                name="Mirpur 1 Raw Market",
-                bangla_name="মিরপুর ১ কাঁচা বাজার",
-                district="Dhaka",
-                thana="Mirpur",
-                market_tier="Retail",
-            ),
-            MarketInfo(
-                id="mkt_shantinagar",
-                name="Shantinagar Kitchen Market",
-                bangla_name="শান্তিনগর বাজার",
-                district="Dhaka",
-                thana="Paltan",
-                market_tier="Retail",
-            ),
-            MarketInfo(
-                id="mkt_swapno_dhanmondi",
-                name="Shwapno Super Shop Dhanmondi",
-                bangla_name="স্বপ্ন সুপার শপ ধানমন্ডি",
-                district="Dhaka",
-                thana="Dhanmondi",
-                market_tier="Super shop",
-            ),
-        ]
+        """
+        Extract unique verified 2026 markets monitored by the World Food Programme in Bangladesh.
+        """
+        seen_markets = set()
+        markets: List[MarketInfo] = []
+
+        for obs in _WFP_OBSERVATIONS:
+            mkt_name = obs.get("market")
+            mkt_id = str(obs.get("marketId") or mkt_name.lower().replace(" ", "_"))
+            if mkt_name and mkt_id not in seen_markets:
+                seen_markets.add(mkt_id)
+                admin1 = obs.get("admin1", "Bangladesh")
+                admin2 = obs.get("admin2", admin1)
+                markets.append(
+                    MarketInfo(
+                        id=mkt_id,
+                        name=f"{mkt_name} ({admin1})",
+                        bangla_name=f"{mkt_name} বাজার",
+                        district=admin2,
+                        thana=mkt_name,
+                        market_tier="Retail" if "wholesale" not in mkt_name.lower() else "Wholesale",
+                    )
+                )
+
+        # Sort alphabetically by market name
+        markets.sort(key=lambda m: m.name)
+        return markets
 
     @staticmethod
-    def get_market_prices(market_id: str = None) -> List[MarketPriceObservation]:
-        prices = [
-            MarketPriceObservation(
-                item_id="rice_miniket",
-                item_name="Miniket Rice",
-                bangla_name="মিনিকেট চাল",
-                market_name="Karwan Bazar Wholesale Market",
-                unit="kg",
-                price_bdt=68.0,
-                observed_date="2026-11-14",
-            ),
-            MarketPriceObservation(
-                item_id="rice_nazirshail",
-                item_name="Nazirshail Rice",
-                bangla_name="নাজিরশাইল চাল",
-                market_name="Mohammadpur Krishi Market",
-                unit="kg",
-                price_bdt=78.0,
-                observed_date="2026-11-14",
-            ),
-            MarketPriceObservation(
-                item_id="masoor_dal_deshi",
-                item_name="Masoor Dal (Deshi)",
-                bangla_name="দেশি মসুর ডাল",
-                market_name="Karwan Bazar Wholesale Market",
-                unit="kg",
-                price_bdt=135.0,
-                observed_date="2026-11-14",
-            ),
-            MarketPriceObservation(
-                item_id="chicken_broiler",
-                item_name="Broiler Chicken",
-                bangla_name="ব্রয়লার মুরগি",
-                market_name="Mirpur 1 Raw Market",
-                unit="kg",
-                price_bdt=195.0,
-                observed_date="2026-11-14",
-            ),
-            MarketPriceObservation(
-                item_id="chicken_sonali",
-                item_name="Sonali Chicken",
-                bangla_name="সোনালী মুরগি",
-                market_name="Shantinagar Kitchen Market",
-                unit="kg",
-                price_bdt=310.0,
-                observed_date="2026-11-14",
-            ),
-            MarketPriceObservation(
-                item_id="fish_rui_medium",
-                item_name="Rui Fish (1-2 kg)",
-                bangla_name="রুই মাছ (মাঝারি)",
-                market_name="Karwan Bazar Wholesale Market",
-                unit="kg",
-                price_bdt=280.0,
-                observed_date="2026-11-14",
-            ),
-            MarketPriceObservation(
-                item_id="eggs_dozen",
-                item_name="Farm Brown Eggs (Dozen)",
-                bangla_name="ফার্মের ডিম (ডজন)",
-                market_name="Mohammadpur Krishi Market",
-                unit="dozen",
-                price_bdt=155.0,
-                observed_date="2026-11-14",
-            ),
-            MarketPriceObservation(
-                item_id="potato_diamond",
-                item_name="Diamond Potato",
-                bangla_name="ডায়মন্ড আলু",
-                market_name="Mirpur 1 Raw Market",
-                unit="kg",
-                price_bdt=42.0,
-                observed_date="2026-11-14",
-            ),
-        ]
-        return prices
+    def get_market_prices(market_id: Optional[str] = None) -> List[MarketPriceObservation]:
+        """
+        Retrieve 2026 WFP commodity price observations across Bangladesh.
+        Optionally filter by market_id.
+        """
+        results: List[MarketPriceObservation] = []
+        
+        for obs in _WFP_OBSERVATIONS:
+            m_id = str(obs.get("marketId"))
+            m_name = obs.get("market", "")
+            
+            if market_id:
+                if m_id != str(market_id) and m_name.lower() != str(market_id).lower():
+                    continue
+
+            results.append(
+                MarketPriceObservation(
+                    item_id=obs["id"],
+                    item_name=obs["name"],
+                    bangla_name=obs.get("nameBn", obs["name"]),
+                    market_name=m_name,
+                    unit=obs["unit"],
+                    price_bdt=float(obs["price"]),
+                    observed_date=obs["observedAt"],
+                )
+            )
+
+        return results

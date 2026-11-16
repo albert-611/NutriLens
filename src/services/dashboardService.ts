@@ -1,6 +1,10 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import type { Profile, PreparationState } from '../contracts';
 import { getFoodById, resolveFoodAlias } from '../lib/foodDatabase';
+import {
+  WFP_2026_BENCHMARK_PRICES_PER_100G,
+  WFP_2026_COMMODITY_PRICES_PER_100G,
+} from '../lib/wfpMarketPrices';
 
 export interface ConfirmedFoodItemSummary {
   foodId: string;
@@ -64,39 +68,51 @@ export interface DashboardMetrics {
 }
 
 /**
- * Calculates item cost based on food category and grams according to Bangladesh market averages.
+ * Calculates item market cost based on official 2026 World Food Programme (WFP) Bangladesh food prices.
  */
-export function calculateItemCost(category?: string, grams: number = 100): number {
+export function calculateItemCost(
+  category?: string,
+  grams: number = 100,
+  foodName?: string
+): number {
   const multiplier = grams / 100.0;
-  let basePer100g = 10.0; // default vegetable / staple rate
+  let basePer100g = 10.0;
 
-  switch (category) {
-    case 'fish_and_seafood':
-      basePer100g = 45.0; // ~450 BDT/kg
-      break;
-    case 'meat_and_poultry':
-      basePer100g = 55.0; // ~550 BDT/kg
-      break;
-    case 'eggs':
-      basePer100g = 20.0; // ~12-13 BDT per 60g egg
-      break;
-    case 'pulses_and_legumes':
-      basePer100g = 13.0; // ~130 BDT/kg masoor dal
-      break;
-    case 'grains_and_cereals':
-      basePer100g = 7.0; // ~70 BDT/kg parboiled rice
-      break;
-    case 'dairy':
-      basePer100g = 12.0; // ~120 BDT/litre
-      break;
-    case 'oils_and_fats':
-      basePer100g = 22.0; // ~220 BDT/litre mustard/soybean
-      break;
-    case 'fruits':
-      basePer100g = 15.0;
-      break;
-    default:
-      basePer100g = 10.0;
+  // 1. Check exact commodity match from 2026 WFP dataset if foodName is available
+  if (foodName) {
+    const fnLower = foodName.toLowerCase();
+    for (const [comm, rate] of Object.entries(WFP_2026_COMMODITY_PRICES_PER_100G)) {
+      const commLower = comm.toLowerCase();
+      if (fnLower.includes(commLower) || commLower.includes(fnLower)) {
+        return Number((rate * multiplier).toFixed(2));
+      }
+    }
+    // Specific frequent keyword heuristics from WFP 2026 data
+    if (fnLower.includes('egg') || fnLower.includes('ডিম')) {
+      return Number((19.5 * multiplier).toFixed(2)); // ~10.7 BDT per egg
+    }
+    if (fnLower.includes('rice') || fnLower.includes('ভাত') || fnLower.includes('চাল')) {
+      return Number((5.8 * multiplier).toFixed(2)); // ~58 BDT/kg
+    }
+    if (fnLower.includes('dal') || fnLower.includes('lentil') || fnLower.includes('ডাল')) {
+      return Number((10.5 * multiplier).toFixed(2)); // ~105 BDT/kg
+    }
+    if (fnLower.includes('chicken') || fnLower.includes('মুরগি')) {
+      return Number((17.5 * multiplier).toFixed(2)); // ~175 BDT/kg
+    }
+    if (fnLower.includes('beef') || fnLower.includes('গরু')) {
+      return Number((78.0 * multiplier).toFixed(2)); // ~780 BDT/kg
+    }
+    if (fnLower.includes('potato') || fnLower.includes('আলু')) {
+      return Number((3.8 * multiplier).toFixed(2)); // ~38 BDT/kg
+    }
+  }
+
+  // 2. Fall back to 2026 WFP category average benchmark
+  if (category && category in WFP_2026_BENCHMARK_PRICES_PER_100G) {
+    basePer100g = WFP_2026_BENCHMARK_PRICES_PER_100G[category];
+  } else {
+    basePer100g = 12.0;
   }
 
   return Number((basePer100g * multiplier).toFixed(2));
@@ -306,7 +322,7 @@ export async function fetchUserConfirmedMeals(userId: string): Promise<Confirmed
         const pro = Number(((dbFood?.protein_g ?? 2.7) * mult).toFixed(1));
         const carb = Number(((dbFood?.carbohydrate_g ?? 28.2) * mult).toFixed(1));
         const fat = Number(((dbFood?.fat_g ?? 0.3) * mult).toFixed(1));
-        const cost = calculateItemCost(dbFood?.category, grams);
+        const cost = calculateItemCost(dbFood?.category, grams, dbFood?.name_en);
 
         return {
           foodId: it.food_id,
