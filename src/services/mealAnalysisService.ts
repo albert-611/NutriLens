@@ -119,13 +119,12 @@ Return valid JSON conforming to this schema:
 
   // Deduplicated candidate models in failover priority order
   const rawModels = [
+    'gemini-flash-lite-latest',
+    'gemini-3.6-flash',
     primaryModel,
     secondaryModel,
     'gemini-3.5-flash-lite',
     'gemini-3.1-flash-lite',
-    'gemini-flash-lite-latest',
-    'gemini-flash-latest',
-    'gemini-3.1-flash-lite-preview',
   ];
   const seenModels = new Set<string>();
   const modelsToTry = rawModels.filter((m) => {
@@ -140,6 +139,9 @@ Return valid JSON conforming to this schema:
 
   for (const apiKey of keysToTry) {
     for (const model of modelsToTry) {
+      const abortCtrl = new AbortController();
+      const timer = setTimeout(() => abortCtrl.abort(), 6000);
+
       try {
         const res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -149,6 +151,7 @@ Return valid JSON conforming to this schema:
               'Content-Type': 'application/json',
               'x-goog-api-key': apiKey,
             },
+            signal: abortCtrl.signal,
             body: JSON.stringify({
               contents: [
                 {
@@ -171,6 +174,7 @@ Return valid JSON conforming to this schema:
           }
         );
 
+        clearTimeout(timer);
         if (!res.ok) {
           const errorText = await res.text().catch(() => '');
           if (res.status === 429) {
@@ -222,6 +226,7 @@ Return valid JSON conforming to this schema:
           };
         }
       } catch (e) {
+        clearTimeout(timer);
         console.warn(`Gemini call error with ${model}:`, e);
       }
     }

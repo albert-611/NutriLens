@@ -114,9 +114,19 @@ function shouldAttemptBackend(): boolean {
   if (import.meta.env.VITE_USE_BACKEND_API === 'false') {
     return false;
   }
+  // On real links (e.g. Vercel deployment), if no external API URL is specified,
+  // do NOT attempt relative /api routes because they only hit Vercel SPA html rewrites.
+  if (typeof window !== 'undefined') {
+    const isLocalhost =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname === '0.0.0.0';
+    if (!isLocalhost && !import.meta.env.VITE_API_BASE_URL) {
+      return false;
+    }
+  }
   if (isBackendAvailable === false) {
-    // Retry every 60 seconds in case the backend server was started
-    if (Date.now() - lastBackendAttempt > 60000) {
+    if (Date.now() - lastBackendAttempt > 300000) {
       isBackendAvailable = null;
       return true;
     }
@@ -199,16 +209,17 @@ async function callGoogleGemmaDirect(
   const backupKey = envBackup || FALLBACK_BACKUP_KEY;
   const candidateKeys = [primaryKey, backupKey].filter(Boolean);
 
-  const primaryModel = (import.meta.env.VITE_GEMINI_CHAT_MODEL || 'gemma-4-26b-a4b-it').trim();
+  // Fast, ultra-responsive cascade:
+  // Prioritizes lightning-fast flash models (1.1-1.6s response times)
+  const configuredModel = (import.meta.env.VITE_GEMINI_CHAT_MODEL || '').trim();
   const candidateModels = [
-    primaryModel,
-    'gemma-4-26b-a4b-it',
-    'gemma-4-31b-it',
-    'gemma-4-26b',
+    configuredModel,
+    'gemini-flash-lite-latest',
+    'gemini-3.6-flash',
     'gemini-3.5-flash-lite',
     'gemini-3.1-flash-lite',
-    'gemini-flash-lite-latest',
-  ];
+    'gemma-4-26b-a4b-it',
+  ].filter(Boolean);
   // Deduplicate
   const uniqueModels = Array.from(new Set(candidateModels));
 
@@ -313,48 +324,47 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
 
   for (const key of candidateKeys) {
     for (const model of uniqueModels) {
+      const isGemma = model.toLowerCase().includes('gemma');
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+
+      // Gemma models return HTTP 500 when system_instruction is passed at root; format inline instead
+      const payload: any = isGemma
+        ? {
+            contents: [
+              ...contents.slice(0, -1),
+              {
+                role: 'user',
+                parts: [{ text: `${systemInstruction}\n\nUser Question: ${userMessage}` }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 800,
+            },
+          }
+        : {
+            contents,
+            system_instruction: {
+              parts: [{ text: systemInstruction }],
+            },
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 800,
+            },
+          };
+
+      const abortCtrl = new AbortController();
+      // Tight 4.5s timeout: if a model hangs, immediately proceed to the next ultra-fast model
+      const timer = setTimeout(() => abortCtrl.abort(), 4500);
+
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-        
-        const payload: any = {
-          contents,
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 1000,
-          },
-        };
-
-        // Add system instruction
-        payload.system_instruction = {
-          parts: [{ text: systemInstruction }],
-        };
-
-        let response = await fetch(url, {
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          signal: abortCtrl.signal,
         });
-
-        // If Gemma model returns 400 because system_instruction is not supported, retry inline
-        if (response.status === 400) {
-          const inlineContents = [
-            {
-              role: 'user',
-              parts: [{ text: `${systemInstruction}\n\n${userMessage}` }],
-            },
-          ];
-          response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: inlineContents,
-              generationConfig: {
-                temperature: 0.4,
-                maxOutputTokens: 1000,
-              },
-            }),
-          });
-        }
+        clearTimeout(timer);
 
         if (response.ok) {
           const data = await response.json();
@@ -365,7 +375,8 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
           }
         }
       } catch (err: any) {
-        console.warn(`Direct Gemma attempt on ${model} failed, trying next:`, err);
+        clearTimeout(timer);
+        console.warn(`Direct model attempt on ${model} skipped (${err?.name || err?.message}), moving to next.`);
       }
     }
   }
