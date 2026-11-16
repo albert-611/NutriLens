@@ -10,7 +10,17 @@ export interface ClarificationInterpretation {
   userReportedIngredients: string[];
   oilPreference?: 'ghee' | 'mustard' | 'soybean' | 'sunflower' | 'vegetable' | 'none';
   oilCaloriesMultiplier: number;
-  addedFoods: { name: string; nameBn?: string; grams: number; category: string }[];
+  addedFoods: {
+    name: string;
+    nameBn?: string;
+    grams: number;
+    category: string;
+    preparationState?: string;
+    isCountable?: boolean;
+    detectedCount?: number | null;
+    countUnit?: string | null;
+    catalogId?: string;
+  }[];
   uncertaintyPreserved: boolean;
   summaryNotes: string[];
 }
@@ -212,57 +222,90 @@ export function generateClarificationQuestions(
  * Interprets user-submitted clarification answers into concrete ingredient and nutrition rules.
  */
 export function interpretClarificationAnswers(
-  answers: ClarificationAnswer[]
+  answers: ClarificationAnswer[],
+  questions?: ClarificationQuestion[]
 ): ClarificationInterpretation {
   const userReportedIngredients: string[] = [];
-  const addedFoods: { name: string; nameBn?: string; grams: number; category: string }[] = [];
+  const addedFoods: ClarificationInterpretation['addedFoods'] = [];
   let oilMultiplier = 1.0;
   let oilPref: ClarificationInterpretation['oilPreference'] = undefined;
   let uncertaintyPreserved = false;
   const summaryNotes: string[] = [];
 
+  const addFoodIfUnique = (food: ClarificationInterpretation['addedFoods'][0]) => {
+    const exists = addedFoods.some(
+      (f) =>
+        f.name.toLowerCase() === food.name.toLowerCase() ||
+        (f.nameBn && food.nameBn && f.nameBn === food.nameBn)
+    );
+    if (!exists) {
+      addedFoods.push(food);
+    }
+  };
+
   for (const ans of answers) {
     const selected = ans.selected_answers || [];
     const custom = (ans.custom_answer || '').trim();
+    const customLower = custom.toLowerCase();
+
+    // Match parent question metadata if provided
+    const parentQ = questions?.find((q) => q.question_id === ans.question_id);
+    const qText = (parentQ?.question || '').toLowerCase();
 
     // Check "Not sure"
-    if (selected.includes('Not sure')) {
+    if (selected.includes('Not sure') || customLower === 'not sure') {
       uncertaintyPreserved = true;
     }
 
-    // Question 1: Cooking Oil
-    if (ans.question_id === 'q_cooking_oil') {
-      if (selected.some((s) => s.includes('Ghee'))) {
+    const isAffirmative =
+      selected.includes('Yes') ||
+      selected.includes('yes') ||
+      customLower.startsWith('yes') ||
+      customLower.includes('included') ||
+      customLower.includes('added');
+
+    // 1. Cooking Oil / Fat: Refines oil multiplier and allergen context (DOES NOT add plate food item)
+    const isOilQuestion =
+      ans.question_id === 'q_cooking_oil' ||
+      qText.includes('oil') ||
+      qText.includes('fat') ||
+      qText.includes('ghee') ||
+      qText.includes('তেল') ||
+      qText.includes('ঘি');
+
+    if (isOilQuestion) {
+      const allOilText = [...selected, custom].join(' ').toLowerCase();
+      if (allOilText.includes('ghee') || allOilText.includes('ঘি')) {
         userReportedIngredients.push('Ghee (Dairy/Lactose)');
         oilPref = 'ghee';
         oilMultiplier = Math.max(oilMultiplier, 1.25);
         summaryNotes.push('Cooked with Ghee (contains dairy)');
       }
-      if (selected.some((s) => s.includes('Mustard oil'))) {
+      if (allOilText.includes('mustard') || allOilText.includes('সরিষা')) {
         userReportedIngredients.push('Mustard oil');
         if (!oilPref) oilPref = 'mustard';
         oilMultiplier = Math.max(oilMultiplier, 1.15);
         summaryNotes.push('Cooked with Mustard oil');
       }
-      if (selected.some((s) => s.includes('Soybean oil'))) {
+      if (allOilText.includes('soybean') || allOilText.includes('সয়াবিন')) {
         userReportedIngredients.push('Soybean oil');
         if (!oilPref) oilPref = 'soybean';
         oilMultiplier = Math.max(oilMultiplier, 1.15);
         summaryNotes.push('Cooked with Soybean oil');
       }
-      if (selected.some((s) => s.includes('Sunflower oil'))) {
+      if (allOilText.includes('sunflower') || allOilText.includes('সূর্যমুখী')) {
         userReportedIngredients.push('Sunflower oil');
         if (!oilPref) oilPref = 'sunflower';
         oilMultiplier = Math.max(oilMultiplier, 1.15);
         summaryNotes.push('Cooked with Sunflower oil');
       }
-      if (selected.some((s) => s.includes('Vegetable oil'))) {
+      if (allOilText.includes('vegetable oil') || allOilText.includes('ভেজিটেবল')) {
         userReportedIngredients.push('Vegetable oil');
         if (!oilPref) oilPref = 'vegetable';
         oilMultiplier = Math.max(oilMultiplier, 1.15);
         summaryNotes.push('Cooked with Vegetable oil');
       }
-      if (selected.some((s) => s.includes('No added oil'))) {
+      if (allOilText.includes('no added oil') || allOilText.includes('boiled plain')) {
         if (!oilPref) {
           oilPref = 'none';
           oilMultiplier = 1.0;
@@ -271,37 +314,159 @@ export function interpretClarificationAnswers(
       }
     }
 
-    // Question 2: Biryani Additions
-    if (ans.question_id === 'q_biryani_potato_egg') {
-      if (selected.some((s) => s.includes('Potato included') || s.includes('Both potato and egg'))) {
-        addedFoods.push({
-          name: 'Boiled Potato (Biryani Alu)',
-          nameBn: 'সিদ্ধ আলু',
-          grams: 60,
-          category: 'Vegetables',
-        });
-        userReportedIngredients.push('Potato');
-        summaryNotes.push('Includes Biryani potato piece (~60g)');
-      }
-      if (selected.some((s) => s.includes('Boiled egg included') || s.includes('Both potato and egg'))) {
-        addedFoods.push({
-          name: 'Boiled Egg',
-          nameBn: 'সিদ্ধ ডিম',
-          grams: 55,
-          category: 'Poultry And Eggs',
-        });
-        userReportedIngredients.push('Egg');
-        summaryNotes.push('Includes Boiled egg (~55g)');
-      }
+    // 2. Potato / Alu Additions: Adds Boiled Potato (Biryani Alu) to plate
+    const isPotatoQuestion =
+      ans.question_id === 'q_biryani_potato_egg' ||
+      qText.includes('potato') ||
+      qText.includes('alu') ||
+      qText.includes('aloo') ||
+      qText.includes('আলু');
+
+    const potatoSelected = selected.some(
+      (s) =>
+        s.includes('Potato included') ||
+        s.includes('Both potato and egg') ||
+        s.toLowerCase().includes('potato') ||
+        s.toLowerCase().includes('alu') ||
+        s.includes('আলু')
+    );
+
+    const potatoInCustom =
+      customLower.includes('potato') ||
+      customLower.includes('alu') ||
+      customLower.includes('aloo') ||
+      custom.includes('আলু');
+
+    if (potatoSelected || potatoInCustom || (isPotatoQuestion && isAffirmative)) {
+      addFoodIfUnique({
+        name: 'Boiled Potato (Biryani Alu)',
+        nameBn: 'সিদ্ধ আলু',
+        grams: 60,
+        category: 'vegetables',
+        preparationState: 'boiled',
+        isCountable: false,
+        catalogId: '33333333-3333-3333-3333-333333333348',
+      });
+      userReportedIngredients.push('Potato');
+      summaryNotes.push('Includes Biryani potato piece (~60g)');
     }
 
-    // Question 3: Tea / Coffee Additions
-    if (ans.question_id === 'q_tea_additions') {
-      if (selected.some((s) => s.includes("Cow's milk") || s.includes('Condensed milk') || s.includes('Powdered milk'))) {
+    // 3. Boiled Egg Additions: Adds Boiled Egg to plate
+    const isEggQuestion =
+      ans.question_id === 'q_biryani_potato_egg' ||
+      qText.includes('egg') ||
+      qText.includes('dim') ||
+      qText.includes('ডিম');
+
+    const eggSelected = selected.some(
+      (s) =>
+        s.includes('Boiled egg included') ||
+        s.includes('Both potato and egg') ||
+        s.toLowerCase().includes('egg') ||
+        s.toLowerCase().includes('dim') ||
+        s.includes('ডিম')
+    );
+
+    const eggInCustom =
+      customLower.includes('egg') ||
+      customLower.includes('dim') ||
+      custom.includes('ডিম');
+
+    if (eggSelected || eggInCustom || (isEggQuestion && isAffirmative)) {
+      addFoodIfUnique({
+        name: 'Boiled Chicken Egg (Dim Shiddho)',
+        nameBn: 'সিদ্ধ ডিম',
+        grams: 55,
+        category: 'eggs',
+        preparationState: 'boiled',
+        isCountable: true,
+        detectedCount: 1,
+        countUnit: 'egg',
+        catalogId: '33333333-3333-3333-3333-333333333325',
+      });
+      userReportedIngredients.push('Egg');
+      summaryNotes.push('Includes Boiled egg (~55g)');
+    }
+
+    // 4. Fresh Salad Additions (e.g. Q3: "Was any additional raita or salad consumed with this meal?")
+    const isSaladQuestion =
+      qText.includes('salad') ||
+      qText.includes('সালাদ') ||
+      qText.includes('cucumber') ||
+      qText.includes('shosha') ||
+      qText.includes('শসা');
+
+    const saladSelected = selected.some(
+      (s) =>
+        s.toLowerCase().includes('salad') ||
+        s.includes('সালাদ') ||
+        s.toLowerCase().includes('cucumber') ||
+        s.includes('শসা')
+    );
+
+    const saladInCustom =
+      customLower.includes('salad') ||
+      customLower.includes('cucumber') ||
+      customLower.includes('shosa') ||
+      customLower.includes('shosha') ||
+      custom.includes('সালাদ') ||
+      custom.includes('শসা');
+
+    if (saladSelected || saladInCustom || (isSaladQuestion && isAffirmative)) {
+      addFoodIfUnique({
+        name: 'Raw Cucumber Salad with Green Chili & Onion',
+        nameBn: 'শসা সালাদ',
+        grams: 60,
+        category: 'vegetables',
+        preparationState: 'raw',
+        isCountable: false,
+        catalogId: '33333333-3333-3333-3333-333333333345',
+      });
+      userReportedIngredients.push('Fresh Salad (Cucumber/Onion)');
+      summaryNotes.push('Fresh cucumber salad added (~60g)');
+    }
+
+    // 5. Raita Additions
+    const isRaitaQuestion =
+      qText.includes('raita') ||
+      qText.includes('রায়তা') ||
+      qText.includes('borhani') ||
+      qText.includes('বোরহানি');
+
+    const raitaSelected = selected.some(
+      (s) =>
+        s.toLowerCase().includes('raita') ||
+        s.includes('রায়তা') ||
+        s.toLowerCase().includes('borhani') ||
+        s.includes('বোরহানি')
+    );
+
+    const raitaInCustom =
+      customLower.includes('raita') ||
+      customLower.includes('borhani') ||
+      custom.includes('রায়তা') ||
+      custom.includes('বোরহানি');
+
+    if (raitaSelected || raitaInCustom || (isRaitaQuestion && isAffirmative)) {
+      addFoodIfUnique({
+        name: 'Raita / Mint Yogurt Dip',
+        nameBn: 'রায়তা',
+        grams: 75,
+        category: 'dairy_and_milks',
+        preparationState: 'raw',
+        isCountable: false,
+      });
+      userReportedIngredients.push('Yogurt/Doi (Dairy/Lactose)');
+      summaryNotes.push('Raita yogurt dip added (~75g)');
+    }
+
+    // 6. Tea / Coffee Additions
+    if (ans.question_id === 'q_tea_additions' || qText.includes('tea') || qText.includes('coffee') || qText.includes('cha')) {
+      if (selected.some((s) => s.includes("Cow's milk") || s.includes('Condensed milk') || s.includes('Powdered milk')) || customLower.includes('milk') || customLower.includes('dudh')) {
         userReportedIngredients.push("Cow's milk (Dairy/Lactose)");
         summaryNotes.push('Milk added to beverage');
       }
-      if (selected.some((s) => s.includes('Sugar added'))) {
+      if (selected.some((s) => s.includes('Sugar added')) || customLower.includes('sugar') || customLower.includes('chini')) {
         userReportedIngredients.push('Refined sugar');
         summaryNotes.push('Sugar added');
       }
@@ -310,27 +475,38 @@ export function interpretClarificationAnswers(
       }
     }
 
-    // Question 4: Gravy Thickener
-    if (ans.question_id === 'q_curry_thickener') {
-      if (selected.some((s) => s.includes('Yogurt/Doi') || s.includes('Heavy cream'))) {
+    // 7. Curry Thickener
+    if (ans.question_id === 'q_curry_thickener' || qText.includes('gravy') || qText.includes('thickener')) {
+      if (selected.some((s) => s.includes('Yogurt/Doi') || s.includes('Heavy cream')) || customLower.includes('doi') || customLower.includes('yogurt')) {
         userReportedIngredients.push('Yogurt/Doi (Dairy/Lactose)');
         summaryNotes.push('Gravy contains dairy (doi/cream)');
       }
-      if (selected.some((s) => s.includes('Nut paste'))) {
+      if (selected.some((s) => s.includes('Nut paste')) || customLower.includes('badam') || customLower.includes('nut')) {
         userReportedIngredients.push('Nut paste (Tree nuts / Peanuts)');
         summaryNotes.push('Gravy thickened with nut paste');
       }
     }
 
-    // Custom written response
+    // 8. Custom written details allergen & ingredient context
     if (custom) {
       userReportedIngredients.push(`User Note: "${custom}"`);
-      const customLower = custom.toLowerCase();
       if (customLower.includes('ghee')) userReportedIngredients.push('Ghee (Dairy/Lactose)');
       if (customLower.includes('mustard')) userReportedIngredients.push('Mustard oil');
       if (customLower.includes('milk') || customLower.includes('dudh')) userReportedIngredients.push("Cow's milk (Dairy/Lactose)");
       if (customLower.includes('peanut') || customLower.includes('badam')) userReportedIngredients.push('Peanut / Nut product');
       if (customLower.includes('egg') || customLower.includes('dim')) userReportedIngredients.push('Egg');
+
+      // Check if user specifically entered a custom food name in the text box (e.g. "dal", "chicken", "beef")
+      if ((customLower.includes('dal') || customLower.includes('daal') || custom.includes('ডাল')) && !qText.includes('dal')) {
+        addFoodIfUnique({
+          name: 'Cooked Red Lentils (Masoor Dal Jhol)',
+          nameBn: 'মসুর ডাল ঝোল',
+          grams: 100,
+          category: 'pulses',
+          preparationState: 'curried',
+          isCountable: false,
+        });
+      }
     }
   }
 

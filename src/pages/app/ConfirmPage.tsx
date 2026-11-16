@@ -24,6 +24,8 @@ import {
   Layers,
   Check,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -462,41 +464,67 @@ export const ConfirmPage: React.FC = () => {
       })
     );
 
-    const interpretation = interpretClarificationAnswers(formattedAnswers);
+    const interpretation = interpretClarificationAnswers(formattedAnswers, clarificationQuestions);
     setUserReportedIngredients(interpretation.userReportedIngredients);
     setIsClarificationSubmitted(true);
     setIsClarificationEditing(false);
 
-    // If additions were suggested (e.g. Potato or Boiled Egg in Biryani)
+    // If additions were suggested (e.g. Potato/Alu, Boiled Egg, Salad, Raita)
     if (interpretation.addedFoods.length > 0) {
+      let firstAddedId: string | null = null;
       setItems((prev) => {
         const newItems = [...prev];
         interpretation.addedFoods.forEach((add) => {
-          if (!newItems.some((it) => it.name.toLowerCase() === add.name.toLowerCase())) {
-            newItems.push({
-              id: `clarif-add-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              foodId: '',
-              externalRecordId: 'CLARIF-ADD',
+          const exists = newItems.some(
+            (it) =>
+              it.name.toLowerCase() === add.name.toLowerCase() ||
+              (add.nameBn && it.nameBn && it.nameBn === add.nameBn)
+          );
+          if (!exists) {
+            const catalogFood: any = (add as any).catalogId
+              ? getFoodById((add as any).catalogId)
+              : resolveFoodAlias(add.name) || searchFoods(add.name)[0];
+
+            const foodId = catalogFood?.food_id || catalogFood?.id || '';
+            const externalRecordId =
+              catalogFood?.external_record_id || (add.catalogId ? 'FCTB-03-010' : 'CLARIF-ADD');
+            const servingOptions = getServingOptionsForFood({
               name: add.name,
-              nameBn: add.nameBn || '',
               category: add.category,
-              preparationState: 'boiled',
-              grams: add.grams,
-              aiEstimatedGrams: add.grams,
-              isCountable: add.category === 'Poultry And Eggs',
-              detectedCount: add.category === 'Poultry And Eggs' ? 1 : null,
-              countUnit: add.category === 'Poultry And Eggs' ? 'egg' : null,
-              selectedUnit: 'g',
-              selectedQuantity: add.grams,
-              customWeightPerUnit: null,
-              conversionNote: 'Added from clarification answers',
+            });
+            const defaultOpt = servingOptions[0];
+            const initialGrams = add.grams || catalogFood?.standard_serving_grams || 60;
+            const newItemId = `clarif-add-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            if (!firstAddedId) firstAddedId = newItemId;
+
+            newItems.push({
+              id: newItemId,
+              foodId,
+              externalRecordId,
+              name: add.name,
+              nameBn: add.nameBn || catalogFood?.name_bn || catalogFood?.local_name_bn || '',
+              category: add.category,
+              preparationState: (add.preparationState as PreparationState) || 'boiled',
+              grams: initialGrams,
+              aiEstimatedGrams: initialGrams,
+              isCountable: add.isCountable || defaultOpt?.isCountable || false,
+              detectedCount: add.detectedCount || (add.isCountable ? 1 : null),
+              countUnit: add.countUnit || null,
+              selectedUnit: defaultOpt?.unit || (add.isCountable ? (add.countUnit || 'piece') : 'g'),
+              selectedQuantity: defaultOpt?.defaultQuantity || (add.isCountable ? 1 : initialGrams),
+              customWeightPerUnit: add.isCountable ? (initialGrams / (add.detectedCount || 1)) : null,
+              conversionNote: `Added from clarification: ${add.name}`,
               portionSource: 'user_entered',
-              uncertaintyReasons: [],
+              uncertaintyReasons: ['User-confirmed addition via AI clarification response.'],
             });
           }
         });
         return newItems;
       });
+
+      if (firstAddedId) {
+        setSelectedItemId(firstAddedId);
+      }
     }
   };
 
@@ -1308,21 +1336,20 @@ export const ConfirmPage: React.FC = () => {
         </div>
       ) : null}
 
-      {/* Main Two-Column Layout: Left List + Right Dedicated Gram & Count Inspector Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Plate Items List (lg:col-span-7) */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-forest-border/60">
-              <div className="space-y-0.5">
-                <h2 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <CheckSquare className="w-4 h-4 text-emerald-500" />
-                  Plate Food Items ({items.length})
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Select an item to adjust its gram weight or countable units in the sidebar.
-                </p>
-              </div>
+      {/* Full-Width Plate Food Items Layout with In-Place Horizontal Weight & Quantity Inspector */}
+      <div className="space-y-6 w-full">
+        {/* Plate Items Section */}
+        <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-forest-border/60">
+            <div className="space-y-0.5">
+              <h2 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-emerald-500" />
+                Plate Food Items ({items.length})
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Tap any item to open its Weight &amp; Quantity Inspector and fine-tune serving portions.
+              </p>
+            </div>
               <Button
                 onClick={handleOpenAdd}
                 variant="outline"
@@ -1345,12 +1372,23 @@ export const ConfirmPage: React.FC = () => {
                 {items.map((item, idx) => {
                   const isSelected = activeItem?.id === item.id;
                   const itemNutrients = computeItemNutrients(item);
+                  const itemServingOptions = getServingOptionsForFood({
+                    name: item.name,
+                    category: item.category,
+                  });
+                  const itemAiUnitWeight = item.aiEstimatedGrams
+                    ? Math.round((item.aiEstimatedGrams / (item.detectedCount || 1)) * 10) / 10
+                    : null;
+                  const itemCurrentUnitWeight =
+                    item.customWeightPerUnit && item.customWeightPerUnit > 0
+                      ? item.customWeightPerUnit
+                      : (itemServingOptions.find((o) => o.unit === item.selectedUnit)?.gramEquivalent || 50);
 
                   return (
                     <div
                       key={item.id}
-                      onClick={() => setSelectedItemId(item.id)}
-                      className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer space-y-3 ${
+                      onClick={() => setSelectedItemId(isSelected ? null : item.id)}
+                      className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer space-y-3.5 ${
                         isSelected
                           ? 'bg-emerald-500/5 dark:bg-forest-cardHover border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
                           : 'bg-slate-50/80 dark:bg-forest-root border-slate-200 dark:border-forest-border/70 hover:border-emerald-500/40 hover:bg-slate-50'
@@ -1396,7 +1434,7 @@ export const ConfirmPage: React.FC = () => {
                         </div>
 
                         {/* Top-Right Action Buttons */}
-                        <div className="flex items-center gap-1 self-end sm:self-center">
+                        <div className="flex items-center gap-1.5 self-end sm:self-center">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1419,6 +1457,17 @@ export const ConfirmPage: React.FC = () => {
                             title="Remove item"
                           >
                             <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-1 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
+                            title={isSelected ? 'Collapse inspector' : 'Open Weight & Quantity Inspector'}
+                          >
+                            {isSelected ? (
+                              <ChevronUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       </div>
@@ -1466,435 +1515,411 @@ export const ConfirmPage: React.FC = () => {
                           </span>
                         </div>
                       </div>
+
+                      {/* --- HORIZONTAL FULL-WIDTH WEIGHT & QUANTITY INSPECTOR (Rendered under active plate item) --- */}
+                      {isSelected && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-4 pt-4 border-t-2 border-emerald-500/40 space-y-4 animate-fadeIn cursor-default"
+                        >
+                          {/* Inspector Header */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-200/60 dark:border-forest-border/60">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                                <Scale className="w-3 h-3" />
+                                Weight &amp; Quantity Inspector
+                              </span>
+                              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                Adjusting serving &amp; quantity for {item.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-200/70 dark:bg-forest-card text-slate-600 dark:text-slate-300">
+                                {item.externalRecordId}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-normal">
+                                {itemServingOptions.length} verified units available
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* 1. Unit Selector (Full-width horizontal row) */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                              Measurement Unit:
+                            </label>
+                            <div className="flex flex-wrap gap-2 p-1.5 rounded-2xl bg-slate-100/90 dark:bg-forest-root border border-slate-200 dark:border-forest-border">
+                              {itemServingOptions.map((opt) => {
+                                const isOptSelected = item.selectedUnit === opt.unit;
+                                return (
+                                  <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => handleUnitChange(item.id, opt.unit)}
+                                    className={`py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all text-center ${
+                                      isOptSelected
+                                        ? 'bg-white dark:bg-forest-card text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-500/30'
+                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                    }`}
+                                  >
+                                    {opt.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* 2. Full Horizontal Weight & Quantity Controls */}
+                          {item.selectedUnit !== 'g' && item.selectedUnit !== 'kg' ? (
+                            /* Countable / Serving Unit 3-Column Horizontal Grid */
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-slate-100/60 dark:bg-forest-root border border-slate-200/80 dark:border-forest-border/80">
+                              {/* Col 1: Item Count */}
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                    Item Count:
+                                  </label>
+                                  <span className="text-[11px] text-slate-400 font-medium">
+                                    Natural count
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 bg-white dark:bg-forest-card p-1 rounded-xl border border-slate-200 dark:border-forest-border w-fit">
+                                  <button
+                                    type="button"
+                                    onClick={() => adjustCountDelta(item.id, -1)}
+                                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
+                                    title="Decrease count"
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="50"
+                                    step="1"
+                                    value={item.selectedQuantity}
+                                    onChange={(e) =>
+                                      updateCountQuantity(item.id, parseFloat(e.target.value) || 1)
+                                    }
+                                    className="w-14 text-center font-extrabold text-sm text-slate-900 dark:text-white bg-transparent focus:outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => adjustCountDelta(item.id, 1)}
+                                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
+                                    title="Increase count"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-1 pt-1 flex-wrap">
+                                  <span className="text-[10px] text-slate-400 font-medium">Quick:</span>
+                                  {[1, 2, 3, 4, 6].map((cnt) => (
+                                    <button
+                                      key={cnt}
+                                      type="button"
+                                      onClick={() => updateCountQuantity(item.id, cnt)}
+                                      className={`px-2 py-0.5 text-xs rounded-lg font-bold border transition-colors ${
+                                        item.selectedQuantity === cnt
+                                          ? 'bg-emerald-500 text-white border-emerald-500'
+                                          : 'bg-white dark:bg-forest-card border-slate-200 dark:border-forest-border text-slate-700 dark:text-slate-300 hover:border-emerald-500'
+                                      }`}
+                                    >
+                                      {cnt}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Col 2: Editable Unit Weight */}
+                              <div className="space-y-2 md:border-l md:border-slate-200/80 md:dark:border-forest-border/80 md:pl-4">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                                    <Scale className="w-3 h-3 text-emerald-500" />
+                                    Weight / {itemServingOptions.find((o) => o.unit === item.selectedUnit)?.name || item.selectedUnit}:
+                                  </label>
+                                  {itemAiUnitWeight !== null && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleResetUnitWeightToAI(item.id)}
+                                      className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5 font-semibold"
+                                      title="Restore AI vision detected weight"
+                                    >
+                                      <Sparkles className="w-3 h-3" />
+                                      AI ({itemAiUnitWeight}g)
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1 bg-white dark:bg-forest-card p-1 rounded-xl border border-slate-200 dark:border-forest-border w-fit">
+                                    <button
+                                      type="button"
+                                      onClick={() => adjustUnitWeightDelta(item.id, -5)}
+                                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
+                                      title="Decrease unit weight by 5g"
+                                    >
+                                      <Minus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="2000"
+                                      step="1"
+                                      value={itemCurrentUnitWeight}
+                                      onChange={(e) =>
+                                        handleUnitWeightChange(item.id, parseFloat(e.target.value) || 1)
+                                      }
+                                      className="w-16 text-center font-extrabold text-sm text-slate-900 dark:text-white bg-transparent focus:outline-none"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => adjustUnitWeightDelta(item.id, 5)}
+                                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
+                                      title="Increase unit weight by 5g"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                  <span className="text-xs text-slate-500 font-medium">
+                                    g / {item.selectedUnit}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 pt-1 flex-wrap">
+                                  <span className="text-[10px] text-slate-400 font-medium">Adjust:</span>
+                                  {[-10, -5, +5, +10].map((delta) => (
+                                    <button
+                                      key={delta}
+                                      type="button"
+                                      onClick={() => adjustUnitWeightDelta(item.id, delta)}
+                                      className="px-2 py-0.5 text-[10px] rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500 font-semibold"
+                                    >
+                                      {delta > 0 ? `+${delta}g` : `${delta}g`}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Col 3: Total Weight Direct Sync */}
+                              <div className="space-y-2 md:border-l md:border-slate-200/80 md:dark:border-forest-border/80 md:pl-4">
+                                <div className="flex items-center justify-between text-xs">
+                                  <label className="font-bold text-slate-800 dark:text-slate-200">
+                                    Total Edible Weight:
+                                  </label>
+                                  <span className="text-[11px] text-slate-400">
+                                    {item.selectedQuantity} × {itemCurrentUnitWeight}g
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="5000"
+                                    value={item.grams}
+                                    onChange={(e) =>
+                                      updateGramsDirect(item.id, parseFloat(e.target.value) || 1)
+                                    }
+                                    className="w-24 px-3 py-1.5 text-right font-extrabold text-sm text-emerald-600 dark:text-emerald-400 bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border rounded-xl"
+                                  />
+                                  <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">g</span>
+                                </div>
+                                <div className="flex items-center gap-1 pt-1 flex-wrap">
+                                  <span className="text-[10px] text-slate-400 font-medium">Total:</span>
+                                  {[-50, -25, +25, +50].map((delta) => (
+                                    <button
+                                      key={delta}
+                                      type="button"
+                                      onClick={() => adjustGramsDelta(item.id, delta)}
+                                      className="px-2 py-0.5 text-[10px] rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500 font-semibold"
+                                    >
+                                      {delta > 0 ? `+${delta}g` : `${delta}g`}
+                                    </button>
+                                  ))}
+                                </div>
+                                {item.conversionNote && (
+                                  <p className="text-[10px] text-slate-400 leading-tight pt-1">
+                                    ℹ️ {item.conversionNote}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            /* Grams (g) 3-Column Horizontal Grid */
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-slate-100/60 dark:bg-forest-root border border-slate-200/80 dark:border-forest-border/80">
+                              {/* Col 1: Direct Gram Stepper */}
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                  <Calculator className="w-3.5 h-3.5 text-emerald-500" />
+                                  Food Weight in Grams:
+                                </label>
+                                <div className="flex items-center gap-1.5 bg-white dark:bg-forest-card p-1 rounded-xl border border-slate-200 dark:border-forest-border w-fit">
+                                  <button
+                                    type="button"
+                                    onClick={() => adjustGramsDelta(item.id, -25)}
+                                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
+                                    title="Decrease 25g"
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="2500"
+                                    step="5"
+                                    value={item.grams}
+                                    onChange={(e) =>
+                                      updateGramsDirect(item.id, parseFloat(e.target.value) || 0)
+                                    }
+                                    className="w-16 text-center font-extrabold text-sm text-slate-900 dark:text-white bg-transparent focus:outline-none"
+                                  />
+                                  <span className="text-xs font-bold text-slate-400 pr-1">g</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => adjustGramsDelta(item.id, 25)}
+                                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
+                                    title="Increase 25g"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-1 pt-1 flex-wrap">
+                                  <span className="text-[10px] text-slate-400 font-medium">Quick:</span>
+                                  {[-50, -25, +25, +50].map((delta) => (
+                                    <button
+                                      key={delta}
+                                      type="button"
+                                      onClick={() => adjustGramsDelta(item.id, delta)}
+                                      className="px-2 py-0.5 text-[10px] rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500 font-semibold"
+                                    >
+                                      {delta > 0 ? `+${delta}g` : `${delta}g`}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Col 2: Standard Household Portions */}
+                              <div className="space-y-2 md:border-l md:border-slate-200/80 md:dark:border-forest-border/80 md:pl-4">
+                                <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Standard Portions:
+                                </label>
+                                <div className="grid grid-cols-3 gap-1.5">
+                                  {[
+                                    { label: '½ Cup', grams: 75 },
+                                    { label: '1 Cup', grams: 150 },
+                                    { label: '1 Plate', grams: 200 },
+                                  ].map((p) => (
+                                    <button
+                                      key={p.label}
+                                      type="button"
+                                      onClick={() => updateGramsDirect(item.id, p.grams)}
+                                      className={`py-1.5 px-2 text-[11px] font-bold rounded-xl border transition-colors text-center ${
+                                        item.grams === p.grams
+                                          ? 'bg-emerald-500 text-white border-emerald-500'
+                                          : 'bg-white dark:bg-forest-card border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500'
+                                      }`}
+                                    >
+                                      {p.label} ({p.grams}g)
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Col 3: AI Guess & Reset */}
+                              <div className="space-y-2 md:border-l md:border-slate-200/80 md:dark:border-forest-border/80 md:pl-4 flex flex-col justify-between">
+                                <div>
+                                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                    AI Vision Estimation:
+                                  </label>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                    AI initial detection: <strong className="text-emerald-600 dark:text-emerald-400">{item.aiEstimatedGrams}g</strong>
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => resetToAiWeight(item.id)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors w-fit"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                  Reset to AI Weight ({item.aiEstimatedGrams}g)
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 3. Preparation Method & Live Macro Cards (Full Horizontal Row) */}
+                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center pt-2 border-t border-slate-200/60 dark:border-forest-border/60">
+                            {/* Prep Method (lg:col-span-4) */}
+                            <div className="lg:col-span-4 space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                Preparation Method:
+                              </label>
+                              <select
+                                value={item.preparationState}
+                                onChange={(e) => updatePrepState(item.id, e.target.value as PreparationState)}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-card text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              >
+                                <option value="boiled">Boiled (সিদ্ধ)</option>
+                                <option value="fried">Fried (ভাজি / ভাজা - with cooking oil)</option>
+                                <option value="curried">Curried / Gravy (ঝোল / ভুনা)</option>
+                                <option value="steamed">Steamed (ভাপে সিদ্ধ)</option>
+                                <option value="roasted">Roasted / Grilled (পোড়া)</option>
+                                <option value="raw">Raw / Fresh (কাঁচা)</option>
+                                <option value="commercial">Commercial / Packaged (প্রস্তুতকৃত)</option>
+                              </select>
+                            </div>
+
+                            {/* Macro Preview (lg:col-span-8) */}
+                            <div className="lg:col-span-8 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-extrabold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                                  <Flame className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  Nutrition Preview ({item.grams}g)
+                                </span>
+                                <span className="font-black text-sm text-emerald-700 dark:text-emerald-300">
+                                  {itemNutrients.calories} kcal
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-5 gap-2 text-center">
+                                <div className="p-1.5 rounded-lg bg-white dark:bg-forest-card">
+                                  <div className="text-[9px] text-slate-400 font-bold uppercase">Protein</div>
+                                  <div className="text-xs font-extrabold text-blue-600 dark:text-blue-400">{itemNutrients.protein}g</div>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-white dark:bg-forest-card">
+                                  <div className="text-[9px] text-slate-400 font-bold uppercase">Carbs</div>
+                                  <div className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">{itemNutrients.carbs}g</div>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-white dark:bg-forest-card">
+                                  <div className="text-[9px] text-slate-400 font-bold uppercase">Fat</div>
+                                  <div className="text-xs font-extrabold text-rose-600 dark:text-rose-400">{itemNutrients.fat}g</div>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-white dark:bg-forest-card">
+                                  <div className="text-[9px] text-slate-400 font-bold uppercase">Fibre</div>
+                                  <div className="text-xs font-extrabold text-amber-600 dark:text-amber-400">{itemNutrients.fibre}g</div>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-white dark:bg-forest-card">
+                                  <div className="text-[9px] text-slate-400 font-bold uppercase">Bazar Cost</div>
+                                  <div className="text-xs font-extrabold text-slate-700 dark:text-slate-200">৳{itemNutrients.cost}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             )}
           </div>
-        </div>
 
-        {/* Right Column: Dedicated Confirm Item Sidebar & Gram Calculator (lg:col-span-5) */}
-        <div className="lg:col-span-5 space-y-5 sticky top-20">
-          {activeItem ? (
-            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-forest-card border-2 border-emerald-500/40 shadow-lg space-y-5 animate-fadeIn">
-              {/* Sidebar Header */}
-              <div className="pb-3 border-b border-slate-100 dark:border-forest-border/60 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                    <Scale className="w-3 h-3" />
-                    Weight & Quantity Inspector
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400">
-                    {activeItem.externalRecordId}
-                  </span>
-                </div>
-                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
-                  {activeItem.name}
-                </h3>
-                {activeItem.nameBn && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bengali font-semibold">
-                    {activeItem.nameBn}
-                  </p>
-                )}
-              </div>
-
-              {/* 1. Unit Selector (Conditional based on Food Type) */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between">
-                  <span>Measurement Unit:</span>
-                  <span className="text-[10px] text-slate-400 font-normal">
-                    {activeServingOptions.length} verified units available
-                  </span>
-                </label>
-                <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-forest-root border border-slate-200 dark:border-forest-border">
-                  {activeServingOptions.map((opt) => {
-                    const isSelected = activeItem.selectedUnit === opt.unit;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleUnitChange(activeItem.id, opt.unit)}
-                        className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all text-center truncate ${
-                          isSelected
-                            ? 'bg-white dark:bg-forest-card text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-500/30'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        {opt.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 2. Quantity & Gram Adjustment Section */}
-              {activeItem.selectedUnit !== 'g' && activeItem.selectedUnit !== 'kg' ? (
-                /* Count-Based Quantity Stepper */
-                <div className="space-y-4 p-4 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200/80 dark:border-forest-border/80">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        Item Count:
-                      </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Select natural countable units
-                      </p>
-                    </div>
-                    {/* Stepper */}
-                    <div className="flex items-center gap-1.5 bg-white dark:bg-forest-card p-1 rounded-xl border border-slate-200 dark:border-forest-border">
-                      <button
-                        type="button"
-                        onClick={() => adjustCountDelta(activeItem.id, -1)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
-                        title="Decrease count"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        max="50"
-                        step="1"
-                        value={activeItem.selectedQuantity}
-                        onChange={(e) =>
-                          updateCountQuantity(activeItem.id, parseFloat(e.target.value) || 1)
-                        }
-                        className="w-14 text-center font-extrabold text-sm text-slate-900 dark:text-white bg-transparent focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => adjustCountDelta(activeItem.id, 1)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
-                        title="Increase count"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Quick Count Pills */}
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <span className="text-[10px] text-slate-400 font-medium">Quick:</span>
-                    {[1, 2, 3, 4, 6].map((cnt) => (
-                      <button
-                        key={cnt}
-                        type="button"
-                        onClick={() => updateCountQuantity(activeItem.id, cnt)}
-                        className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition-colors ${
-                          activeItem.selectedQuantity === cnt
-                            ? 'bg-emerald-500 text-white border-emerald-500'
-                            : 'bg-white dark:bg-forest-card border-slate-200 dark:border-forest-border text-slate-700 dark:text-slate-300 hover:border-emerald-500'
-                        }`}
-                      >
-                        {cnt}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Universal Editable Weight per Unit (piece, cup, slice, bowl, plate, packet, etc.) */}
-                  <div className="pt-3 border-t border-slate-200/60 dark:border-forest-border/60 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <Scale className="w-3.5 h-3.5 text-emerald-500" />
-                        Weight per {activeServingOptions.find((o) => o.unit === activeItem.selectedUnit)?.name || activeItem.selectedUnit}:
-                      </label>
-                      {aiUnitWeight !== null && (
-                        <button
-                          type="button"
-                          onClick={() => handleResetUnitWeightToAI(activeItem.id)}
-                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
-                          title="Restore AI vision detected weight"
-                        >
-                          <Sparkles className="w-3 h-3" />
-                          AI Weight ({aiUnitWeight}g)
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 bg-white dark:bg-forest-card p-1 rounded-xl border border-slate-200 dark:border-forest-border">
-                        <button
-                          type="button"
-                          onClick={() => adjustUnitWeightDelta(activeItem.id, -5)}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
-                          title="Decrease unit weight by 5g"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          max="2000"
-                          step="1"
-                          value={currentUnitWeight}
-                          onChange={(e) =>
-                            handleUnitWeightChange(activeItem.id, parseFloat(e.target.value) || 1)
-                          }
-                          className="w-16 text-center font-extrabold text-sm text-slate-900 dark:text-white bg-transparent focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => adjustUnitWeightDelta(activeItem.id, 5)}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
-                          title="Increase unit weight by 5g"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <span className="text-xs text-slate-500 font-medium">
-                        g / {activeItem.selectedUnit}
-                      </span>
-                    </div>
-
-                    {/* Quick unit weight adjustment pills */}
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <span className="text-[10px] text-slate-400 font-medium">Adjust:</span>
-                      {[-10, -5, +5, +10].map((delta) => (
-                        <button
-                          key={delta}
-                          type="button"
-                          onClick={() => adjustUnitWeightDelta(activeItem.id, delta)}
-                          className="px-2 py-0.5 text-[10px] rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500 font-semibold"
-                        >
-                          {delta > 0 ? `+${delta}g` : `${delta}g`}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Equivalent Total Edible Weight Banner & Direct Gram Sync */}
-                  <div className="pt-3 border-t border-slate-200/60 dark:border-forest-border/60 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600 dark:text-slate-300 font-medium">
-                        Total Weight ({activeItem.selectedQuantity} × {currentUnitWeight}g):
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          min="1"
-                          max="5000"
-                          value={activeItem.grams}
-                          onChange={(e) =>
-                            updateGramsDirect(activeItem.id, parseFloat(e.target.value) || 1)
-                          }
-                          className="w-16 px-2 py-0.5 text-right font-extrabold text-sm text-emerald-600 dark:text-emerald-400 bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border rounded-lg"
-                        />
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400">g</span>
-                      </div>
-                    </div>
-
-                    {/* Total Gram Quick Adjustments */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-slate-400 font-medium">Total:</span>
-                      {[-50, -25, +25, +50].map((delta) => (
-                        <button
-                          key={delta}
-                          type="button"
-                          onClick={() => adjustGramsDelta(activeItem.id, delta)}
-                          className="px-2 py-0.5 text-[10px] rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500 font-semibold"
-                        >
-                          {delta > 0 ? `+${delta}g` : `${delta}g`}
-                        </button>
-                      ))}
-                    </div>
-
-                    {activeItem.conversionNote && (
-                      <p className="text-[10px] text-slate-400 leading-tight pt-1">
-                        ℹ️ {activeItem.conversionNote}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* Dedicated Gram Calculator / Weight Indicator */
-                <div className="space-y-4 p-4 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200/80 dark:border-forest-border/80">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <Calculator className="w-3.5 h-3.5 text-emerald-500" />
-                        Food Weight in Grams:
-                      </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Adjust with steppers or type grams directly
-                      </p>
-                    </div>
-
-                    {/* Gram Stepper */}
-                    <div className="flex items-center gap-1 bg-white dark:bg-forest-card p-1 rounded-xl border border-slate-200 dark:border-forest-border">
-                      <button
-                        type="button"
-                        onClick={() => adjustGramsDelta(activeItem.id, -10)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
-                        title="Decrease by 10g"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="5"
-                          max="2500"
-                          step="5"
-                          value={activeItem.grams}
-                          onChange={(e) =>
-                            updateGramsDirect(activeItem.id, parseFloat(e.target.value) || 0)
-                          }
-                          className="w-20 px-2 py-1 text-center font-extrabold text-sm text-slate-900 dark:text-white bg-transparent focus:outline-none"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => adjustGramsDelta(activeItem.id, 10)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300"
-                        title="Increase by 10g"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Quick Adjustments: -50g | -25g | +25g | +50g */}
-                  <div className="space-y-1.5 pt-1">
-                    <span className="text-[10px] text-slate-400 font-medium">Quick Adjustments:</span>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {[-50, -25, 25, 50].map((delta) => (
-                        <button
-                          key={delta}
-                          type="button"
-                          onClick={() => adjustGramsDelta(activeItem.id, delta)}
-                          className="py-1 px-1.5 text-xs font-bold rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-700 dark:text-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-forest-cardHover transition-colors"
-                        >
-                          {delta > 0 ? `+${delta}g` : `${delta}g`}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Standard Household Portions */}
-                  <div className="space-y-1.5 pt-1">
-                    <span className="text-[10px] text-slate-400 font-medium">Standard Portions:</span>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {[
-                        { label: '½ Cup', grams: 75 },
-                        { label: '1 Cup', grams: 150 },
-                        { label: '1 Plate', grams: 200 },
-                      ].map((p) => (
-                        <button
-                          key={p.label}
-                          type="button"
-                          onClick={() => updateGramsDirect(activeItem.id, p.grams)}
-                          className={`py-1 px-1.5 text-[11px] font-bold rounded-lg border transition-colors ${
-                            activeItem.grams === p.grams
-                              ? 'bg-emerald-500 text-white border-emerald-500'
-                              : 'bg-white dark:bg-forest-card border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:border-emerald-500'
-                          }`}
-                        >
-                          {p.label} ({p.grams}g)
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Reset to AI-Estimated Weight Button */}
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-forest-border/60 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">
-                      AI Guess: {activeItem.aiEstimatedGrams}g
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => resetToAiWeight(activeItem.id)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-forest-cardHover transition-colors"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      Reset to AI Weight
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 3. Preparation Method Selector */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                  Preparation Method:
-                </label>
-                <select
-                  value={activeItem.preparationState}
-                  onChange={(e) => updatePrepState(activeItem.id, e.target.value as PreparationState)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-card text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="boiled">Boiled (সিদ্ধ)</option>
-                  <option value="fried">Fried (ভাজি / ভাজা - with cooking oil)</option>
-                  <option value="curried">Curried / Gravy (ঝোল / ভুনা)</option>
-                  <option value="steamed">Steamed (ভাপে সিদ্ধ)</option>
-                  <option value="roasted">Roasted / Grilled (পোড়া)</option>
-                  <option value="raw">Raw / Fresh (কাঁচা)</option>
-                  <option value="commercial">Commercial / Packaged (প্রস্তুতকৃত)</option>
-                </select>
-              </div>
-
-              {/* 4. Live Nutrition Preview Card */}
-              {activeItemNutrients && (
-                <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-500/30 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
-                      <Flame className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      Nutrition Preview ({activeItem.grams}g)
-                    </span>
-                    <span className="text-base font-black text-emerald-700 dark:text-emerald-300">
-                      {activeItemNutrients.calories} kcal
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2 text-center">
-                    <div className="p-2 rounded-xl bg-white dark:bg-forest-card border border-emerald-500/20">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Protein</div>
-                      <div className="text-xs font-extrabold text-blue-600 dark:text-blue-400">
-                        {activeItemNutrients.protein}g
-                      </div>
-                    </div>
-                    <div className="p-2 rounded-xl bg-white dark:bg-forest-card border border-emerald-500/20">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Carbs</div>
-                      <div className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
-                        {activeItemNutrients.carbs}g
-                      </div>
-                    </div>
-                    <div className="p-2 rounded-xl bg-white dark:bg-forest-card border border-emerald-500/20">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Fat</div>
-                      <div className="text-xs font-extrabold text-rose-600 dark:text-rose-400">
-                        {activeItemNutrients.fat}g
-                      </div>
-                    </div>
-                    <div className="p-2 rounded-xl bg-white dark:bg-forest-card border border-emerald-500/20">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Fibre</div>
-                      <div className="text-xs font-extrabold text-amber-600 dark:text-amber-400">
-                        {activeItemNutrients.fibre}g
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                    Deterministic calculation against verified FCDB & USDA per-100g database records.
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-center text-slate-400 space-y-2">
-              <Scale className="w-8 h-8 mx-auto text-slate-300" />
-              <p className="text-xs font-bold">No food selected</p>
-              <p className="text-[11px]">Select an item from the plate list to adjust its weight.</p>
-            </div>
-          )}
-
-          {/* Grand Meal Total Summary & Confirmation Action */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-slate-900 text-white shadow-xl space-y-4">
+        {/* Full-Width Grand Meal Total Summary & Confirmation Action */}
+        <div className="p-5 sm:p-6 rounded-3xl bg-slate-900 text-white shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">
-                Plate Grand Total
+                Plate Grand Total ({items.length} confirmed food items)
               </span>
-              <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-white">
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl font-black text-white">
                   {mealTotals.calories} <span className="text-sm font-normal text-slate-400">kcal</span>
                 </span>
                 <span className="text-xs text-slate-300">
@@ -1903,34 +1928,34 @@ export const ConfirmPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-center">
-              <div>
-                <div className="text-[10px] text-slate-400">Protein</div>
-                <div className="text-xs font-extrabold text-blue-400">{mealTotals.protein}g</div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+              <div className="px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/80">
+                <div className="text-[10px] text-slate-400 uppercase font-semibold">Protein</div>
+                <div className="text-sm font-extrabold text-blue-400">{mealTotals.protein}g</div>
               </div>
-              <div>
-                <div className="text-[10px] text-slate-400">Carbs</div>
-                <div className="text-xs font-extrabold text-emerald-400">{mealTotals.carbs}g</div>
+              <div className="px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/80">
+                <div className="text-[10px] text-slate-400 uppercase font-semibold">Carbs</div>
+                <div className="text-sm font-extrabold text-emerald-400">{mealTotals.carbs}g</div>
               </div>
-              <div>
-                <div className="text-[10px] text-slate-400">Fat</div>
-                <div className="text-xs font-extrabold text-rose-400">{mealTotals.fat}g</div>
+              <div className="px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700/80">
+                <div className="text-[10px] text-slate-400 uppercase font-semibold">Fat</div>
+                <div className="text-sm font-extrabold text-rose-400">{mealTotals.fat}g</div>
               </div>
             </div>
-
-            <Button
-              onClick={handleConfirm}
-              variant="primary"
-              size="lg"
-              disabled={isSaving || items.length === 0}
-              loading={isSaving}
-              className="w-full shadow-lg shadow-emerald-600/30 font-extrabold text-sm"
-              icon={<ArrowRight className="w-4 h-4" />}
-              iconPosition="right"
-            >
-              {t('confirm.calculate_btn')}
-            </Button>
           </div>
+
+          <Button
+            onClick={handleConfirm}
+            variant="primary"
+            size="lg"
+            disabled={isSaving || items.length === 0}
+            loading={isSaving}
+            className="w-full shadow-lg shadow-emerald-600/30 font-extrabold text-sm py-3"
+            icon={<ArrowRight className="w-4 h-4" />}
+            iconPosition="right"
+          >
+            {t('confirm.calculate_btn')}
+          </Button>
         </div>
       </div>
 
