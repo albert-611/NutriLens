@@ -19,6 +19,7 @@ import { MealRescuePage } from '../pages/app/MealRescuePage';
 import { ShoppingPage } from '../pages/app/ShoppingPage';
 import { ProfilePage } from '../pages/app/ProfilePage';
 import { SettingsPage } from '../pages/app/SettingsPage';
+import { AssistantPage } from '../pages/app/AssistantPage';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -72,6 +73,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="bazar" element={<BazarPage />} />
         <Route path="meal-rescue" element={<MealRescuePage />} />
         <Route path="shopping" element={<ShoppingPage />} />
+        <Route path="assistant" element={<AssistantPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

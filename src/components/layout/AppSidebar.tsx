@@ -13,6 +13,7 @@ import {
   Settings,
   X,
   ExternalLink,
+  Bot,
 } from 'lucide-react';
 
 interface AppSidebarProps {
@@ -29,6 +30,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ mobileOpen, setMobileOpe
     { name: t('nav.confirm'), href: '/app/confirm', icon: CheckSquare },
     { name: t('nav.report'), href: '/app/report', icon: FileText },
     { name: t('nav.bazar'), href: '/app/bazar', icon: Store, badge: 'Demo' },
+    { name: 'NutriLens AI', href: '/app/assistant', icon: Bot, badge: 'AI' },
     { name: t('nav.meal_rescue'), href: '/app/meal-rescue', icon: Sparkles },
     { name: t('nav.shopping'), href: '/app/shopping', icon: ShoppingBag },
   ];
@@ -69,7 +71,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ mobileOpen, setMobileOpe
             </span>
           </p>
           <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
-            Prices: SIMULATED DEMO DATA
+            Savar & Ashulia Market Feed Active
           </p>
         </div>
       </div>

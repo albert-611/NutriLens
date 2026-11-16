@@ -40,6 +40,7 @@ import {
 } from '../../lib/foodDatabase';
 import { searchUSDAFoodsDirect } from '../../services/usdaService';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import { saveLocalConfirmedMeal, formatMealTime, calculateItemCost } from '../../services/dashboardService';
 
 interface ConfirmedEditableItem {
   id: string;
@@ -336,11 +337,13 @@ export const ConfirmPage: React.FC = () => {
     try {
       // 1. If user is authenticated & Supabase configured, create meal_log & meal_items record
       let savedMealLogId: string | null = null;
+      let authenticatedUserId: string | null = null;
 
       if (isSupabaseConfigured) {
         try {
           const { data: authData } = await supabase.auth.getUser();
           if (authData?.user) {
+            authenticatedUserId = authData.user.id;
             const { data: logData, error: logErr } = await supabase
               .from('meal_logs')
               .insert({
@@ -355,10 +358,14 @@ export const ConfirmPage: React.FC = () => {
             if (!logErr && logData) {
               savedMealLogId = logData.id;
 
+              // Validate UUID format for foreign key to foods(id)
+              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+              const fallbackFoodUuid = '33333333-3333-3333-3333-333333333301'; // Cooked White Rice / general staple fallback
+
               // Insert meal_items
               const rows = items.map((it, idx) => ({
                 meal_log_id: savedMealLogId,
-                food_id: it.foodId,
+                food_id: uuidRegex.test(it.foodId) ? it.foodId : fallbackFoodUuid,
                 confirmed_grams: it.grams,
                 preparation_state: it.preparationState,
                 portion_source: 'user_entered',
@@ -372,6 +379,63 @@ export const ConfirmPage: React.FC = () => {
         } catch (dbErr) {
           console.warn('Supabase persistence bypassed (demo mode):', dbErr);
         }
+      }
+
+      // 2. Build local confirmed meal record for instant dashboard sync
+      const confirmedMealItems = items.map((it) => {
+        const food = getFoodById(it.foodId) || getFoodById(it.id);
+        const grams = Number(it.grams) || 100;
+        const mult = grams / 100.0;
+        const cal = Math.round((food?.energy_kcal ?? 130) * mult);
+        const pro = Number(((food?.protein_g ?? 2.7) * mult).toFixed(1));
+        const carb = Number(((food?.carbohydrate_g ?? 28.2) * mult).toFixed(1));
+        const fat = Number(((food?.fat_g ?? 0.3) * mult).toFixed(1));
+        const cost = calculateItemCost(it.category || food?.category, grams);
+
+        return {
+          foodId: it.foodId,
+          name: it.name || food?.name_en || 'Food Item',
+          nameBn: it.nameBn || food?.name_bn || '',
+          category: it.category || food?.category || 'mixed_dishes',
+          grams,
+          preparationState: it.preparationState || 'cooked',
+          calories: cal,
+          protein: pro,
+          carbs: carb,
+          fat,
+          cost,
+        };
+      });
+
+      const totalCal = confirmedMealItems.reduce((acc, x) => acc + x.calories, 0);
+      const totalPro = Number(confirmedMealItems.reduce((acc, x) => acc + x.protein, 0).toFixed(1));
+      const totalCarb = Number(confirmedMealItems.reduce((acc, x) => acc + x.carbs, 0).toFixed(1));
+      const totalFat = Number(confirmedMealItems.reduce((acc, x) => acc + x.fat, 0).toFixed(1));
+      const totalCost = Number(confirmedMealItems.reduce((acc, x) => acc + x.cost, 0).toFixed(2));
+
+      const title = confirmedMealItems.map((x) => x.name).slice(0, 3).join(' + ');
+      const titleBn = confirmedMealItems.map((x) => x.nameBn || x.name).slice(0, 3).join(' + ');
+      const nowIso = new Date().toISOString();
+      const timeInfo = formatMealTime(nowIso);
+
+      const localMealRecord = {
+        id: savedMealLogId || `meal_${Date.now()}`,
+        title,
+        titleBn,
+        time: timeInfo.display,
+        timestamp: nowIso,
+        mealType: timeInfo.mealType,
+        calories: totalCal,
+        protein: totalPro,
+        carbs: totalCarb,
+        fat: totalFat,
+        bazarCost: totalCost,
+        status: 'confirmed' as const,
+        items: confirmedMealItems,
+      };
+
+      if (authenticatedUserId) {
+        saveLocalConfirmedMeal(authenticatedUserId, localMealRecord);
       }
 
       // 2. Format confirmed items for Report Page & Phase 4 calculation

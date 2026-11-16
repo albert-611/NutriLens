@@ -2009,3 +2009,31 @@ Use a fictional adult profile, a selected Bangladesh demo market, a clear meal/i
 - "We support every country" — only validated market packs are supported.
 - "Our model is trained on proprietary nutrition data" — the MVP uses an existing model, approved retrieval and deterministic code.
 
+
+# 32 | Personal AI Nutrition Assistant & Strict Multi-User Isolation
+
+## 32.1 Architectural Overview
+The Personal AI Nutrition Assistant (`NutriLens AI — Your Personal Nutrition Assistant`) provides a dedicated personal conversational interface. It accesses strictly the authenticated user's verified profile, medical conditions, allergies, intolerances, food preferences, nutrition goals, confirmed meal records, and daily budget.
+
+## 32.2 Strict Multi-User Isolation Guarantee
+1. **Server-Side Token Derivation:** Client requests never pass or dictate `user_id`. The backend extracts `user_id` strictly from the cryptographically verified Supabase JWT Bearer token (`auth.uid() = user_id`).
+2. **Database Row Level Security (RLS):** All assistant tables (`ai_conversations`, `ai_messages`, `ai_usage_logs`) enforce RLS policies preventing any user from reading, inserting, modifying, or deleting another user's records.
+3. **Cross-User Defense:** Direct ID queries or URL tampering across conversations immediately return HTTP 404 (Resource Not Found / Access Denied).
+4. **Context Builder Sanitization:** `PersonalNutritionContextService` extracts only the authenticated user's records across `profiles`, `user_medical_conditions`, `user_food_allergies`, `user_food_intolerances`, `user_dietary_preferences_detailed`, `user_nutritional_goals_detailed`, confirmed `meal_logs` + `meal_items` (past 48h), and budget. Irrelevant sensitive metadata is discarded before system prompt formatting.
+
+## 32.3 Provider-Independent AI Architecture
+- **Inference Layer:** Configurable via backend environment variables (`AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`, `AI_BASE_URL`).
+- **Primary Chatbox Model:** **Gemma 4 26B** (`google/gemma-4-26b-a4b` / OpenRouter / hosted OpenAI-compatible inference) is configured as the primary conversational intelligence model for NutriLens AI.
+- **Google Gemini Dual-Model / Backup-Key Failover:** Primary model (`gemini-3.5-flash-lite`) with automatic failover to secondary model (`gemini-3.1-flash-lite`) and secondary backup API key.
+- **Deterministic Domain Knowledge Engine:** Resilient fallback engine adhering strictly to FAO Bangladesh FCTB and FoodNetBD databases if external inference providers fail or rate-limit. Language models never invent nutrient numbers.
+
+## 32.4 REST API Endpoints
+- `POST /api/v1/assistant/chat`: Personal context-aware conversational nutrition endpoint.
+- `GET /api/v1/assistant/conversations`: Lists conversations owned by the authenticated user.
+- `POST /api/v1/assistant/conversations`: Creates a new conversation container.
+- `GET /api/v1/assistant/conversations/{id}`: Retrieves full message history (enforcing user ownership).
+- `PATCH /api/v1/assistant/conversations/{id}`: Renames user's conversation.
+- `DELETE /api/v1/assistant/conversations/{id}`: Deletes user's conversation and associated messages.
+- `GET /api/v1/assistant/context/summary`: Transparently returns active user context summary for UI inspections.
+
+

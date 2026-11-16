@@ -26,16 +26,21 @@ def mock_external_services():
     mock_table.insert.return_value = mock_query
     mock_client.table.return_value = mock_table
 
-    # 2. Disable network Gemini API calls during tests to avoid socket hangs
+    # 2. Disable network AI API calls during tests to avoid socket hangs
     original_gemini_key = settings.GEMINI_API_KEY
+    original_backup_key = settings.GEMINI_BACKUP_API_KEY
     settings.GEMINI_API_KEY = ""
+    settings.GEMINI_BACKUP_API_KEY = ""
 
     with patch("app.integrations.supabase.get_supabase_client", return_value=mock_client), \
          patch("app.api.v1.users.get_supabase_client", return_value=mock_client), \
+         patch("app.api.v1.assistant.get_supabase_client", return_value=mock_client), \
+         patch("app.services.personal_context_service.get_supabase_client", return_value=mock_client), \
          patch("app.api.v1.food_recognition.get_supabase_client", return_value=mock_client):
         yield mock_client
 
     settings.GEMINI_API_KEY = original_gemini_key
+    settings.GEMINI_BACKUP_API_KEY = original_backup_key
 
 @pytest.fixture
 def client():

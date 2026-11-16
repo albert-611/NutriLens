@@ -58,13 +58,17 @@ export function fileToBase64(file: File): Promise<string> {
 
 /**
  * Direct Gemini Vision multimodal detection call using Google Generative Language API.
+ * Features automated Dual-Model & Secondary Key failover:
+ * If the primary model hits rate/quota limits (HTTP 429), it immediately falls back
+ * to the secondary model (e.g. gemini-2.0-flash / gemini-1.5-flash) or backup key.
  */
 async function callGeminiVisionDirect(
   imageData: string,
-  apiKey: string,
+  primaryApiKey: string,
+  backupApiKey?: string,
   manualQuery?: string,
   language: 'bn' | 'en' = 'bn'
-): Promise<{ candidates: CandidateItem[]; reviewQuestions: string[] } | null> {
+): Promise<{ candidates: CandidateItem[]; reviewQuestions: string[]; modelUsed?: string; fallbackUsed?: boolean } | null> {
   let mimeType = 'image/jpeg';
   let base64Data = imageData;
 
@@ -109,90 +113,118 @@ Return valid JSON conforming to this schema:
 }
 `;
 
-  const configuredModel = (import.meta.env.VITE_GEMINI_VISION_MODEL || '').trim();
-  const modelsToTry = [
-    configuredModel,
-    'gemini-3.5-flash-lite',
-    'gemini-3.5-flash-lite-preview',
-    'gemini-3.5-flash',
+  // Dual-Model Architecture: Primary Model + Secondary/Fallback Model
+  const primaryModel = (import.meta.env.VITE_GEMINI_VISION_MODEL || 'gemini-3.5-flash-lite').trim();
+  const secondaryModel = (import.meta.env.VITE_GEMINI_FALLBACK_MODEL || 'gemini-3.1-flash-lite').trim();
+
+  // Deduplicated candidate models in failover priority order
+  const rawModels = [
+    primaryModel,
+    secondaryModel,
     'gemini-3.1-flash-lite',
     'gemini-3.1-flash-lite-preview',
-    'gemini-2.0-flash-lite',
-    'gemini-2.0-flash-lite-preview-02-05',
+    'gemini-3.5-flash-lite',
     'gemini-2.0-flash',
+    'gemini-2.5-flash',
     'gemini-1.5-flash',
-  ].filter(Boolean);
-  for (const model of modelsToTry) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: prompt + (manualQuery ? `\nUser note/search query: ${manualQuery}` : '') },
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Data,
-                    },
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              response_mime_type: 'application/json',
-              temperature: 0.2,
+  ];
+  const seenModels = new Set<string>();
+  const modelsToTry = rawModels.filter((m) => {
+    if (!m || seenModels.has(m)) return false;
+    seenModels.add(m);
+    return true;
+  });
+
+  const keysToTry = [primaryApiKey, backupApiKey].filter(Boolean) as string[];
+
+  let lastGeminiError = '';
+
+  for (const apiKey of keysToTry) {
+    for (const model of modelsToTry) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
             },
-          }),
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    { text: prompt + (manualQuery ? `\nUser note/search query: ${manualQuery}` : '') },
+                    {
+                      inline_data: {
+                        mime_type: mimeType,
+                        data: base64Data,
+                      },
+                    },
+                  ],
+                },
+              ],
+              generationConfig: {
+                response_mime_type: 'application/json',
+                temperature: 0.2,
+              },
+            }),
+          }
+        );
+
+        if (!res.ok) {
+          const errorText = await res.text().catch(() => '');
+          if (res.status === 429) {
+            console.warn(
+              `[NutriLens Failover] Model '${model}' quota or rate limit exceeded (HTTP 429). Switching immediately to fallback model...`
+            );
+          } else {
+            console.warn(`[NutriLens Failover] Model '${model}' failed (${res.status}): ${errorText.slice(0, 150)}. Switching to next model...`);
+          }
+          lastGeminiError = `Gemini API (${model}) failed with HTTP ${res.status}: ${errorText.slice(0, 200)}`;
+          continue;
         }
-      );
 
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => '');
-        console.error(`Gemini model ${model} failed (${res.status}):`, errorText);
-        lastGeminiError = `Gemini API (${model}) failed with HTTP ${res.status}: ${errorText.slice(0, 200)}`;
-        continue;
+        const geminiData = await res.json();
+        const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!responseText) continue;
+
+        let cleanJson = responseText.trim();
+        if (cleanJson.startsWith('```')) {
+          cleanJson = cleanJson.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+        }
+
+        const aiJson = JSON.parse(cleanJson);
+        if (Array.isArray(aiJson.detected_dishes) && aiJson.detected_dishes.length > 0) {
+          const candidates: CandidateItem[] = aiJson.detected_dishes.map((dish: any, idx: number) => ({
+            id: `ai-item-${idx + 1}-${Date.now()}`,
+            label: dish.label || 'Unknown Dish',
+            label_bn: dish.label_bn || '',
+            candidate_food_ids: [],
+            matched_food_id: null,
+            preparation_state: (dish.preparation_state as PreparationState) || 'boiled',
+            estimated_grams: Number(dish.estimated_grams) || 120,
+            portion_basis: 'ai_estimated_unconfirmed',
+            uncertainty_reasons: Array.isArray(dish.uncertainty_reasons) && dish.uncertainty_reasons.length > 0 ? dish.uncertainty_reasons : ['Visual portion scale uncalibrated; please verify grams'],
+            questions: Array.isArray(dish.questions) && dish.questions.length > 0 ? dish.questions : ['Please confirm the portion weight in grams.'],
+            confidence: 0.90,
+          }));
+
+          const isFallback = model !== primaryModel;
+          if (isFallback) {
+            console.info(`[NutriLens Failover Success] Dish scan successfully processed by fallback model: ${model}`);
+          }
+
+          return {
+            candidates,
+            reviewQuestions: Array.isArray(aiJson.overall_questions) ? aiJson.overall_questions : [],
+            modelUsed: model,
+            fallbackUsed: isFallback,
+          };
+        }
+      } catch (e) {
+        console.warn(`Gemini call error with ${model}:`, e);
       }
-
-      const geminiData = await res.json();
-      const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!responseText) continue;
-
-      let cleanJson = responseText.trim();
-      if (cleanJson.startsWith('```')) {
-        cleanJson = cleanJson.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-      }
-
-      const aiJson = JSON.parse(cleanJson);
-      if (Array.isArray(aiJson.detected_dishes) && aiJson.detected_dishes.length > 0) {
-        const candidates: CandidateItem[] = aiJson.detected_dishes.map((dish: any, idx: number) => ({
-          id: `ai-item-${idx + 1}-${Date.now()}`,
-          label: dish.label || 'Unknown Dish',
-          label_bn: dish.label_bn || '',
-          candidate_food_ids: [],
-          matched_food_id: null,
-          preparation_state: (dish.preparation_state as PreparationState) || 'boiled',
-          estimated_grams: Number(dish.estimated_grams) || 120,
-          portion_basis: 'ai_estimated_unconfirmed',
-          uncertainty_reasons: Array.isArray(dish.uncertainty_reasons) && dish.uncertainty_reasons.length > 0 ? dish.uncertainty_reasons : ['Visual portion scale uncalibrated; please verify grams'],
-          questions: Array.isArray(dish.questions) && dish.questions.length > 0 ? dish.questions : ['Please confirm the portion weight in grams.'],
-          confidence: 0.90,
-        }));
-
-        return {
-          candidates,
-          reviewQuestions: Array.isArray(aiJson.overall_questions) ? aiJson.overall_questions : [],
-        };
-      }
-    } catch (e) {
-      console.warn(`Gemini call error with ${model}:`, e);
     }
   }
 
@@ -249,11 +281,12 @@ export async function analyzeMealImage(params: {
     }
   }
 
-  // 2. Direct Gemini Vision Multimodal Detection (if VITE_GEMINI_API_KEY is configured in .env)
+  // 2. Direct Gemini Vision Multimodal Detection (with Dual-Model and Backup Key Failover)
   const clientGeminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').replace(/['"]/g, '').trim();
+  const backupGeminiApiKey = (import.meta.env.VITE_GEMINI_BACKUP_API_KEY || '').replace(/['"]/g, '').trim();
   if (clientGeminiApiKey && imageBase64) {
     try {
-      const aiResult = await callGeminiVisionDirect(imageBase64, clientGeminiApiKey, manualQuery, language);
+      const aiResult = await callGeminiVisionDirect(imageBase64, clientGeminiApiKey, backupGeminiApiKey, manualQuery, language);
       if (aiResult && aiResult.candidates.length > 0) {
         const enrichedCandidates = await Promise.all(
           aiResult.candidates.map((c) => enrichCandidateWithDatabase(c))
@@ -268,7 +301,9 @@ export async function analyzeMealImage(params: {
           ],
           detected_cuisine: 'bangladeshi',
           warnings: [
-            'AI vision proposes candidates with uncertainty. Please confirm grams and cooking methods before calculating authoritative nutrition.',
+            aiResult.fallbackUsed
+              ? `⚡ Scanned using backup model: ${aiResult.modelUsed} (primary model reached quota limit).`
+              : 'AI vision proposes candidates with uncertainty. Please confirm grams and cooking methods before calculating authoritative nutrition.',
           ],
           created_at: new Date().toISOString(),
         };

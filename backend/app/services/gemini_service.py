@@ -58,38 +58,48 @@ class GeminiService:
 
                 models_to_try = [
                     settings.GEMINI_VISION_MODEL,
-                    "gemini-3.5-flash-lite",
-                    "gemini-3.5-flash-lite-preview",
-                    "gemini-3.5-flash",
+                    settings.GEMINI_FALLBACK_MODEL,
                     "gemini-3.1-flash-lite",
                     "gemini-3.1-flash-lite-preview",
-                    "gemini-2.0-flash-lite",
-                    "gemini-2.0-flash-lite-preview-02-05",
+                    "gemini-3.5-flash-lite",
                     "gemini-2.0-flash",
+                    "gemini-2.5-flash",
                     "gemini-1.5-flash",
                 ]
                 # Deduplicate while preserving order
                 seen_models = set()
                 candidate_models = [m for m in models_to_try if m and not (m in seen_models or seen_models.add(m))]
 
-                async with httpx.AsyncClient(timeout=30.0) as http_client:
-                    for model in candidate_models:
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-                        resp = await http_client.post(
-                            url,
-                            headers={
-                                "Content-Type": "application/json",
-                                "x-goog-api-key": api_key,
-                            },
-                            json={
-                                "contents": [{"parts": parts}],
-                                "generationConfig": {
-                                    "response_mime_type": "application/json",
-                                    "temperature": 0.2
+                candidate_keys = [
+                    k.strip("\"' ") for k in [settings.GEMINI_API_KEY, settings.GEMINI_BACKUP_API_KEY]
+                    if k and k.strip("\"' ")
+                ]
+
+                async with httpx.AsyncClient(timeout=6.0) as http_client:
+                    for current_key in candidate_keys:
+                        for model in candidate_models:
+                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={current_key}"
+                            resp = await http_client.post(
+                                url,
+                                headers={
+                                    "Content-Type": "application/json",
+                                    "x-goog-api-key": current_key,
+                                },
+                                json={
+                                    "contents": [{"parts": parts}],
+                                    "generationConfig": {
+                                        "response_mime_type": "application/json",
+                                        "temperature": 0.2
+                                    }
                                 }
-                            }
-                        )
-                        if resp.status_code == 200:
+                            )
+                            if resp.status_code == 429:
+                                logger.warning(f"[NutriLens Failover] Model {model} quota/rate limit exceeded (429). Switching to fallback model...")
+                                continue
+                            elif resp.status_code != 200:
+                                logger.warning(f"[NutriLens Failover] Model {model} failed ({resp.status_code}). Trying next model...")
+                                continue
+
                             data = resp.json()
                             text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
                             if text:

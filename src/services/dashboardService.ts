@@ -1,0 +1,456 @@
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import type { Profile, PreparationState } from '../contracts';
+import { getFoodById, resolveFoodAlias } from '../lib/foodDatabase';
+
+export interface ConfirmedFoodItemSummary {
+  foodId: string;
+  name: string;
+  nameBn: string;
+  category: string;
+  grams: number;
+  preparationState: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  cost: number;
+}
+
+export interface ConfirmedMealRecord {
+  id: string;
+  title: string;
+  titleBn: string;
+  time: string;
+  timestamp: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  bazarCost: number;
+  status: 'confirmed';
+  items: ConfirmedFoodItemSummary[];
+}
+
+export interface DashboardMetrics {
+  // Today's consumption (sum of meals confirmed today)
+  todayCalories: number;
+  todayProtein: number;
+  todayCarbs: number;
+  todayFat: number;
+  todayCost: number;
+
+  // Personalized Targets
+  targetCalories: number;
+  targetProtein: number;
+  targetCarbs: number;
+  dailyBudget: number;
+
+  // Percentage progress
+  caloriesPercent: number;
+  proteinPercent: number;
+  carbsPercent: number;
+  budgetPercent: number;
+
+  // Dynamic context descriptions
+  proteinSourcesText: string;
+  carbsSourcesText: string;
+  budgetStatusText: string;
+
+  // Meals list
+  recentMeals: ConfirmedMealRecord[];
+  hasMealsToday: boolean;
+  totalMealsCount: number;
+}
+
+/**
+ * Calculates item cost based on food category and grams according to Bangladesh market averages.
+ */
+export function calculateItemCost(category?: string, grams: number = 100): number {
+  const multiplier = grams / 100.0;
+  let basePer100g = 10.0; // default vegetable / staple rate
+
+  switch (category) {
+    case 'fish_and_seafood':
+      basePer100g = 45.0; // ~450 BDT/kg
+      break;
+    case 'meat_and_poultry':
+      basePer100g = 55.0; // ~550 BDT/kg
+      break;
+    case 'eggs':
+      basePer100g = 20.0; // ~12-13 BDT per 60g egg
+      break;
+    case 'pulses_and_legumes':
+      basePer100g = 13.0; // ~130 BDT/kg masoor dal
+      break;
+    case 'grains_and_cereals':
+      basePer100g = 7.0; // ~70 BDT/kg parboiled rice
+      break;
+    case 'dairy':
+      basePer100g = 12.0; // ~120 BDT/litre
+      break;
+    case 'oils_and_fats':
+      basePer100g = 22.0; // ~220 BDT/litre mustard/soybean
+      break;
+    case 'fruits':
+      basePer100g = 15.0;
+      break;
+    default:
+      basePer100g = 10.0;
+  }
+
+  return Number((basePer100g * multiplier).toFixed(2));
+}
+
+/**
+ * Formats a timestamp into human-readable relative/clock time (e.g. "Today, 1:30 PM (Lunch)").
+ */
+export function formatMealTime(isoString: string): { display: string; mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' } {
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) {
+      return { display: 'Today', mealType: 'lunch' };
+    }
+
+    const hours = d.getHours();
+    let mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'snack';
+    if (hours >= 5 && hours < 11) mealType = 'breakfast';
+    else if (hours >= 11 && hours < 16) mealType = 'lunch';
+    else if (hours >= 16 && hours < 18) mealType = 'snack';
+    else mealType = 'dinner';
+
+    const typeLabel = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+
+    const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+
+    if (isToday) {
+      return { display: `Today, ${timeStr} (${typeLabel})`, mealType };
+    } else if (isYesterday) {
+      return { display: `Yesterday, ${timeStr} (${typeLabel})`, mealType };
+    } else {
+      const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return { display: `${dateStr}, ${timeStr} (${typeLabel})`, mealType };
+    }
+  } catch (e) {
+    return { display: 'Recently', mealType: 'lunch' };
+  }
+}
+
+/**
+ * Calculates personalized daily nutritional targets using Mifflin-St Jeor / FAO guidelines.
+ */
+export function calculatePersonalizedTargets(profile: Profile | null): {
+  targetCalories: number;
+  targetProtein: number;
+  targetCarbs: number;
+  dailyBudget: number;
+} {
+  const weight = profile?.weight_value || 65;
+  const height = profile?.height_value || 170;
+  const age = profile?.age || 25;
+  const sex = profile?.biological_sex || 'male';
+  const activity = profile?.activity_level || 'moderately_active';
+  const goal = profile?.general_goal || 'balanced_wellness';
+
+  // Mifflin-St Jeor BMR
+  let bmr = 10 * weight + 6.25 * height - 5 * age;
+  if (sex === 'male') {
+    bmr += 5;
+  } else if (sex === 'female') {
+    bmr -= 161;
+  } else {
+    bmr -= 78;
+  }
+
+  // Physical Activity Level (PAL) Multiplier
+  let pal = 1.4;
+  if (activity === 'sedentary') pal = 1.2;
+  else if (activity === 'lightly_active') pal = 1.375;
+  else if (activity === 'moderately_active') pal = 1.55;
+  else if (activity === 'very_active') pal = 1.725;
+  else if (activity === 'extremely_active') pal = 1.9;
+
+  let tdee = Math.round(bmr * pal);
+
+  // Goal adjustment
+  if (goal === 'diabetic_friendly_lifestyle') {
+    tdee = Math.max(1600, tdee - 200);
+  } else if (goal === 'high_protein') {
+    tdee = Math.max(1800, tdee);
+  }
+
+  // Round to nearest 50 kcal
+  const targetCalories = Math.max(1500, Math.round(tdee / 50) * 50);
+
+  // Protein target (1.2g to 1.6g per kg based on goal)
+  const proteinMultiplier = goal === 'high_protein' ? 1.6 : 1.1;
+  const targetProtein = Math.round(weight * proteinMultiplier);
+
+  // Carbohydrate target (~50% of total calories, 4 kcal/g)
+  const carbCalories = targetCalories * (goal === 'diabetic_friendly_lifestyle' ? 0.45 : 0.52);
+  const targetCarbs = Math.round(carbCalories / 4);
+
+  // Daily budget
+  let dailyBudget = 150;
+  if (profile?.budget_amount && profile.budget_amount > 0) {
+    if (profile.budget_duration_days && profile.budget_duration_days > 1) {
+      dailyBudget = Math.round(profile.budget_amount / profile.budget_duration_days);
+    } else {
+      dailyBudget = Math.round(profile.budget_amount);
+    }
+  }
+
+  return {
+    targetCalories,
+    targetProtein,
+    targetCarbs,
+    dailyBudget: Math.max(50, dailyBudget),
+  };
+}
+
+const LOCAL_MEALS_PREFIX = 'nutrilens_confirmed_meals_';
+
+/**
+ * Gets local confirmed meals stored in localStorage for the user.
+ */
+export function getLocalConfirmedMeals(userId: string): ConfirmedMealRecord[] {
+  try {
+    const raw = localStorage.getItem(`${LOCAL_MEALS_PREFIX}${userId}`);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn('Failed to parse local confirmed meals:', e);
+    return [];
+  }
+}
+
+/**
+ * Saves a new confirmed meal into local storage for immediate responsiveness.
+ */
+export function saveLocalConfirmedMeal(userId: string, meal: ConfirmedMealRecord): void {
+  try {
+    const existing = getLocalConfirmedMeals(userId);
+    // Deduplicate by id
+    const filtered = existing.filter((m) => m.id !== meal.id);
+    const updated = [meal, ...filtered].slice(0, 50); // keep last 50
+    localStorage.setItem(`${LOCAL_MEALS_PREFIX}${userId}`, JSON.stringify(updated));
+  } catch (e) {
+    console.warn('Failed to save local confirmed meal:', e);
+  }
+}
+
+/**
+ * Fetches real confirmed meals from Supabase for the authenticated user
+ * and merges with local cache.
+ */
+export async function fetchUserConfirmedMeals(userId: string): Promise<ConfirmedMealRecord[]> {
+  const localList = getLocalConfirmedMeals(userId);
+
+  if (!isSupabaseConfigured || !userId) {
+    return localList;
+  }
+
+  try {
+    const { data: logs, error } = await supabase
+      .from('meal_logs')
+      .select(`
+        id,
+        created_at,
+        status,
+        input_mode,
+        meal_items (
+          id,
+          food_id,
+          confirmed_grams,
+          preparation_state,
+          portion_source
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('status', 'confirmed')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error || !logs) {
+      return localList;
+    }
+
+    const fetchedRecords: ConfirmedMealRecord[] = [];
+
+    for (const log of logs) {
+      const itemsRaw = log.meal_items || [];
+      if (itemsRaw.length === 0) continue;
+
+      const itemSummaries: ConfirmedFoodItemSummary[] = itemsRaw.map((it: any) => {
+        const dbFood = getFoodById(it.food_id) || resolveFoodAlias(it.food_id);
+        const grams = Number(it.confirmed_grams) || 100;
+        const mult = grams / 100.0;
+
+        const cal = Math.round((dbFood?.energy_kcal ?? 130) * mult);
+        const pro = Number(((dbFood?.protein_g ?? 2.7) * mult).toFixed(1));
+        const carb = Number(((dbFood?.carbohydrate_g ?? 28.2) * mult).toFixed(1));
+        const fat = Number(((dbFood?.fat_g ?? 0.3) * mult).toFixed(1));
+        const cost = calculateItemCost(dbFood?.category, grams);
+
+        return {
+          foodId: it.food_id,
+          name: dbFood?.name_en || 'Confirmed Food',
+          nameBn: dbFood?.name_bn || '',
+          category: dbFood?.category || 'mixed_dishes',
+          grams,
+          preparationState: it.preparation_state || 'cooked',
+          calories: cal,
+          protein: pro,
+          carbs: carb,
+          fat,
+          cost,
+        };
+      });
+
+      const totalCal = itemSummaries.reduce((a, b) => a + b.calories, 0);
+      const totalPro = Number(itemSummaries.reduce((a, b) => a + b.protein, 0).toFixed(1));
+      const totalCarb = Number(itemSummaries.reduce((a, b) => a + b.carbs, 0).toFixed(1));
+      const totalFat = Number(itemSummaries.reduce((a, b) => a + b.fat, 0).toFixed(1));
+      const totalCost = Number(itemSummaries.reduce((a, b) => a + b.cost, 0).toFixed(2));
+
+      const title = itemSummaries.slice(0, 3).map((x) => x.name).join(' + ');
+      const titleBn = itemSummaries.slice(0, 3).map((x) => x.nameBn || x.name).join(' + ');
+      const timeInfo = formatMealTime(log.created_at);
+
+      fetchedRecords.push({
+        id: log.id,
+        title,
+        titleBn,
+        time: timeInfo.display,
+        timestamp: log.created_at,
+        mealType: timeInfo.mealType,
+        calories: totalCal,
+        protein: totalPro,
+        carbs: totalCarb,
+        fat: totalFat,
+        bazarCost: totalCost,
+        status: 'confirmed',
+        items: itemSummaries,
+      });
+    }
+
+    // Merge fetched with local, prioritizing newest
+    const map = new Map<string, ConfirmedMealRecord>();
+    for (const m of localList) map.set(m.id, m);
+    for (const m of fetchedRecords) map.set(m.id, m);
+
+    const merged = Array.from(map.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    // Update local cache
+    try {
+      localStorage.setItem(`${LOCAL_MEALS_PREFIX}${userId}`, JSON.stringify(merged.slice(0, 50)));
+    } catch (e) {}
+
+    return merged;
+  } catch (err) {
+    console.warn('Error fetching user meal logs from Supabase:', err);
+    return localList;
+  }
+}
+
+/**
+ * Computes all live dashboard metrics from real confirmed meal logs.
+ */
+export async function getDashboardMetrics(userId: string, profile: Profile | null): Promise<DashboardMetrics> {
+  const targets = calculatePersonalizedTargets(profile);
+  const allMeals = await fetchUserConfirmedMeals(userId);
+
+  const todayStr = new Date().toDateString();
+  const todayMeals = allMeals.filter((m) => {
+    try {
+      return new Date(m.timestamp).toDateString() === todayStr;
+    } catch {
+      return false;
+    }
+  });
+
+  const hasMealsToday = todayMeals.length > 0;
+
+  // Aggregate totals
+  const todayCalories = todayMeals.reduce((acc, m) => acc + m.calories, 0);
+  const todayProtein = Number(todayMeals.reduce((acc, m) => acc + m.protein, 0).toFixed(1));
+  const todayCarbs = Number(todayMeals.reduce((acc, m) => acc + m.carbs, 0).toFixed(1));
+  const todayFat = Number(todayMeals.reduce((acc, m) => acc + m.fat, 0).toFixed(1));
+  const todayCost = Number(todayMeals.reduce((acc, m) => acc + m.bazarCost, 0).toFixed(2));
+
+  // Percentages
+  const caloriesPercent = targets.targetCalories > 0 ? Math.min(100, Math.round((todayCalories / targets.targetCalories) * 100)) : 0;
+  const proteinPercent = targets.targetProtein > 0 ? Math.min(100, Math.round((todayProtein / targets.targetProtein) * 100)) : 0;
+  const carbsPercent = targets.targetCarbs > 0 ? Math.min(100, Math.round((todayCarbs / targets.targetCarbs) * 100)) : 0;
+  const budgetPercent = targets.dailyBudget > 0 ? Math.min(100, Math.round((todayCost / targets.dailyBudget) * 100)) : 0;
+
+  // Extract protein source names
+  const proteinItems: string[] = [];
+  todayMeals.forEach((m) => {
+    m.items.forEach((it) => {
+      if (['fish_and_seafood', 'meat_and_poultry', 'eggs', 'pulses_and_legumes', 'dairy'].includes(it.category)) {
+        if (!proteinItems.includes(it.name)) proteinItems.push(it.name);
+      }
+    });
+  });
+
+  const proteinSourcesText = proteinItems.length > 0
+    ? proteinItems.slice(0, 2).join(' & ')
+    : hasMealsToday ? 'Mixed dietary protein' : 'No protein logged yet today';
+
+  // Extract carb source names
+  const carbItems: string[] = [];
+  todayMeals.forEach((m) => {
+    m.items.forEach((it) => {
+      if (['grains_and_cereals', 'vegetables'].includes(it.category)) {
+        if (!carbItems.includes(it.name)) carbItems.push(it.name);
+      }
+    });
+  });
+
+  const carbsSourcesText = carbItems.length > 0
+    ? carbItems.slice(0, 2).join(' & ')
+    : hasMealsToday ? 'Balanced meal carbohydrates' : 'No carbohydrates logged yet today';
+
+  // Budget status string
+  let budgetStatusText = '';
+  if (todayCost <= targets.dailyBudget) {
+    const remaining = Number((targets.dailyBudget - todayCost).toFixed(2));
+    budgetStatusText = remaining > 0
+      ? `৳ ${remaining.toFixed(2)} remaining of ৳ ${targets.dailyBudget} limit`
+      : `Within ৳ ${targets.dailyBudget} daily limit`;
+  } else {
+    const over = Number((todayCost - targets.dailyBudget).toFixed(2));
+    budgetStatusText = `Exceeded daily budget by ৳ ${over.toFixed(2)}`;
+  }
+
+  return {
+    todayCalories,
+    todayProtein,
+    todayCarbs,
+    todayFat,
+    todayCost,
+    targetCalories: targets.targetCalories,
+    targetProtein: targets.targetProtein,
+    targetCarbs: targets.targetCarbs,
+    dailyBudget: targets.dailyBudget,
+    caloriesPercent,
+    proteinPercent,
+    carbsPercent,
+    budgetPercent,
+    proteinSourcesText,
+    carbsSourcesText,
+    budgetStatusText,
+    recentMeals: allMeals.slice(0, 5),
+    hasMealsToday,
+    totalMealsCount: allMeals.length,
+  };
+}
