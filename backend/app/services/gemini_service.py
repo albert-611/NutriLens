@@ -4,6 +4,7 @@ import uuid
 from typing import List, Optional, Dict, Any
 from app.core.config import settings
 from app.schemas.food import FoodCandidate, FoodRecognizeResponse
+from app.services.clarification_service import ClarificationService
 
 logger = logging.getLogger(__name__)
 
@@ -209,12 +210,17 @@ class GeminiService:
                                     candidates.append(cand)
 
                                 if candidates:
+                                    clarif_qs = ClarificationService.generate_clarification_questions(
+                                        [c.model_dump() for c in candidates],
+                                        raw_questions=ai_json.get("overall_questions") if isinstance(ai_json.get("overall_questions"), list) else None,
+                                    )
                                     return FoodRecognizeResponse(
                                         image_id=str(uuid.uuid4()),
                                         meal_type=meal_type,
                                         recognition_outcome="FOOD_DETECTED",
                                         is_food=True,
                                         candidates=candidates,
+                                        clarification_questions=clarif_qs,
                                         requires_user_confirmation=True,
                                         uncertainty_detected=uncertainty,
                                     )

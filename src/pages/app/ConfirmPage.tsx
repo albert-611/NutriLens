@@ -23,6 +23,7 @@ import {
   Flame,
   Layers,
   Check,
+  CheckCircle,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -32,7 +33,13 @@ import {
   type AnalyzeMealResponse,
   type PreparationState,
   type FoodSearchResultItem,
+  type ClarificationQuestion,
+  type ClarificationAnswer,
 } from '../../contracts';
+import {
+  generateClarificationQuestions,
+  interpretClarificationAnswers,
+} from '../../services/clarificationService';
 import {
   getDraftAnalysis,
 } from '../../services/mealAnalysisService';
@@ -94,6 +101,13 @@ export const ConfirmPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Clarification questions interactive state
+  const [clarificationQuestions, setClarificationQuestions] = useState<ClarificationQuestion[]>([]);
+  const [userAnswers, setUserAnswers] = useState<Record<string, { selected: string[]; custom: string }>>({});
+  const [userReportedIngredients, setUserReportedIngredients] = useState<string[]>([]);
+  const [isClarificationSubmitted, setIsClarificationSubmitted] = useState<boolean>(false);
+  const [isClarificationEditing, setIsClarificationEditing] = useState<boolean>(false);
+
   // Search Modal state (for adding or swapping foods)
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -115,21 +129,31 @@ export const ConfirmPage: React.FC = () => {
     });
   }, [activeItem]);
 
-  // Allergy and Intolerance Audit
+  // Allergy and Intolerance Audit (Deduplicated with exact evidence levels & user-reported ingredients)
   const allergyAudit = useMemo(() => {
-    const userAllergies = [
-      ...(profile?.declared_allergens || []),
-      ...foodRestrictions.filter((r) => r.restriction_type === 'allergy').map((r) => r.restriction_value),
-    ];
-    const userIntolerances = [
-      ...foodRestrictions.filter((r) => r.restriction_type === 'intolerance').map((r) => r.restriction_value),
-    ];
+    const userAllergies = Array.from(
+      new Set([
+        ...(profile?.declared_allergens || []),
+        ...foodRestrictions.filter((r) => r.restriction_type === 'allergy').map((r) => r.restriction_value),
+      ])
+    );
+    const userIntolerances = Array.from(
+      new Set([
+        ...foodRestrictions.filter((r) => r.restriction_type === 'intolerance').map((r) => r.restriction_value),
+      ])
+    );
     return auditMealForUserRestrictions(
-      items.map((it) => ({ name: it.name, nameBn: it.nameBn })),
+      items.map((it) => ({
+        id: it.id,
+        name: it.name,
+        nameBn: it.nameBn,
+        preparationState: it.preparationState,
+        userReportedIngredients,
+      })),
       userAllergies,
       userIntolerances
     );
-  }, [items, profile?.declared_allergens, foodRestrictions]);
+  }, [items, profile?.declared_allergens, foodRestrictions, userReportedIngredients]);
 
   // Load items on mount or when router state changes
   useEffect(() => {
@@ -144,6 +168,23 @@ export const ConfirmPage: React.FC = () => {
 
     if (data && data.candidates && data.candidates.length > 0) {
       setAnalysisData(data);
+      // Initialize interactive clarification questions
+      const clarif = data.clarification_questions?.length
+        ? data.clarification_questions
+        : generateClarificationQuestions(data.candidates, data.review_questions);
+      setClarificationQuestions(clarif);
+
+      const initAnswers: Record<string, { selected: string[]; custom: string }> = {};
+      clarif.forEach((q) => {
+        initAnswers[q.question_id] = {
+          selected: q.selected_answers || [],
+          custom: q.custom_answer || '',
+        };
+      });
+      setUserAnswers(initAnswers);
+      setIsClarificationSubmitted(false);
+      setIsClarificationEditing(false);
+      setUserReportedIngredients([]);
       // Map candidate items to editable items with rich serving units
       const mappedItems: ConfirmedEditableItem[] = data.candidates.map((cand, idx) => {
         const dbFood = cand.matched_food_id
@@ -330,6 +371,94 @@ export const ConfirmPage: React.FC = () => {
     if (!activeItem) return null;
     return computeItemNutrients(activeItem);
   }, [activeItem]);
+
+  // Clarification questions interactions
+  const handleToggleOption = (questionId: string, option: string, isSingleSelect: boolean) => {
+    setUserAnswers((prev) => {
+      const current = prev[questionId] || { selected: [], custom: '' };
+      let newSelected: string[] = [];
+      if (isSingleSelect) {
+        newSelected = current.selected.includes(option) ? [] : [option];
+      } else {
+        if (option === 'Not sure' || option.includes('No added oil')) {
+          newSelected = current.selected.includes(option) ? [] : [option];
+        } else {
+          const filtered = current.selected.filter(
+            (o) => o !== 'Not sure' && !o.includes('No added oil')
+          );
+          if (filtered.includes(option)) {
+            newSelected = filtered.filter((o) => o !== option);
+          } else {
+            newSelected = [...filtered, option];
+          }
+        }
+      }
+      return {
+        ...prev,
+        [questionId]: {
+          ...current,
+          selected: newSelected,
+        },
+      };
+    });
+  };
+
+  const handleCustomAnswerChange = (questionId: string, text: string) => {
+    setUserAnswers((prev) => ({
+      ...prev,
+      [questionId]: {
+        ...(prev[questionId] || { selected: [] }),
+        custom: text,
+      },
+    }));
+  };
+
+  const handleSubmitClarification = () => {
+    const formattedAnswers: ClarificationAnswer[] = Object.entries(userAnswers).map(
+      ([qId, ans]) => ({
+        question_id: qId,
+        selected_answers: ans.selected,
+        custom_answer: ans.custom.trim() || null,
+      })
+    );
+
+    const interpretation = interpretClarificationAnswers(formattedAnswers);
+    setUserReportedIngredients(interpretation.userReportedIngredients);
+    setIsClarificationSubmitted(true);
+    setIsClarificationEditing(false);
+
+    // If additions were suggested (e.g. Potato or Boiled Egg in Biryani)
+    if (interpretation.addedFoods.length > 0) {
+      setItems((prev) => {
+        const newItems = [...prev];
+        interpretation.addedFoods.forEach((add) => {
+          if (!newItems.some((it) => it.name.toLowerCase() === add.name.toLowerCase())) {
+            newItems.push({
+              id: `clarif-add-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              foodId: '',
+              externalRecordId: 'CLARIF-ADD',
+              name: add.name,
+              nameBn: add.nameBn || '',
+              category: add.category,
+              preparationState: 'boiled',
+              grams: add.grams,
+              aiEstimatedGrams: add.grams,
+              isCountable: add.category === 'Poultry And Eggs',
+              detectedCount: add.category === 'Poultry And Eggs' ? 1 : null,
+              countUnit: add.category === 'Poultry And Eggs' ? 'egg' : null,
+              selectedUnit: 'g',
+              selectedQuantity: add.grams,
+              customWeightPerUnit: null,
+              conversionNote: 'Added from clarification answers',
+              portionSource: 'user_entered',
+              uncertaintyReasons: [],
+            });
+          }
+        });
+        return newItems;
+      });
+    }
+  };
 
   // Gram Calculator: Direct Gram Update
   const updateGramsDirect = (id: string, val: number) => {
@@ -792,63 +921,267 @@ export const ConfirmPage: React.FC = () => {
             AI vision detects food identities and flags portion uncertainty. Adjust the preparation method and gram weight before proceeding to deterministic calculation against official FCDB & USDA FoodData Central databases.
           </p>
 
-          {/* AI Uncertainty Review Questions */}
-          {analysisData?.review_questions && analysisData.review_questions.length > 0 && (
-            <div className="pt-1.5">
-              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-left space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                  <HelpCircle className="w-3 h-3" />
-                  AI Clarification Questions:
-                </p>
-                <ul className="list-disc list-inside text-[11px] text-amber-800 dark:text-amber-300 space-y-0.5">
-                  {analysisData.review_questions.map((q, idx) => (
-                    <li key={idx}>{q}</li>
-                  ))}
-                </ul>
+        </div>
+      </div>
+
+      {/* Interactive AI Clarification Questions Card */}
+      {clarificationQuestions.length > 0 && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-300/60 dark:border-amber-800/40 shadow-sm space-y-4 animate-fadeIn">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-amber-200/70 dark:border-amber-900/50">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <h3 className="font-bold text-sm text-amber-950 dark:text-amber-100">
+                  AI Clarification Questions ({clarificationQuestions.length})
+                </h3>
+              </div>
+              <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                Answer these questions to refine cooking oil calories, ingredient assumptions, and allergy safety.
+              </p>
+            </div>
+            {isClarificationSubmitted && !isClarificationEditing && (
+              <button
+                type="button"
+                onClick={() => setIsClarificationEditing(true)}
+                className="text-xs font-semibold px-3 py-1 rounded-xl bg-amber-200/60 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 hover:bg-amber-300/60 transition-colors self-start sm:self-auto cursor-pointer"
+              >
+                Edit Answers
+              </button>
+            )}
+          </div>
+
+          {/* If submitted and not in edit mode, show clean summary */}
+          {isClarificationSubmitted && !isClarificationEditing ? (
+            <div className="p-3.5 rounded-2xl bg-white/70 dark:bg-slate-900/50 border border-amber-200/70 dark:border-amber-800/40 text-xs space-y-2">
+              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-semibold">
+                <CheckCircle className="w-4 h-4" />
+                Answers applied to nutrition & personal intolerance analysis
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {Object.entries(userAnswers).flatMap(([qId, ans]) => {
+                  const q = clarificationQuestions.find((cq) => cq.question_id === qId);
+                  const list: string[] = [...ans.selected];
+                  if (ans.custom) list.push(`"${ans.custom}"`);
+                  return list.map((it, idx) => (
+                    <span
+                      key={`${qId}-${idx}`}
+                      className="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-[11px] font-medium"
+                    >
+                      {q ? `${q.question.slice(0, 22)}...: ` : ''}{it}
+                    </span>
+                  ));
+                })}
+              </div>
+            </div>
+          ) : (
+            /* Interactive question forms */
+            <div className="space-y-4">
+              {clarificationQuestions.map((q, qIdx) => {
+                const ans = userAnswers[q.question_id] || { selected: [], custom: '' };
+                const isSingleSelect = q.answer_type === 'single_select' || q.answer_type === 'yes_no';
+
+                return (
+                  <div
+                    key={q.question_id}
+                    className="p-4 rounded-2xl bg-white/90 dark:bg-slate-900/70 border border-amber-200/80 dark:border-amber-800/40 space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-bold text-amber-950 dark:text-amber-100">
+                        <span className="text-amber-600 dark:text-amber-400 mr-1.5 font-sans">Q{qIdx + 1}:</span>
+                        {q.question}
+                      </span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0 font-sans">
+                        {isSingleSelect ? 'Single choice' : 'Multiple choices allowed'}
+                      </span>
+                    </div>
+
+                    {/* Option Pills */}
+                    <div className="flex flex-wrap gap-2">
+                      {q.options.map((opt) => {
+                        const isSelected = ans.selected.includes(opt);
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => handleToggleOption(q.question_id, opt, isSingleSelect)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-amber-500 text-white shadow-xs scale-[1.02]'
+                                : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Custom text answer */}
+                    {q.allow_custom_answer && (
+                      <div className="pt-1 space-y-1">
+                        <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                          Other / Additional details (optional):
+                        </label>
+                        <input
+                          type="text"
+                          value={ans.custom || ''}
+                          onChange={(e) => handleCustomAnswerChange(q.question_id, e.target.value)}
+                          placeholder={q.custom_answer_placeholder || 'Enter custom details or ingredients...'}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500/50"
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              <div className="flex items-center justify-end gap-3 pt-1">
+                {isClarificationEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setIsClarificationEditing(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSubmitClarification}
+                  className="px-5 py-2.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  Submit Answers & Apply to Meal
+                </button>
               </div>
             </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* Allergy Warning Alert Banner */}
       {allergyAudit.hasAllergyConflict && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500/60 text-rose-800 dark:text-rose-200 space-y-2 animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <AlertOctagon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-            <h4 className="font-extrabold text-sm text-rose-900 dark:text-rose-100">
-              Critical Allergen Conflict Detected
-            </h4>
+        <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500/60 text-rose-900 dark:text-rose-100 space-y-3 animate-fadeIn">
+          <div className="flex items-center justify-between pb-2 border-b border-rose-200 dark:border-rose-900/60">
+            <div className="flex items-center gap-2">
+              <AlertOctagon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+              <div>
+                <h4 className="font-extrabold text-sm text-rose-950 dark:text-rose-50">
+                  Critical Allergen Conflict Detected
+                </h4>
+                <p className="text-[11px] text-rose-700 dark:text-rose-300">
+                  One or more confirmed foods contain ingredients linked to your declared clinical allergies.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-200/80 dark:bg-rose-900/70 text-rose-800 dark:text-rose-200">
+              {allergyAudit.allergyWarnings.length} Alert{allergyAudit.allergyWarnings.length > 1 ? 's' : ''}
+            </span>
           </div>
-          <ul className="list-disc list-inside text-xs space-y-1 pl-1">
-            {allergyAudit.allergyWarnings.map((w, i) => (
-              <li key={i} className="font-semibold">
-                {w.message}
-              </li>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {allergyAudit.allergyWarnings.map((w) => (
+              <div
+                key={w.id}
+                className="p-3 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-200/80 dark:border-rose-800/40 shadow-xs space-y-1.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-bold text-xs text-rose-950 dark:text-rose-100 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600 shrink-0" />
+                    Food: {w.foodName}
+                  </div>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-sm bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-200 shrink-0">
+                    {w.evidenceLabel}
+                  </span>
+                </div>
+
+                <div className="text-[11px] space-y-1 text-slate-700 dark:text-slate-300">
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-rose-800 dark:text-rose-300">Allergen:</span>
+                    <span>{w.matchedAllergen}</span>
+                  </div>
+                  <div className="flex items-start gap-1">
+                    <span className="font-semibold text-rose-800 dark:text-rose-300 shrink-0">Reason:</span>
+                    <span className="leading-snug">{w.reason}</span>
+                  </div>
+                </div>
+              </div>
             ))}
-          </ul>
-          <p className="text-[11px] text-rose-700 dark:text-rose-300 pt-1 border-t border-rose-200 dark:border-rose-900/60">
+          </div>
+
+          <p className="text-[10px] text-rose-700 dark:text-rose-300 pt-1 border-t border-rose-200/60 dark:border-rose-900/40">
             <strong>Important Safety Notice:</strong> {allergyAudit.safetyDisclaimer}
           </p>
         </div>
       )}
 
-      {/* Intolerance Note Banner */}
-      {allergyAudit.hasIntoleranceConflict && (
-        <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-500/40 text-amber-800 dark:text-amber-200 space-y-1.5 animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <h4 className="font-bold text-xs text-amber-900 dark:text-amber-100">
-              Personal Intolerance Notes
-            </h4>
+      {/* Personal Intolerance Notes Section */}
+      {allergyAudit.hasIntoleranceConflict ? (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-500/40 text-amber-900 dark:text-amber-100 space-y-3.5 animate-fadeIn">
+          <div className="flex items-center justify-between pb-2 border-b border-amber-200 dark:border-amber-900/60">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div>
+                <h4 className="font-bold text-sm text-amber-950 dark:text-amber-50">
+                  Personal Intolerance Notes
+                </h4>
+                <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                  Potential food conflicts identified against your saved health and dietary profile.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-200/60 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200">
+              {allergyAudit.intoleranceNotes.length} {allergyAudit.intoleranceNotes.length === 1 ? 'Conflict' : 'Conflicts'}
+            </span>
           </div>
-          <ul className="list-disc list-inside text-[11px] space-y-0.5 pl-1">
-            {allergyAudit.intoleranceNotes.map((n, i) => (
-              <li key={i}>{n.message}</li>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {allergyAudit.intoleranceNotes.map((note) => (
+              <div
+                key={note.id}
+                className="p-3 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-amber-200/80 dark:border-amber-800/40 shadow-xs space-y-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                    Food: {note.foodName}
+                  </div>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-sm bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 shrink-0">
+                    {note.evidenceLabel}
+                  </span>
+                </div>
+
+                <div className="text-[11px] space-y-1 text-slate-700 dark:text-slate-300">
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-amber-800 dark:text-amber-300">Concern:</span>
+                    <span>{note.matchedAllergen}</span>
+                  </div>
+                  <div className="flex items-start gap-1">
+                    <span className="font-semibold text-amber-800 dark:text-amber-300 shrink-0">Reason:</span>
+                    <span className="leading-snug">{note.reason}</span>
+                  </div>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
+
+          <p className="text-[10px] text-amber-700/90 dark:text-amber-400 pt-1">
+            <strong>Clinical Guidance:</strong> Intolerance notes identify digestive sensitivities. Adjust portion sizes or select alternatives to prevent digestive discomfort.
+          </p>
         </div>
-      )}
+      ) : allergyAudit.noConflictNotice ? (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <p className="text-xs font-medium">
+              {allergyAudit.noConflictNotice}
+            </p>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 shrink-0">
+            Verified Clean
+          </span>
+        </div>
+      ) : null}
 
       {/* Main Two-Column Layout: Left List + Right Dedicated Gram & Count Inspector Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

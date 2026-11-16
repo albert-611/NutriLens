@@ -187,7 +187,8 @@ class PersonalNutritionContextService:
                     iname = item.get("intolerance_name")
                     if item.get("intolerance_specify"):
                         iname = f"{iname} ({item.get('intolerance_specify')})"
-                    context["medical"]["intolerances"].append(iname)
+                    if iname and iname not in context["medical"]["intolerances"]:
+                        context["medical"]["intolerances"].append(iname)
         except Exception as e:
             logger.warning(f"Could not load food intolerances: {e}")
 

@@ -8,6 +8,7 @@ import {
 } from '../contracts';
 import { resolveFoodAlias, searchFoods, getFoodById, registerDynamicFood } from '../lib/foodDatabase';
 import { searchUSDAFoodsDirect } from './usdaService';
+import { generateClarificationQuestions } from './clarificationService';
 
 export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB application limit
 export const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -389,9 +390,13 @@ export async function analyzeMealImage(params: {
           const enrichedCandidates = await Promise.all(
             parsed.data.candidates.map((c) => enrichCandidateWithDatabase(c))
           );
-          const result = {
+          const clarifQs = parsed.data.clarification_questions?.length
+            ? parsed.data.clarification_questions
+            : generateClarificationQuestions(enrichedCandidates, parsed.data.review_questions);
+          const result: AnalyzeMealResponse = {
             ...parsed.data,
             candidates: enrichedCandidates,
+            clarification_questions: clarifQs,
           };
           saveDraftAnalysis(result);
           return result;
@@ -440,6 +445,7 @@ export async function analyzeMealImage(params: {
           const enrichedCandidates = await Promise.all(
             aiResult.candidates.map((c) => enrichCandidateWithDatabase(c))
           );
+          const clarifQuestions = generateClarificationQuestions(enrichedCandidates, aiResult.reviewQuestions);
           const result: AnalyzeMealResponse = {
             analysis_id: crypto.randomUUID(),
             schema_version: '1.0',
@@ -450,6 +456,7 @@ export async function analyzeMealImage(params: {
             review_questions: aiResult.reviewQuestions.length > 0 ? aiResult.reviewQuestions : [
               'Please verify your portion weights and preparation states before calculating final nutrition totals.',
             ],
+            clarification_questions: clarifQuestions,
             detected_cuisine: 'bangladeshi',
             warnings: [
               aiResult.fallbackUsed
@@ -580,6 +587,7 @@ export async function analyzeMealImage(params: {
     warningsList.unshift(`⚠️ ${lastGeminiError}`);
   }
 
+  const clarifQuestions = generateClarificationQuestions(candidateItems, reviewQuestions);
   const response: AnalyzeMealResponse = {
     analysis_id: analysisId,
     schema_version: '1.0',
@@ -588,6 +596,7 @@ export async function analyzeMealImage(params: {
     is_food: true,
     candidates: candidateItems,
     review_questions: reviewQuestions,
+    clarification_questions: clarifQuestions,
     detected_cuisine: query.includes('fruit') || query.includes('ফল') ? 'international' : 'bangladeshi',
     warnings: warningsList,
     created_at: new Date().toISOString(),

@@ -494,6 +494,44 @@ export const RecognitionOutcomeSchema = z.enum([
 ]);
 export type RecognitionOutcome = z.infer<typeof RecognitionOutcomeSchema>;
 
+export const AnswerTypeSchema = z.enum([
+  'single_select',
+  'multi_select',
+  'multi_select_with_custom',
+  'yes_no',
+  'numeric',
+  'text',
+]);
+export type AnswerType = z.infer<typeof AnswerTypeSchema>;
+
+export const ClarificationQuestionSchema = z.object({
+  question_id: z.string(),
+  food_item_id: z.string().nullable().optional(),
+  question: z.string(),
+  answer_type: AnswerTypeSchema.default('multi_select_with_custom'),
+  required: z.boolean().default(false),
+  options: z.array(z.string()).default([]),
+  allow_custom_answer: z.boolean().default(true),
+  custom_answer_placeholder: z.string().optional(),
+  selected_answers: z.array(z.string()).default([]),
+  custom_answer: z.string().nullable().optional(),
+  numeric_unit: z.string().nullable().optional(),
+});
+export type ClarificationQuestion = z.infer<typeof ClarificationQuestionSchema>;
+
+export const ClarificationAnswerSchema = z.object({
+  question_id: z.string(),
+  selected_answers: z.array(z.string()).default([]),
+  custom_answer: z.string().nullable().optional(),
+});
+export type ClarificationAnswer = z.infer<typeof ClarificationAnswerSchema>;
+
+export const ClarificationAnswerSubmissionSchema = z.object({
+  scan_id: z.string().optional(),
+  answers: z.array(ClarificationAnswerSchema),
+});
+export type ClarificationAnswerSubmission = z.infer<typeof ClarificationAnswerSubmissionSchema>;
+
 export const AnalyzeMealResponseSchema = z.object({
   analysis_id: z.string().guid(),
   schema_version: z.string().default('1.0'),
@@ -503,6 +541,7 @@ export const AnalyzeMealResponseSchema = z.object({
   rejection_reason: z.string().nullable().optional(),
   candidates: z.array(CandidateItemSchema),
   review_questions: z.array(z.string()).default([]),
+  clarification_questions: z.array(ClarificationQuestionSchema).default([]),
   detected_cuisine: z.string().default('bangladeshi'),
   warnings: z.array(z.string()).default([]),
   created_at: z.string(),

@@ -6,6 +6,7 @@ from app.schemas.food import (
     FoodRecognizeResponse,
     FoodConfirmRequest,
     FoodConfirmResponse,
+    ClarificationSubmitRequest,
 )
 from app.core.dependencies import get_current_user, CurrentUser
 from app.services.gemini_service import GeminiService
@@ -105,3 +106,44 @@ async def confirm_food(
         status="confirmed",
     )
     return ResponseEnvelope(data=response_data)
+
+@router.post("/clarification")
+async def submit_clarification(
+    request: ClarificationSubmitRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Submits user clarification answers, updating ingredient assumptions,
+    recalculating nutrition multipliers, and returning personal intolerance audits.
+    """
+    from app.services.clarification_service import ClarificationService
+    from app.services.intolerance_service import IntoleranceService
+    from app.services.personal_context_service import PersonalContextService
+
+    # 1. Interpret user answers and update item ingredients
+    interpretation = ClarificationService.interpret_answers(
+        answers=request.answers,
+        items=request.items,
+    )
+
+    # 2. Fetch authenticated user's actual saved allergies & intolerances
+    context = await PersonalContextService.get_user_context(current_user.id, current_user.raw_token)
+    user_allergies = context.get("medical", {}).get("allergies", [])
+    user_intolerances = context.get("medical", {}).get("intolerances", [])
+
+    # 3. Perform deduplicated intolerance & allergy audit
+    audit_res = IntoleranceService.audit_food_safety(
+        candidate_foods=[it.model_dump() for it in interpretation["updated_items"]],
+        user_allergies=user_allergies,
+        user_intolerances=user_intolerances,
+    )
+
+    return ResponseEnvelope(data={
+        "scan_id": request.scan_id,
+        "updated_items": [it.model_dump() for it in interpretation["updated_items"]],
+        "user_reported_ingredients": interpretation["user_reported_ingredients"],
+        "oil_multiplier": interpretation["oil_multiplier"],
+        "oil_preference": interpretation["oil_preference"],
+        "uncertainty_preserved": interpretation["uncertainty_preserved"],
+        "safety_audit": audit_res,
+    })

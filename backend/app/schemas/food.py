@@ -19,6 +19,24 @@ class FoodCandidate(BaseModel):
     packaging_detected: bool = False
     package_net_weight_grams: Optional[float] = None
 
+class ClarificationQuestion(BaseModel):
+    question_id: str
+    food_item_id: Optional[str] = None
+    question: str
+    answer_type: str = "multi_select_with_custom"  # single_select, multi_select, multi_select_with_custom, yes_no, numeric, text
+    required: bool = False
+    options: List[str] = []
+    allow_custom_answer: bool = True
+    custom_answer_placeholder: Optional[str] = None
+    selected_answers: List[str] = []
+    custom_answer: Optional[str] = None
+    numeric_unit: Optional[str] = None
+
+class ClarificationAnswerInput(BaseModel):
+    question_id: str
+    selected_answers: List[str] = []
+    custom_answer: Optional[str] = None
+
 class FoodRecognizeRequest(BaseModel):
     image_base64: Optional[str] = None
     image_url: Optional[str] = None
@@ -32,6 +50,7 @@ class FoodRecognizeResponse(BaseModel):
     is_food: bool = True
     rejection_reason: Optional[str] = None
     candidates: List[FoodCandidate] = []
+    clarification_questions: List[ClarificationQuestion] = []
     requires_user_confirmation: bool = True
     uncertainty_detected: bool = False
 
@@ -45,12 +64,19 @@ class ConfirmedFoodItem(BaseModel):
     selected_unit: Optional[str] = "g"
     selected_quantity: Optional[float] = None
     conversion_note: Optional[str] = None
+    confirmed_ingredients: List[str] = []
 
 class FoodConfirmRequest(BaseModel):
     meal_log_id: Optional[str] = None
     meal_type: str = "lunch"
     items: List[ConfirmedFoodItem]
     notes: Optional[str] = None
+
+class ClarificationSubmitRequest(BaseModel):
+    scan_id: Optional[str] = None
+    meal_type: Optional[str] = "lunch"
+    answers: List[ClarificationAnswerInput] = []
+    items: List[ConfirmedFoodItem] = []
 
 class FoodConfirmResponse(BaseModel):
     meal_log_id: str

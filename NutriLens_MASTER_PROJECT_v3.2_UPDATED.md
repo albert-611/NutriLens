@@ -2043,4 +2043,47 @@ The Personal AI Nutrition Assistant (`NutriLens AI — Your Personal Nutrition A
 - `DELETE /api/v1/assistant/conversations/{id}`: Deletes user's conversation and associated messages.
 - `GET /api/v1/assistant/context/summary`: Transparently returns active user context summary for UI inspections.
 
+# 33 | Interactive Clarification Questions, Personal Intolerance Notes & Warning Deduplication
+
+## 33.1 Interactive AI Clarification Questions System
+1. **Interactive Answer Inputs:** Every AI-generated clarification question features interactive controls instead of passive text strings:
+   - `single_select` & `yes_no`: Option pills with mutual exclusivity.
+   - `multi_select_with_custom`: Multiple selectable options with exclusive "Not sure" / "No added oil" behavior.
+   - `custom_answer`: Custom text inputs allowing descriptive explanations (e.g. "mostly soybean oil with a spoonful of ghee").
+2. **Preset Questions Catalog:**
+   - **Cooking Oil / Fat:** Mustard oil, Soybean oil, Ghee, Sunflower oil, Vegetable oil, No added oil, Not sure.
+   - **Biryani / Polao Additions:** Potatoes included, Boiled egg included, Both included, Neither, Not sure.
+   - **Beverage Additions (Tea/Coffee):** Cow's milk, Condensed milk, Powdered milk, Added sugar, Black/plain, Not sure.
+   - **Curry Thickener:** Plain onion-ginger, Yogurt/doi, Nut paste, Cream/malai, Not sure.
+3. **Workflow & State Lifecycle:**
+   - Answers submitted via "Submit Answers & Apply to Meal" trigger deterministic nutrient updates (e.g. oil calorie factor `1.15x` to `1.25x`) and add user-reported ingredients to candidate records.
+   - Users can click "Edit Answers" at any time prior to final meal logging.
+   - Scans that are replaced or reset immediately clear previous clarification questions and answers.
+
+## 33.2 Personal Intolerance Notes & Food Conflict Detection
+1. **Separation of Allergies and Intolerances:** Clinical allergies (`high_allergy_warning`) and digestive sensitivities (`intolerance_note`) remain strictly segregated.
+2. **Zero False Positives via Discrete Token Matching:**
+   - Substring matching bugs (e.g. "Green Chili" / "কাঁচা মরিচ" matching "চা" from caffeine sensitivity) are permanently eliminated.
+   - Regex matches use word boundaries (`\b(tea|coffee|espresso|caffeine)\b`), and Bengali tokens are split into discrete words (`tokenizeWords`), guaranteeing that `কাঁচা` (raw) never matches `চা` (tea).
+3. **Evidence Levels:**
+   - `confirmed_ingredient`: Verified ingredient from FCDB/FoodNetBD/USDA record.
+   - `possible_ingredient`: Common recipe ingredient (e.g. Ghee in Biryani/Polao).
+   - `preparation_dependent`: User confirmed cooking ingredient via clarification answers (e.g. Ghee or Mustard oil).
+   - `unknown_ingredients`: Dish with unverified hidden ingredients.
+   - `no_conflict`: "No known conflicts were identified between your confirmed food items and saved dietary restrictions."
+
+## 33.3 Deduplication Strategy
+- **Composite Identity Keys:** All warning and intolerance notes use deterministic IDs:
+  `id = "${foodItemId}::${conflictType}::${matchedAllergen.toLowerCase()}"`
+- **Ingredient Aggregation:** If a food matches multiple ingredients for the same restriction (e.g. both Milk and Ghee for Lactose intolerance), evidence is combined into a single structured card instead of duplicate cards.
+- **Stable React Keys:** Rendered lists use `key={note.id}`, eliminating UI ghosting and repeated warnings.
+
+## 33.4 Test Suite Verification
+All 44 tests across clarification questions, non-food validation, deterministic nutrition, and assistant multi-user isolation pass:
+- `backend/tests/test_clarification_and_intolerance.py`: 15 passed
+- `backend/tests/test_food_validation.py`: 13 passed
+- `backend/tests/test_nutrition.py`: 11 passed
+- `backend/tests/test_assistant_isolation.py`: 5 passed
+
+
 
