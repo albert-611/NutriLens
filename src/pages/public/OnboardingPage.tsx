@@ -137,10 +137,12 @@ export const OnboardingPage: React.FC = () => {
     <div className="min-h-screen flex flex-col justify-between bg-surface-lightRoot dark:bg-forest-root text-slate-900 dark:text-slate-100 p-4 sm:p-6 transition-colors duration-200">
       {/* Top Header */}
       <div className="flex items-center justify-between max-w-3xl w-full mx-auto">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-white/95 border border-emerald-200/60 dark:border-white/20 flex items-center justify-center p-1 shadow-xs">
-            <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full object-contain" />
-          </div>
+        <div className="flex items-center gap-2.5">
+          <img 
+            src="/logo.svg" 
+            alt="NutriLens Logo" 
+            className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0" 
+          />
           <span className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white">
             NutriLens Personalization
           </span>

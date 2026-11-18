@@ -144,7 +144,7 @@ export const PublicFooter: React.FC = () => {
             {/* 1. Brand Column (Span 4 on Desktop) */}
             <div className="col-span-2 md:col-span-6 lg:col-span-4 space-y-4">
               <Link to="/#home" className="inline-flex items-center gap-3 group">
-                <div className="w-10 h-10 rounded-xl bg-white/95 backdrop-blur-md border border-slate-900/20 flex items-center justify-center p-1.5 shadow-sm group-hover:border-slate-950 transition-colors duration-200">
+                <div className="w-11 h-11 rounded-xl bg-white/95 backdrop-blur-md border border-slate-900/20 flex items-center justify-center p-1.5 shadow-sm group-hover:border-slate-950 transition-colors duration-200">
                   <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>

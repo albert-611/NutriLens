@@ -39,10 +39,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ mobileOpen, setMobileOpe
     <div className="flex flex-col h-full bg-white dark:bg-forest-card border-r border-slate-200 dark:border-forest-border select-none">
       {/* Brand Header */}
       <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100 dark:border-forest-border/70">
-        <NavLink to="/app" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-white/95 border border-emerald-200/60 dark:border-white/20 flex items-center justify-center p-1 shadow-xs">
-            <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full object-contain" />
-          </div>
+        <NavLink to="/app" className="flex items-center gap-2.5 group">
+          <img 
+            src="/logo.svg" 
+            alt="NutriLens Logo" 
+            className="w-8 h-8 sm:w-9 sm:h-9 object-contain transition-transform duration-200 group-hover:scale-105 shrink-0" 
+          />
           <div>
             <span className="font-bold text-base text-slate-900 dark:text-white tracking-tight">
               NutriLens

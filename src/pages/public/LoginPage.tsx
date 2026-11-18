@@ -143,10 +143,12 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md mx-auto my-6 sm:my-8">
         <div className="rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-8 shadow-xl space-y-6">
           {/* Logo & Headline */}
-          <div className="text-center space-y-1.5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-white/95 border border-emerald-200/60 dark:border-white/20 mx-auto flex items-center justify-center p-2 shadow-sm">
-              <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full object-contain" />
-            </div>
+          <div className="text-center space-y-2">
+            <img 
+              src="/logo.svg" 
+              alt="NutriLens Logo" 
+              className="w-14 h-14 mx-auto object-contain transition-transform duration-200 hover:scale-105" 
+            />
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white font-sans">
               Sign In to NutriLens
             </h1>
