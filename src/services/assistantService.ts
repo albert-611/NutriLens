@@ -373,9 +373,9 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
 5. NO MEDICAL PRESCRIPTIONS: Provide educational dietary suggestions, but remind the user to consult a physician or clinical dietitian for prescription therapies or medical diagnoses.
 6. TONE: Warm, encouraging, concise, actionable, and formatted cleanly with markdown bullet points.`;
 
-  // Build message history for Google AI Studio
+  // Build message history for Google AI Studio (latest 4 turns for lowest latency)
   const contents: any[] = [];
-  for (const m of history.slice(-6)) {
+  for (const m of history.slice(-4)) {
     contents.push({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }],
@@ -402,7 +402,7 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
             ],
             generationConfig: {
               temperature: 0.1,
-              maxOutputTokens: 550,
+              maxOutputTokens: 480,
             },
           }
         : {
@@ -412,7 +412,7 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
             },
             generationConfig: {
               temperature: 0.1,
-              maxOutputTokens: 550,
+              maxOutputTokens: 480,
             },
           };
 
@@ -566,8 +566,7 @@ export const assistantService = {
       }
     }
 
-    // 2. Client-Side Fallback: Direct Google AI Studio Gemini Multimodal
-    const context = await this.getContextSummary();
+    // 2. Client-Side Engine: Direct Google AI Studio Gemma Multimodal
     const resolvedConvId =
       conversationId && isValidUUID(conversationId)
         ? conversationId
@@ -576,8 +575,11 @@ export const assistantService = {
     const asstMsgId = generateUUID();
     const nowIso = new Date().toISOString();
 
-    // Retrieve past messages for conversation
-    const historyDetail = await this.getConversation(resolvedConvId);
+    // High-speed parallel pre-fetch of personal context and conversation history
+    const [context, historyDetail] = await Promise.all([
+      this.getContextSummary(),
+      this.getConversation(resolvedConvId),
+    ]);
     const existingMessages = historyDetail.messages || [];
 
     // Call Google AI Studio Gemma with SSE real-time streaming

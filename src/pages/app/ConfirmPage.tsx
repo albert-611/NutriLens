@@ -89,6 +89,36 @@ export interface ConfirmedEditableItem {
   confidence?: number;
 }
 
+export const getItemEmoji = (name: string, category?: string): string => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('cucumber') || n.includes('শসা')) return '🥒';
+  if (n.includes('carrot') || n.includes('গাজর')) return '🥕';
+  if (n.includes('sesame') || n.includes('তিল')) return '🌱';
+  if (n.includes('seed') || n.includes('বীজ') || n.includes('chia') || n.includes('mustard') || n.includes('কালোজিরা')) return '🌱';
+  if (n.includes('rice') || n.includes('ভাত') || n.includes('chawal')) return '🍚';
+  if (n.includes('egg') || n.includes('ডিম')) return '🥚';
+  if (n.includes('fish') || n.includes('মাছ') || n.includes('rui') || n.includes('hilsa')) return '🐟';
+  if (n.includes('chicken') || n.includes('মুরগি') || n.includes('murgi')) return '🍗';
+  if (n.includes('beef') || n.includes('গরু') || n.includes('meat') || n.includes('mutton')) return '🥩';
+  if (n.includes('dal') || n.includes('lentil') || n.includes('ডাল')) return '🥣';
+  if (n.includes('roti') || n.includes('bread') || n.includes('রুটি') || n.includes('paratha')) return '🫓';
+  if (n.includes('salad') || n.includes('সালাদ') || n.includes('lettuce') || n.includes('spinach') || n.includes('shak')) return '🥗';
+  if (n.includes('banana') || n.includes('কলা')) return '🍌';
+  if (n.includes('apple') || n.includes('আপেল')) return '🍎';
+  if (n.includes('tomato') || n.includes('টমেটো')) return '🍅';
+  if (n.includes('potato') || n.includes('আলু')) return '🥔';
+  if (n.includes('onion') || n.includes('পেঁয়াজ')) return '🧅';
+  if (n.includes('chili') || n.includes('মরিচ')) return '🌶️';
+  if (n.includes('oil') || n.includes('dressing') || n.includes('তেল')) return '🫒';
+  if (n.includes('milk') || n.includes('দুধ') || n.includes('yogurt') || n.includes('দই')) return '🥛';
+  if (category === 'fruits') return '🍎';
+  if (category === 'vegetables') return '🥦';
+  if (category === 'meat') return '🥩';
+  if (category === 'fish') return '🐟';
+  if (category === 'grains') return '🌾';
+  return '🍽️';
+};
+
 export const ConfirmPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -1094,9 +1124,83 @@ export const ConfirmPage: React.FC = () => {
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             AI vision detects food identities and flags portion uncertainty. Adjust the preparation method and gram weight before proceeding to deterministic calculation against official FCDB & USDA FoodData Central databases.
           </p>
-
         </div>
       </div>
+
+      {/* Separate Food Item Preview Gallery */}
+      {items.length > 0 && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-3.5 animate-fadeIn">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-forest-border/60">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Separate Food Item Preview ({items.length} Items Detected)
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Constituent ingredients, garnishes, and toppings separated for individual precision
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/20 px-3 py-1 rounded-full self-start sm:self-auto">
+              ✓ Individual Item Breakdown
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {items.map((item, idx) => {
+              const nutrients = computeItemNutrients(item);
+              const isSelected = activeItem?.id === item.id;
+              const emoji = getItemEmoji(item.name, item.category);
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedItemId(item.id)}
+                  className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    isSelected
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm'
+                      : 'bg-slate-50 dark:bg-forest-root border-slate-200 dark:border-forest-border/80 hover:border-emerald-500/40 hover:bg-emerald-50/20'
+                  }`}
+                  title={`Click to configure ${item.name}`}
+                >
+                  <div className="flex items-center gap-2.5 overflow-hidden">
+                    <span className="w-10 h-10 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border flex items-center justify-center text-xl shrink-0 shadow-2xs">
+                      {emoji}
+                    </span>
+                    <div className="truncate">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-400">#{idx + 1}</span>
+                        <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                          {item.name}
+                        </span>
+                      </div>
+                      {item.nameBn && (
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate font-bengali">
+                          {item.nameBn}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="inline-block font-extrabold text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                      {item.selectedQuantity && item.selectedUnit !== 'g' && item.selectedUnit !== 'kg'
+                        ? `${item.selectedQuantity} ${item.selectedUnit} (${item.grams}g)`
+                        : `${item.grams}g`}
+                    </span>
+                    <span className="block text-[10px] text-slate-400 mt-0.5 font-medium">
+                      {nutrients.calories} kcal
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Interactive AI Clarification Questions Card */}
       {clarificationQuestions.length > 0 && (

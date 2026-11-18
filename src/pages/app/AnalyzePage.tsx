@@ -92,7 +92,7 @@ export const AnalyzePage: React.FC = () => {
     setPreviewUrl(objectUrl);
 
     // High-performance: Pre-compress image immediately in background so analysis initiates with 0ms delay
-    compressMealImage(file, 768, 0.72)
+    compressMealImage(file, 640, 0.68)
       .then((b64) => setPrecompressedBase64(b64))
       .catch(() => {});
   };
@@ -125,7 +125,7 @@ export const AnalyzePage: React.FC = () => {
 
       if (selectedFile && !base64) {
         setAnalysisStep('Optimizing image for fast AI inference...');
-        base64 = await compressMealImage(selectedFile, 768, 0.72);
+        base64 = await compressMealImage(selectedFile, 640, 0.68);
       }
 
       setAnalysisStep('Analyzing plate with Gemini Vision multimodal detection...');
