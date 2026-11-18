@@ -141,7 +141,7 @@ export const OnboardingPage: React.FC = () => {
           <img 
             src="/logo.svg" 
             alt="NutriLens Logo" 
-            className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0" 
+            className="w-9 h-9 sm:w-10 sm:h-10 object-contain shrink-0" 
           />
           <span className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white">
             NutriLens Personalization

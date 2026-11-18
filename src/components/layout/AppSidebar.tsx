@@ -43,7 +43,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ mobileOpen, setMobileOpe
           <img 
             src="/logo.svg" 
             alt="NutriLens Logo" 
-            className="w-8 h-8 sm:w-9 sm:h-9 object-contain transition-transform duration-200 group-hover:scale-105 shrink-0" 
+            className="w-9 h-9 sm:w-10 sm:h-10 object-contain transition-transform duration-200 group-hover:scale-105 shrink-0" 
           />
           <div>
             <span className="font-bold text-base text-slate-900 dark:text-white tracking-tight">

@@ -215,12 +215,23 @@ export const AnalyzePage: React.FC = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 pt-2 border-t border-rose-200/70 dark:border-rose-900/60">
+          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-rose-200/70 dark:border-rose-900/60">
+            {selectedFile && (
+              <Button
+                onClick={handleAnalyze}
+                variant="primary"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
+                icon={<Sparkles className="w-4 h-4" />}
+              >
+                Retry Analysis
+              </Button>
+            )}
             <Button
               onClick={handleReset}
-              variant="primary"
+              variant={selectedFile ? 'secondary' : 'primary'}
               size="sm"
-              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm"
+              className={selectedFile ? 'text-rose-700 border-rose-300 hover:bg-rose-100 dark:text-rose-200 dark:border-rose-800' : 'bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm'}
               icon={<RefreshCw className="w-4 h-4" />}
             >
               Upload Another Photo

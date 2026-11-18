@@ -264,11 +264,9 @@ CRITICAL RULES:
   const rawModels = [
     primaryModel,
     secondaryModel,
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-flash-latest',
     'gemini-flash-lite-latest',
+    'gemini-3-flash-preview',
+    'gemini-flash-latest',
   ];
   const seenModels = new Set<string>();
   const modelsToTry = rawModels.filter((m) => {
@@ -411,8 +409,14 @@ CRITICAL RULES:
           };
         }
 
-        // Only return non-food or uncertain if NO dishes were found AND model explicitly classified it as non-food
+        // If the model explicitly classified it as non-food, check if fallback models are available before rejecting
         if (aiJson.outcome === 'NO_FOOD_DETECTED' || aiJson.is_food === false) {
+          const isLastModel = model === modelsToTry[modelsToTry.length - 1];
+          if (!isLastModel) {
+            console.warn(`[NutriLens Failover] Model '${model}' marked image as non-food; verifying with next model in chain...`);
+            continue;
+          }
+
           return {
             outcome: 'NO_FOOD_DETECTED',
             isFood: false,
@@ -424,6 +428,12 @@ CRITICAL RULES:
         }
 
         if (aiJson.outcome === 'UNCERTAIN_IMAGE') {
+          const isLastModel = model === modelsToTry[modelsToTry.length - 1];
+          if (!isLastModel) {
+            console.warn(`[NutriLens Failover] Model '${model}' marked image as uncertain; verifying with next model in chain...`);
+            continue;
+          }
+
           return {
             outcome: 'UNCERTAIN_IMAGE',
             isFood: false,

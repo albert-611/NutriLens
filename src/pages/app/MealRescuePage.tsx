@@ -38,17 +38,19 @@ export const MealRescuePage: React.FC = () => {
   const [recipes, setRecipes] = useState<MealRescueRecipe[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRandomLoading, setIsRandomLoading] = useState<boolean>(false);
-  const [visibleCount, setVisibleCount] = useState<number>(12);
+  const [visibleCount, setVisibleCount] = useState<number>(16);
   const [activeRecipeModal, setActiveRecipeModal] = useState<MealRescueRecipe | null>(null);
 
-  // Quick rescue suggestion templates
+  // Quick rescue suggestion templates with focus on Bangladeshi staples
   const quickPicks = [
-    { label: '🥚 High-Protein Egg & Dal', query: 'Egg' },
-    { label: '🍗 Lean Chicken Curry', query: 'Chicken' },
+    { label: '🇧🇩 All 40 Bangladeshi Recipes', query: 'Bangladeshi' },
+    { label: '🥚 ডিম ভুনা ও ডাল-ভাত', query: 'Dim' },
+    { label: '🐟 রুই ও তেলাপিয়া মাছের ঝোল', query: 'Mach' },
+    { label: '🍲 সবজি ও ভুনা খিচুড়ি', query: 'Khichuri' },
+    { label: '🍗 চিকেন ঝাল ফ্রাই ও রেজালা', query: 'Chicken' },
+    { label: '🌱 দেশি শাক ভাজি', query: 'Shak' },
+    { label: '🥔 স্পেশাল ভর্তা', query: 'Bhortha' },
     { label: '🍝 Mediterranean Pasta', query: 'Pasta' },
-    { label: '🐟 Pond Fish / Tilapia', query: 'Fish' },
-    { label: '🌱 High-Fibre Veggie', query: 'Vegetarian' },
-    { label: '🍲 Warm Soup & Broth', query: 'Soup' },
   ];
 
   // Categories supported by TheMealDB
@@ -83,7 +85,7 @@ export const MealRescuePage: React.FC = () => {
         if (!isCancelled) {
           setRecipes(results);
           setIsLoading(false);
-          setVisibleCount(12);
+          setVisibleCount(16);
         }
       } catch (err) {
         if (!isCancelled) {

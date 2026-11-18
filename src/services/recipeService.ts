@@ -14,6 +14,8 @@
  * - 100% offline resilience with verified local fallback meals
  */
 
+import { BANGLADESHI_RESCUE_RECIPES } from '../data/bangladeshiRecipes';
+
 const THEMEALDB_BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
 
 export interface RecipeIngredient {
@@ -514,9 +516,14 @@ export const VERIFIED_FALLBACK_RESCUES: MealRescueRecipe[] = [
   },
 ];
 
-// Initialize recipe cache with verified fallbacks
+// Initialize recipe cache with 40 authentic Bangladeshi recipes and verified fallbacks
+for (const bd of BANGLADESHI_RESCUE_RECIPES) {
+  recipeCache.set(bd.id, bd);
+}
 for (const fb of VERIFIED_FALLBACK_RESCUES) {
-  recipeCache.set(fb.id, fb);
+  if (!recipeCache.has(fb.id)) {
+    recipeCache.set(fb.id, fb);
+  }
 }
 
 export const recipeService = {
@@ -598,13 +605,14 @@ export const recipeService = {
     const filtered = catalog.filter(
       (r) =>
         r.name.toLowerCase().includes(cleanQuery) ||
+        (r.nameBn && r.nameBn.includes(cleanQuery)) ||
         r.category.toLowerCase().includes(cleanQuery) ||
         r.area.toLowerCase().includes(cleanQuery) ||
         r.tags.some((t) => t.toLowerCase().includes(cleanQuery)) ||
         r.ingredients.some((i) => i.name.toLowerCase().includes(cleanQuery))
     );
 
-    return filtered.length > 0 ? filtered : VERIFIED_FALLBACK_RESCUES;
+    return filtered.length > 0 ? filtered : BANGLADESHI_RESCUE_RECIPES;
   },
 
   /**
@@ -707,21 +715,25 @@ export const recipeService = {
   }): Promise<MealRescueRecipe[]> {
     const { budgetBdt, servings, maxPrepTime, cuisineType, category, exclusions, searchQuery } = params;
 
-    // 1. Ensure catalog has loaded hundreds of authentic TheMealDB recipes
+    // 1. Ensure catalog has loaded authentic recipes
     let pool: MealRescueRecipe[] = [];
 
     if (searchQuery && searchQuery.trim().length > 0) {
       pool = await this.searchMeals(searchQuery);
     } else if (category && category !== 'all') {
       pool = await this.getMealsByCategory(category);
+    } else if (cuisineType === 'bangladeshi') {
+      pool = [...BANGLADESHI_RESCUE_RECIPES];
     } else {
       pool = await this.ensureCatalogLoaded();
     }
 
-    // Guaranteed fallbacks included
-    for (const fb of VERIFIED_FALLBACK_RESCUES) {
-      if (!pool.some((p) => p.id === fb.id || p.name.toLowerCase() === fb.name.toLowerCase())) {
-        pool.push(fb);
+    // Always ensure all 40 authentic Bangladeshi recipes are represented in the pool
+    for (const bd of BANGLADESHI_RESCUE_RECIPES) {
+      if (!pool.some((p) => p.id === bd.id || p.name.toLowerCase() === bd.name.toLowerCase())) {
+        if (cuisineType === 'all' || cuisineType === 'bangladeshi') {
+          pool.unshift(bd);
+        }
       }
     }
 
