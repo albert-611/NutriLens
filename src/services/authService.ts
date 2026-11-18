@@ -1298,6 +1298,54 @@ export async function saveFullNutritionProfile(
       console.warn('user_food_restrictions sync notice:', e);
     }
 
+    // 10. Update Supabase Auth user_metadata so any device immediately receives latest profile on login
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          full_name: data.fullName,
+          display_name: data.displayName || data.fullName,
+          username: data.username,
+          avatar_url: data.avatarUrl,
+          age: data.age,
+          biological_sex: safeSex,
+          height_value: data.heightValue,
+          height_unit: safeHeightUnit,
+          weight_value: data.weightValue,
+          weight_unit: safeWeightUnit,
+          target_weight_value: data.targetWeightValue,
+          activity_level: safeActivity,
+          exercise_frequency: safeFreq,
+          sleep_duration: safeSleep,
+          disliked_foods: data.dislikedFoods || null,
+          primary_goal: data.primaryGoal,
+          primary_goal_specify: data.primaryGoalSpecify,
+          general_goal: safeGoal,
+          secondary_goals: data.secondaryGoals,
+          secondary_goals_specify: data.secondaryGoalsSpecify,
+          dietary_preference: data.dietaryPreference,
+          dietary_preference_specify: data.dietaryPreferenceSpecify,
+          food_restrictions: data.userFoodRestrictions,
+          food_restrictions_specify: data.foodRestrictionsSpecify,
+          religious_restrictions: data.religiousRestrictions,
+          religious_restrictions_specify: data.religiousRestrictionsSpecify,
+          medical_conditions: data.medicalConditions,
+          medical_condition_specify: data.medicalConditionSpecify,
+          diabetes_type: data.diabetesType,
+          allergies: data.allergies,
+          allergy_specify: data.allergySpecify,
+          intolerances: data.intolerances,
+          intolerance_specify: data.intoleranceSpecify,
+          declared_allergens: data.allergies || [],
+          dietary_exclusions: data.userFoodRestrictions || [],
+          budget_amount: data.budgetAmount,
+          budget_period: data.budgetPeriod,
+          people_count: data.peopleCount,
+        },
+      });
+    } catch (metaErr) {
+      console.warn('Auth user_metadata sync notice:', metaErr);
+    }
+
     return { data: { success: true } };
   } catch (err: any) {
     console.error('saveFullNutritionProfile error:', err);

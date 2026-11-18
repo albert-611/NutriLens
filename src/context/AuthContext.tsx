@@ -23,6 +23,7 @@ import {
   saveFullNutritionProfile,
   deleteUserAccount,
   ensureProfileExists,
+  fetchFullNutritionProfile,
 } from '../services/authService';
 
 interface AuthContextType {
@@ -52,41 +53,47 @@ interface AuthContextType {
  * Builds a valid fallback Profile object for an authenticated user.
  * Ensures the app and profile views remain functional even before database migrations are run.
  */
-function buildDefaultProfile(userId: string, email?: string, fullName?: string): Profile {
+function buildDefaultProfile(userId: string, email?: string, metaOrName?: any): Profile {
+  const meta = typeof metaOrName === 'object' && metaOrName !== null ? metaOrName : {};
+  const fullName = typeof metaOrName === 'string' ? metaOrName : meta.full_name || meta.display_name;
   const name = fullName || (email ? email.split('@')[0] : 'NutriLens Member');
-  const uname = email ? email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_') : 'member';
+  const uname = meta.username || (email ? email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_') : 'member');
+  const safeGoal = meta.general_goal || meta.primary_goal || 'balanced_wellness';
+  const allergies = meta.declared_allergens || meta.allergies || [];
+  const restrictions = meta.dietary_exclusions || meta.food_restrictions || [];
+
   return {
     id: userId,
     full_name: name,
     display_name: name,
     username: uname,
-    age: 24,
-    biological_sex: 'prefer_not_to_say',
-    height_value: 170,
-    height_unit: 'cm',
-    weight_value: 65,
-    weight_unit: 'kg',
-    target_weight_value: null,
-    activity_level: 'moderately_active',
-    exercise_frequency: '3_4_days',
-    sleep_duration: '6_7h',
-    disliked_foods: null,
-    city: 'Dhaka',
-    country: 'Bangladesh',
-    preferred_language: 'bn',
-    language: 'bn',
+    age: meta.age ?? 25,
+    biological_sex: meta.biological_sex || 'prefer_not_to_say',
+    height_value: meta.height_value ?? 170,
+    height_unit: meta.height_unit || 'cm',
+    weight_value: meta.weight_value ?? 65,
+    weight_unit: meta.weight_unit || 'kg',
+    target_weight_value: meta.target_weight_value ?? null,
+    activity_level: meta.activity_level || 'moderately_active',
+    exercise_frequency: meta.exercise_frequency || '3_4_days',
+    sleep_duration: meta.sleep_duration || '6_7h',
+    disliked_foods: meta.disliked_foods || null,
+    city: meta.city || 'Dhaka',
+    country: meta.country || 'Bangladesh',
+    preferred_language: meta.preferred_language || meta.language || 'bn',
+    language: meta.language || meta.preferred_language || 'bn',
     unit_preference: 'metric',
-    general_goal: 'balanced_wellness',
-    household_size: 1,
-    budget_amount: 5000,
+    general_goal: safeGoal,
+    household_size: meta.household_size || meta.people_count || 1,
+    budget_amount: meta.budget_amount ?? 150,
     budget_currency: 'BDT',
-    budget_people: 1,
-    budget_duration_days: 30,
+    budget_people: meta.household_size || meta.people_count || 1,
+    budget_duration_days: meta.budget_duration_days || (meta.budget_period === 'weekly' ? 7 : 1),
     available_time_minutes: 30,
     available_equipment: ['stove', 'pan', 'knife', 'pot'],
-    market_id: null,
-    declared_allergens: [],
-    dietary_exclusions: [],
+    market_id: meta.market_id || null,
+    declared_allergens: Array.isArray(allergies) ? allergies : [],
+    dietary_exclusions: Array.isArray(restrictions) ? restrictions : [],
     cuisine_preferences: ['bangladeshi'],
     health_data_consent: true,
     age_adult_confirmed: true,
@@ -94,6 +101,7 @@ function buildDefaultProfile(userId: string, email?: string, fullName?: string):
     terms_version: '1.0',
     onboarding_completed: true,
     onboarding_status: 'ONBOARDING_COMPLETED',
+    avatar_url: meta.avatar_url || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -127,83 +135,126 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      const meta = effectiveUser?.user_metadata || {};
       const initialProfile = buildDefaultProfile(
         userId,
         effectiveUser?.email,
-        effectiveUser?.user_metadata?.full_name
+        meta
       );
 
-      // Pre-set profile so views have immediate data while fetching
-      setProfile((prev) => prev || initialProfile);
+      // Pre-set profile with actual server-authenticated metadata so UI displays real user data immediately
+      setProfile((prev) => (prev ? { ...prev, ...meta } : initialProfile));
 
-      // Check if there are pending signup registration preferences cached in localStorage
+      // 1. Sync pending signup data or cloud user_metadata to PostgreSQL tables
       const userEmail = effectiveUser?.email?.toLowerCase();
+      let pendingData: any = null;
       if (userEmail) {
         const pendingKey = `nutrilens_pending_signup_${userEmail}`;
         const pendingRaw = localStorage.getItem(pendingKey);
         if (pendingRaw) {
           try {
-            const pending = JSON.parse(pendingRaw);
-            await saveFullNutritionProfile(userId, {
-              fullName: pending.fullName,
-              displayName: pending.fullName,
-              avatarUrl: pending.avatarUrl,
-              username: pending.username,
-              age: pending.age,
-              biologicalSex: pending.biologicalSex,
-              heightValue: pending.heightValue,
-              heightUnit: pending.heightUnit,
-              weightValue: pending.weightValue,
-              weightUnit: pending.weightUnit,
-              targetWeightValue: pending.targetWeightValue,
-              activityLevel: pending.activityLevel,
-              exerciseFrequency: pending.exerciseFrequency,
-              sleepDuration: pending.sleepDuration,
-              dislikedFoods: pending.dislikedFoods,
-              medicalConditions: pending.medicalConditions?.map((c: any) => (typeof c === 'string' ? c : c.name)),
-              medicalConditionSpecify: pending.medicalConditions?.find((c: any) => c.specify)?.specify,
-              diabetesType: pending.medicalConditions?.find((c: any) => c.diabetesType)?.diabetesType,
-              allergies: pending.allergies?.map((a: any) => (typeof a === 'string' ? a : a.name)),
-              allergySpecify: pending.allergies?.find((a: any) => a.specify)?.specify,
-              intolerances: pending.intolerances?.map((i: any) => (typeof i === 'string' ? i : i.name)),
-              intoleranceSpecify: pending.intolerances?.find((i: any) => i.specify)?.specify,
-              dietaryPreference: pending.dietaryPreference,
-              dietaryPreferenceSpecify: pending.dietaryPreferenceSpecify,
-              userFoodRestrictions: pending.foodRestrictions,
-              foodRestrictionsSpecify: pending.foodRestrictionsSpecify,
-              religiousRestrictions: pending.religiousRestrictions,
-              religiousRestrictionsSpecify: pending.religiousRestrictionsSpecify,
-              primaryGoal: pending.primaryGoal,
-              primaryGoalSpecify: pending.primaryGoalSpecify,
-              secondaryGoals: pending.secondaryGoals,
-              secondaryGoalsSpecify: pending.secondaryGoalsSpecify,
-              budgetAmount: 150,
-              budgetPeriod: 'daily',
-              peopleCount: 1,
-            });
-            localStorage.removeItem(pendingKey);
-          } catch (e) {
-            console.warn('Failed to apply pending signup data:', e);
-          }
+            pendingData = JSON.parse(pendingRaw);
+          } catch {}
         }
       }
 
-      let [prof, nut, rest, bud] = await Promise.all([
+      const metaHasData = Boolean(
+        meta.age || meta.height_value || meta.weight_value ||
+        (Array.isArray(meta.allergies) && meta.allergies.length > 0) ||
+        (Array.isArray(meta.medical_conditions) && meta.medical_conditions.length > 0) ||
+        meta.dietary_preference || meta.primary_goal
+      );
+
+      if (pendingData || metaHasData) {
+        const p = pendingData || {};
+        try {
+          await saveFullNutritionProfile(userId, {
+            fullName: p.fullName || meta.full_name || meta.display_name,
+            displayName: p.fullName || meta.display_name || meta.full_name,
+            avatarUrl: p.avatarUrl || meta.avatar_url,
+            username: p.username || meta.username,
+            age: p.age ?? meta.age,
+            biologicalSex: p.biologicalSex || meta.biological_sex,
+            heightValue: p.heightValue ?? meta.height_value,
+            heightUnit: p.heightUnit || meta.height_unit,
+            weightValue: p.weightValue ?? meta.weight_value,
+            weightUnit: p.weightUnit || meta.weight_unit,
+            targetWeightValue: p.targetWeightValue ?? meta.target_weight_value,
+            activityLevel: p.activityLevel || meta.activity_level,
+            exerciseFrequency: p.exerciseFrequency || meta.exercise_frequency,
+            sleepDuration: p.sleepDuration || meta.sleep_duration,
+            dislikedFoods: p.dislikedFoods || meta.disliked_foods,
+            medicalConditions: p.medicalConditions?.map((c: any) => (typeof c === 'string' ? c : c.name)) || meta.medical_conditions,
+            medicalConditionSpecify: p.medicalConditions?.find((c: any) => c.specify)?.specify || meta.medical_condition_specify,
+            diabetesType: p.medicalConditions?.find((c: any) => c.diabetesType)?.diabetesType || meta.diabetes_type,
+            allergies: p.allergies?.map((a: any) => (typeof a === 'string' ? a : a.name)) || meta.allergies,
+            allergySpecify: p.allergies?.find((a: any) => a.specify)?.specify || meta.allergy_specify,
+            intolerances: p.intolerances?.map((i: any) => (typeof i === 'string' ? i : i.name)) || meta.intolerances,
+            intoleranceSpecify: p.intolerances?.find((i: any) => i.specify)?.specify || meta.intolerance_specify,
+            dietaryPreference: p.dietaryPreference || meta.dietary_preference,
+            dietaryPreferenceSpecify: p.dietaryPreferenceSpecify || meta.dietary_preference_specify,
+            userFoodRestrictions: p.foodRestrictions || meta.food_restrictions,
+            foodRestrictionsSpecify: p.foodRestrictionsSpecify || meta.food_restrictions_specify,
+            religiousRestrictions: p.religiousRestrictions || meta.religious_restrictions,
+            religiousRestrictionsSpecify: p.religiousRestrictionsSpecify || meta.religious_restrictions_specify,
+            primaryGoal: p.primaryGoal || meta.primary_goal,
+            primaryGoalSpecify: p.primaryGoalSpecify || meta.primary_goal_specify,
+            secondaryGoals: p.secondaryGoals || meta.secondary_goals,
+            secondaryGoalsSpecify: p.secondaryGoalsSpecify || meta.secondary_goals_specify,
+            budgetAmount: p.budgetAmount || meta.budget_amount || 150,
+            budgetPeriod: p.budgetPeriod || meta.budget_period || 'daily',
+            peopleCount: p.peopleCount || meta.people_count || 1,
+          });
+
+          if (userEmail) {
+            localStorage.removeItem(`nutrilens_pending_signup_${userEmail}`);
+          }
+        } catch (e) {
+          console.warn('Centralized profile synchronization notice:', e);
+        }
+      }
+
+      // 2. Fetch all centralized profile tables in parallel from PostgreSQL
+      let [prof, nut, rest, bud, fullNutrition] = await Promise.all([
         fetchUserProfile(userId),
         fetchNutritionPreferences(userId),
         fetchFoodRestrictions(userId),
         fetchBudgetPreferences(userId),
+        fetchFullNutritionProfile(userId),
       ]);
 
       if (!prof) {
-        const displayName = effectiveUser?.user_metadata?.full_name || effectiveUser?.email?.split('@')[0];
+        const displayName = meta.full_name || meta.display_name || effectiveUser?.email?.split('@')[0];
         prof = await ensureProfileExists(userId, displayName);
       }
 
       if (prof) {
+        // Overlay verified full nutrition data and cloud metadata into profile
+        if (fullNutrition) {
+          if (Array.isArray(fullNutrition.allergies) && fullNutrition.allergies.length > 0) {
+            prof.declared_allergens = fullNutrition.allergies;
+          }
+          if (Array.isArray(fullNutrition.foodRestrictions) && fullNutrition.foodRestrictions.length > 0) {
+            prof.dietary_exclusions = fullNutrition.foodRestrictions;
+          }
+          if (fullNutrition.primaryGoal) {
+            prof.general_goal = fullNutrition.primaryGoal as any;
+          }
+        }
+
+        if (meta.age && !prof.age) prof.age = meta.age;
+        if (meta.height_value && !prof.height_value) {
+          prof.height_value = meta.height_value;
+          prof.height_unit = meta.height_unit || 'cm';
+        }
+        if (meta.weight_value && !prof.weight_value) {
+          prof.weight_value = meta.weight_value;
+          prof.weight_unit = meta.weight_unit || 'kg';
+        }
+        if (meta.avatar_url && !prof.avatar_url) prof.avatar_url = meta.avatar_url;
+
         // Synchronize missing fields from user_metadata (e.g. avatar_url, full_name, username)
         let needsUpdate = false;
-        const meta = effectiveUser?.user_metadata;
         const updates: Partial<Profile> = {};
 
         const metaAvatar = meta?.avatar_url || (meta as any)?.picture;
@@ -294,7 +345,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               buildDefaultProfile(
                 data.session.user.id,
                 data.session.user.email,
-                data.session.user.user_metadata?.full_name
+                data.session.user.user_metadata
               )
             );
             // Complete session check immediately
@@ -348,7 +399,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             buildDefaultProfile(
               newSession.user.id,
               newSession.user.email,
-              newSession.user.user_metadata?.full_name
+              newSession.user.user_metadata
             )
           );
           loadUserData(newSession.user.id, newSession.user);
@@ -461,6 +512,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Sign out notice:', err);
       }
     }
+
+    // Clean user-specific device caches on signout to prevent cross-account pollution
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (
+          k &&
+          (k.startsWith('nutrilens_confirmed_meals_') ||
+           k.startsWith('nutrilens_convs_') ||
+           k.startsWith('nutrilens_pending_signup_') ||
+           k.startsWith('nutrilens_current_analysis_draft'))
+        ) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {}
+
     setUser(null);
     setProfile(null);
     setSession(null);

@@ -290,6 +290,13 @@ export async function fetchUserConfirmedMeals(userId: string): Promise<Confirmed
         created_at,
         status,
         input_mode,
+        meal_reports (
+          total_energy_kcal,
+          total_protein_g,
+          total_carbohydrate_g,
+          total_fat_g,
+          evidence_sources
+        ),
         meal_items (
           id,
           food_id,
@@ -301,7 +308,7 @@ export async function fetchUserConfirmedMeals(userId: string): Promise<Confirmed
       .eq('user_id', userId)
       .eq('status', 'confirmed')
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(30);
 
     if (error || !logs) {
       return localList;
@@ -310,39 +317,61 @@ export async function fetchUserConfirmedMeals(userId: string): Promise<Confirmed
     const fetchedRecords: ConfirmedMealRecord[] = [];
 
     for (const log of logs) {
-      const itemsRaw = log.meal_items || [];
-      if (itemsRaw.length === 0) continue;
+      const report = Array.isArray(log.meal_reports) ? log.meal_reports[0] : (log as any).meal_reports;
+      let itemSummaries: ConfirmedFoodItemSummary[] = [];
 
-      const itemSummaries: ConfirmedFoodItemSummary[] = itemsRaw.map((it: any) => {
-        const dbFood = getFoodById(it.food_id) || resolveFoodAlias(it.food_id);
-        const grams = Number(it.confirmed_grams) || 100;
-        const mult = grams / 100.0;
+      if (report && Array.isArray(report.evidence_sources) && report.evidence_sources.length > 0) {
+        // High-fidelity restoration from PostgreSQL meal_reports snapshot
+        itemSummaries = report.evidence_sources.map((it: any) => ({
+          foodId: it.foodId || it.id || 'food',
+          name: it.name || 'Confirmed Food',
+          nameBn: it.nameBn || '',
+          category: it.category || 'mixed_dishes',
+          grams: Number(it.grams) || 100,
+          preparationState: it.preparationState || 'cooked',
+          calories: Number(it.calories) || 0,
+          protein: Number(it.protein) || 0,
+          carbs: Number(it.carbs) || 0,
+          fat: Number(it.fat) || 0,
+          cost: Number(it.cost) || 0,
+        }));
+      } else {
+        const itemsRaw = log.meal_items || [];
+        if (itemsRaw.length === 0) continue;
 
-        const cal = Math.round((dbFood?.energy_kcal ?? 130) * mult);
-        const pro = Number(((dbFood?.protein_g ?? 2.7) * mult).toFixed(1));
-        const carb = Number(((dbFood?.carbohydrate_g ?? 28.2) * mult).toFixed(1));
-        const fat = Number(((dbFood?.fat_g ?? 0.3) * mult).toFixed(1));
-        const cost = calculateItemCost(dbFood?.category, grams, dbFood?.name_en);
+        itemSummaries = itemsRaw.map((it: any) => {
+          const dbFood = getFoodById(it.food_id) || resolveFoodAlias(it.food_id);
+          const grams = Number(it.confirmed_grams) || 100;
+          const mult = grams / 100.0;
 
-        return {
-          foodId: it.food_id,
-          name: dbFood?.name_en || 'Confirmed Food',
-          nameBn: dbFood?.name_bn || '',
-          category: dbFood?.category || 'mixed_dishes',
-          grams,
-          preparationState: it.preparation_state || 'cooked',
-          calories: cal,
-          protein: pro,
-          carbs: carb,
-          fat,
-          cost,
-        };
-      });
+          const cal = Math.round((dbFood?.energy_kcal ?? 130) * mult);
+          const pro = Number(((dbFood?.protein_g ?? 2.7) * mult).toFixed(1));
+          const carb = Number(((dbFood?.carbohydrate_g ?? 28.2) * mult).toFixed(1));
+          const fat = Number(((dbFood?.fat_g ?? 0.3) * mult).toFixed(1));
+          const cost = calculateItemCost(dbFood?.category, grams, dbFood?.name_en);
 
-      const totalCal = itemSummaries.reduce((a, b) => a + b.calories, 0);
-      const totalPro = Number(itemSummaries.reduce((a, b) => a + b.protein, 0).toFixed(1));
-      const totalCarb = Number(itemSummaries.reduce((a, b) => a + b.carbs, 0).toFixed(1));
-      const totalFat = Number(itemSummaries.reduce((a, b) => a + b.fat, 0).toFixed(1));
+          return {
+            foodId: it.food_id,
+            name: dbFood?.name_en || 'Confirmed Food',
+            nameBn: dbFood?.name_bn || '',
+            category: dbFood?.category || 'mixed_dishes',
+            grams,
+            preparationState: it.preparation_state || 'cooked',
+            calories: cal,
+            protein: pro,
+            carbs: carb,
+            fat,
+            cost,
+          };
+        });
+      }
+
+      if (itemSummaries.length === 0) continue;
+
+      const totalCal = report?.total_energy_kcal ? Number(report.total_energy_kcal) : itemSummaries.reduce((a, b) => a + b.calories, 0);
+      const totalPro = report?.total_protein_g ? Number(report.total_protein_g) : Number(itemSummaries.reduce((a, b) => a + b.protein, 0).toFixed(1));
+      const totalCarb = report?.total_carbohydrate_g ? Number(report.total_carbohydrate_g) : Number(itemSummaries.reduce((a, b) => a + b.carbs, 0).toFixed(1));
+      const totalFat = report?.total_fat_g ? Number(report.total_fat_g) : Number(itemSummaries.reduce((a, b) => a + b.fat, 0).toFixed(1));
       const totalCost = Number(itemSummaries.reduce((a, b) => a + b.cost, 0).toFixed(2));
 
       const title = itemSummaries.slice(0, 3).map((x) => x.name).join(' + ');

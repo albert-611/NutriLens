@@ -487,6 +487,40 @@ export const assistantService = {
     }
     localStorage.setItem(convKey, JSON.stringify(storedConvs));
 
+    // Synchronize to Supabase centralized ai_conversations and ai_messages tables
+    if (user && user.id) {
+      try {
+        await supabase.from('ai_conversations').upsert({
+          id: resolvedConvId,
+          user_id: user.id,
+          title: convSummary.title,
+          updated_at: nowIso,
+        }, { onConflict: 'id' });
+
+        await supabase.from('ai_messages').insert([
+          {
+            id: userMsgId,
+            conversation_id: resolvedConvId,
+            user_id: user.id,
+            role: 'user',
+            content: message,
+            created_at: nowIso,
+          },
+          {
+            id: asstMsgId,
+            conversation_id: resolvedConvId,
+            user_id: user.id,
+            role: 'assistant',
+            content: replyText,
+            created_at: nowIso,
+            metadata: asstMsg.metadata,
+          },
+        ]);
+      } catch (dbErr) {
+        console.warn('Centralized assistant message sync notice:', dbErr);
+      }
+    }
+
     return {
       reply: replyText,
       conversation_id: resolvedConvId,
@@ -532,6 +566,22 @@ export const assistantService = {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
+    if (user && user.id) {
+      try {
+        const { data: dbConvs, error: dbErr } = await supabase
+          .from('ai_conversations')
+          .select('id, title, created_at, updated_at')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+
+        if (!dbErr && dbConvs && dbConvs.length > 0) {
+          return dbConvs;
+        }
+      } catch (err) {
+        console.warn('Supabase listConversations notice:', err);
+      }
+    }
+
     const userId = user?.id || 'guest';
     const stored = localStorage.getItem(getLocalConvKey(userId));
     return stored ? JSON.parse(stored) : [];
@@ -573,6 +623,18 @@ export const assistantService = {
       updated_at: nowIso,
     };
 
+    if (user && user.id) {
+      try {
+        await supabase.from('ai_conversations').insert({
+          id: cid,
+          user_id: user.id,
+          title: summary.title,
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+      } catch {}
+    }
+
     const convKey = getLocalConvKey(userId);
     const stored: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
     stored.unshift(summary);
@@ -606,6 +668,43 @@ export const assistantService = {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
+    if (user && user.id) {
+      try {
+        const [convRes, msgRes] = await Promise.all([
+          supabase
+            .from('ai_conversations')
+            .select('id, title, created_at, updated_at')
+            .eq('id', conversationId)
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          supabase
+            .from('ai_messages')
+            .select('id, role, content, created_at, metadata')
+            .eq('conversation_id', conversationId)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: true }),
+        ]);
+
+        if (msgRes.data && msgRes.data.length > 0) {
+          return {
+            id: conversationId,
+            title: convRes.data?.title || 'Personal Nutrition Chat',
+            created_at: convRes.data?.created_at || msgRes.data[0].created_at,
+            updated_at: convRes.data?.updated_at || msgRes.data[msgRes.data.length - 1].created_at,
+            messages: msgRes.data.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              created_at: m.created_at,
+              metadata: m.metadata,
+            })),
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase getConversation notice:', err);
+      }
+    }
+
     const userId = user?.id || 'guest';
     const convKey = getLocalConvKey(userId);
     const storedConvs: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
