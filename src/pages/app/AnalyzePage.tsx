@@ -37,6 +37,7 @@ export const AnalyzePage: React.FC = () => {
   const [consentGiven, setConsentGiven] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState<string>('');
+  const [precompressedBase64, setPrecompressedBase64] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
@@ -66,6 +67,7 @@ export const AnalyzePage: React.FC = () => {
   const handleReset = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
+    setPrecompressedBase64(null);
     setError(null);
     setNonFoodError(null);
     setManualQuery('');
@@ -76,6 +78,7 @@ export const AnalyzePage: React.FC = () => {
   const handleFileChange = (file: File) => {
     setError(null);
     setNonFoodError(null);
+    setPrecompressedBase64(null);
 
     // Validate file using service
     const validation = validateMealImageFile(file);
@@ -87,6 +90,11 @@ export const AnalyzePage: React.FC = () => {
     setSelectedFile(file);
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
+
+    // High-performance: Pre-compress image immediately in background so analysis initiates with 0ms delay
+    compressMealImage(file, 768, 0.72)
+      .then((b64) => setPrecompressedBase64(b64))
+      .catch(() => {});
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -112,11 +120,12 @@ export const AnalyzePage: React.FC = () => {
     setIsAnalyzing(true);
 
     try {
-      setAnalysisStep('Optimizing image for fast AI inference...');
-      let base64: string | undefined;
+      setAnalysisStep('Analyzing plate with Gemini Vision multimodal detection...');
+      let base64 = precompressedBase64;
 
-      if (selectedFile) {
-        base64 = await compressMealImage(selectedFile, 1024, 0.82);
+      if (selectedFile && !base64) {
+        setAnalysisStep('Optimizing image for fast AI inference...');
+        base64 = await compressMealImage(selectedFile, 768, 0.72);
       }
 
       setAnalysisStep('Analyzing plate with Gemini Vision multimodal detection...');

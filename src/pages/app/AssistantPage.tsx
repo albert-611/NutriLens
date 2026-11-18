@@ -133,25 +133,55 @@ export const AssistantPage: React.FC = () => {
       created_at: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const streamMsgId = `stream-${Date.now()}`;
+    const placeholderAsstMsg: ChatMessageItem = {
+      id: streamMsgId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+      metadata: {
+        model: 'Gemma 4 26B',
+        provider: 'google_ai_studio',
+        citations: [
+          'Food Composition Table for Bangladesh (FCTB / FCDB 2014) - INFS, University of Dhaka & FAO',
+          'FoodNet Bangladesh Comprehensive Database (FoodNetBD 2024)',
+        ],
+      },
+    };
+
+    setMessages((prev) => [...prev, userMsg, placeholderAsstMsg]);
     setIsLoading(true);
 
     try {
-      const response = await assistantService.sendMessage(text, activeConversationId || undefined);
+      const response = await assistantService.sendMessage(
+        text,
+        activeConversationId || undefined,
+        (chunkText) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === streamMsgId ? { ...m, content: chunkText } : m
+            )
+          );
+        }
+      );
 
-      const asstMsg: ChatMessageItem = {
-        id: response.message_id,
-        role: 'assistant',
-        content: response.reply,
-        created_at: response.created_at,
-        metadata: {
-          model: response.model_used,
-          provider: response.provider,
-          citations: response.citations,
-        },
-      };
-
-      setMessages((prev) => [...prev, asstMsg]);
+      // Finalize the assistant message with official IDs and metadata
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === streamMsgId
+            ? {
+                ...m,
+                id: response.message_id,
+                content: response.reply,
+                metadata: {
+                  model: response.model_used,
+                  provider: response.provider,
+                  citations: response.citations,
+                },
+              }
+            : m
+        )
+      );
 
       // Set active conversation and refresh conversation list in background without delaying UI response
       if (!activeConversationId && response.conversation_id) {
@@ -159,6 +189,8 @@ export const AssistantPage: React.FC = () => {
       }
       assistantService.listConversations().then(setConversations).catch(() => {});
     } catch (err: any) {
+      // Remove empty placeholder if request failed
+      setMessages((prev) => prev.filter((m) => m.id !== streamMsgId || m.content.trim().length > 0));
       setErrorMsg(err.message || 'Unable to connect to NutriLens AI. Please try again.');
     } finally {
       setIsLoading(false);
@@ -487,11 +519,21 @@ export const AssistantPage: React.FC = () => {
                     >
                       {isUser ? (
                         <p className="whitespace-pre-wrap">{msg.content}</p>
+                      ) : !msg.content ? (
+                        <div className="flex items-center gap-2 py-1 text-slate-400">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="text-xs">NutriLens is preparing personalized advice...</span>
+                        </div>
                       ) : (
-                        <MarkdownView content={msg.content} />
+                        <div className="relative">
+                          <MarkdownView content={msg.content} />
+                          {isLoading && msg.id.startsWith('stream-') && (
+                            <span className="inline-block w-1.5 h-3.5 bg-emerald-500 ml-1 animate-pulse align-middle" />
+                          )}
+                        </div>
                       )}
 
-                      {!isUser && (
+                      {!isUser && msg.content && (
                         <button
                           onClick={() => handleCopy(msg.id, msg.content)}
                           className="absolute top-2 right-2 p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-forest-root transition-colors"
@@ -507,7 +549,7 @@ export const AssistantPage: React.FC = () => {
                     </div>
 
                     {/* Assistant Metadata & Citations */}
-                    {!isUser && (
+                    {!isUser && msg.content && (
                       <div className="flex flex-wrap items-center gap-1.5 px-1 pt-0.5">
                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-teal-700 dark:text-teal-300 bg-teal-500/10 border border-teal-500/20 px-2 py-0.5 rounded-md">
                           <Bot className="w-2.5 h-2.5" />
@@ -536,8 +578,8 @@ export const AssistantPage: React.FC = () => {
             })
           )}
 
-          {/* Typing Indicator */}
-          {isLoading && (
+          {/* Typing Indicator Fallback (shown only if no stream message is actively streaming) */}
+          {isLoading && !messages.some((m) => m.id.startsWith('stream-')) && (
             <div className="flex gap-3 max-w-3xl mr-auto items-center">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
                 <Sparkles className="w-4 h-4 animate-spin" />

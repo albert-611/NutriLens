@@ -111,11 +111,11 @@ let isBackendAvailable: boolean | null = null;
 let lastBackendAttempt = 0;
 
 function shouldAttemptBackend(): boolean {
-  if (import.meta.env.VITE_USE_BACKEND_API === 'false') {
+  // Only attempt FastAPI backend if explicitly enabled in environment variables
+  if (import.meta.env.VITE_USE_BACKEND_API !== 'true') {
     return false;
   }
-  // On real links (e.g. Vercel deployment), if no external API URL is specified,
-  // do NOT attempt relative /api routes because they only hit Vercel SPA html rewrites.
+  // On production links without an external backend URL, never attempt local /api relative routes
   if (typeof window !== 'undefined') {
     const isLocalhost =
       window.location.hostname === 'localhost' ||
@@ -263,7 +263,8 @@ const FALLBACK_BACKUP_KEY = 'AQ.Ab8RN6JfzdHBE2I2c1crVelJE96PiPyq3ar8dSlCrRqDXxrV
 async function callGoogleGemmaDirect(
   userMessage: string,
   history: ChatMessageItem[],
-  contextSummary: PersonalContextSummary
+  contextSummary: PersonalContextSummary,
+  onChunk?: (text: string) => void
 ): Promise<string> {
   const envPrimary = (import.meta.env.VITE_GEMINI_API_KEY || '').replace(/['"]/g, '').trim();
   const envBackup = (import.meta.env.VITE_GEMINI_BACKUP_API_KEY || '').replace(/['"]/g, '').trim();
@@ -327,6 +328,8 @@ async function callGoogleGemmaDirect(
 
   const systemInstruction = `You are **NutriLens AI — Your Personal Nutrition Assistant**, a certified, empathetic, culturally grounded clinical nutrition companion built specifically for Bangladesh and South Asian diets.
 
+CRITICAL LATENCY & REASONING GUARDRAIL: Respond immediately and directly with no thinking, no reasoning steps, no internal monologue, and no scratchpad notes. Format directly as the final user-facing response.
+
 You are conversing with ${name}. You have DIRECT ACCESS to their authenticated private health and database records below:
 
 === AUTHENTICATED USER PERSONAL DATABASE RECORD (CONFIDENTIAL) ===
@@ -386,7 +389,6 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
   for (const key of candidateKeys) {
     for (const model of uniqueModels) {
       const isGemma = model.toLowerCase().includes('gemma');
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
 
       // Gemma models return HTTP 500 when system_instruction is passed at root; format inline instead
       const payload: any = isGemma
@@ -395,28 +397,87 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
               ...contents.slice(0, -1),
               {
                 role: 'user',
-                parts: [{ text: `${systemInstruction}\n\nUser Question: ${userMessage}` }],
+                parts: [{ text: `${systemInstruction}\n\nCRITICAL: Respond directly with no thinking, no reasoning, no internal monologue, and no scratchpad:\nUser Question: ${userMessage}` }],
               },
             ],
             generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 600,
+              temperature: 0.1,
+              maxOutputTokens: 550,
             },
           }
         : {
             contents,
             system_instruction: {
-              parts: [{ text: systemInstruction }],
+              parts: [{ text: `${systemInstruction}\n\nCRITICAL: Answer immediately and directly to the user.` }],
             },
             generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 600,
+              temperature: 0.1,
+              maxOutputTokens: 550,
             },
           };
 
+      // 1. First Attempt: Real-time SSE Stream (Token streaming yields sub-second TTFT)
+      if (typeof window !== 'undefined' && typeof window.ReadableStream !== 'undefined') {
+        const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
+        const streamAbort = new AbortController();
+        const streamTimer = setTimeout(() => streamAbort.abort(), 12000);
+
+        try {
+          const streamRes = await fetch(streamUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: streamAbort.signal,
+          });
+          clearTimeout(streamTimer);
+
+          if (streamRes.ok && streamRes.body) {
+            const reader = streamRes.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let accumulatedCleanText = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const jsonStr = line.slice(6).trim();
+                  if (jsonStr) {
+                    try {
+                      const data = JSON.parse(jsonStr);
+                      const parts = data.candidates?.[0]?.content?.parts || [];
+                      for (const part of parts) {
+                        // Strict filter: suppress internal model thoughts/drafts
+                        if (!part.thought && part.text) {
+                          accumulatedCleanText += part.text;
+                          onChunk?.(accumulatedCleanText);
+                        }
+                      }
+                    } catch {}
+                  }
+                }
+              }
+            }
+
+            if (accumulatedCleanText.trim()) {
+              return accumulatedCleanText.trim();
+            }
+          }
+        } catch (streamErr: any) {
+          clearTimeout(streamTimer);
+          console.warn(`Streaming attempt on ${model} notice:`, streamErr?.message);
+        }
+      }
+
+      // 2. Standard Fallback Non-Streaming Request
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       const abortCtrl = new AbortController();
-      // 9s timeout gives Gemini API time to produce grounded nutritional markdown
-      const timer = setTimeout(() => abortCtrl.abort(), 9000);
+      const timer = setTimeout(() => abortCtrl.abort(), 8000);
 
       try {
         const response = await fetch(url, {
@@ -430,9 +491,16 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
         if (response.ok) {
           const data = await response.json();
           const candidate = data.candidates?.[0];
-          const text = candidate?.content?.parts?.map((p: any) => p.text).join('') || '';
-          if (text.trim()) {
-            return text;
+          const parts = candidate?.content?.parts || [];
+          const cleanText = parts
+            .filter((p: any) => !p.thought)
+            .map((p: any) => p.text)
+            .join('')
+            .trim();
+
+          if (cleanText) {
+            onChunk?.(cleanText);
+            return cleanText;
           }
         }
       } catch (err: any) {
@@ -443,11 +511,13 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
   }
 
   // Domain knowledge resilient fallback if external network is blocked
-  return (
+  const fallbackAdvice = (
     `Based on your verified nutrition goals and personal preferences, I recommend a balanced meal such as Masoor Dal with brown or parboiled rice and steamed seasonal vegetables. ` +
     `This fits within your calorie target (${calTarget}) and provides approximately 18g of clean protein. ` +
     `(Grounding: FAO Bangladesh Food Composition Table FCTB 2014 & FoodNetBD).`
   );
+  onChunk?.(fallbackAdvice);
+  return fallbackAdvice;
 }
 
 // In-memory cache for personal context summary to eliminate 8 sequential DB roundtrips on every single chat message
@@ -466,7 +536,8 @@ export const assistantService = {
    */
   async sendMessage(
     message: string,
-    conversationId?: string
+    conversationId?: string,
+    onChunk?: (text: string) => void
   ): Promise<AssistantChatResponse> {
     const headers = await getAuthHeaders();
 
@@ -485,6 +556,7 @@ export const assistantService = {
         if (res.ok) {
           markBackendStatus(true);
           const payload = await res.json();
+          onChunk?.(payload.data?.reply || '');
           return payload.data;
         } else {
           markBackendStatus(false);
@@ -508,8 +580,8 @@ export const assistantService = {
     const historyDetail = await this.getConversation(resolvedConvId);
     const existingMessages = historyDetail.messages || [];
 
-    // Call Google AI Studio Gemma
-    const replyText = await callGoogleGemmaDirect(message, existingMessages, context);
+    // Call Google AI Studio Gemma with SSE real-time streaming
+    const replyText = await callGoogleGemmaDirect(message, existingMessages, context, onChunk);
 
     // Save user message and assistant reply to client storage
     const userMsg: ChatMessageItem = {
