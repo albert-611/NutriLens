@@ -22,6 +22,8 @@ import {
   Paperclip,
   Database,
   Bot,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 import {
   assistantService,
@@ -69,8 +71,36 @@ export const AssistantPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
-  // Mobile sidebar drawer
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Sidebar toggle state (supported in ALL views, remembered in localStorage on desktop)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth <= 860) return false;
+      return localStorage.getItem('nutrilens_chat_sidebar') !== 'false';
+    }
+    return true;
+  });
+
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined' && window.innerWidth > 860) {
+        localStorage.setItem('nutrilens_chat_sidebar', String(next));
+      }
+      return next;
+    });
+  };
+
+  // Keyboard shortcut Ctrl+B / Cmd+B to toggle sidebar across all views
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Rename Conversation State
   const [editingConvId, setEditingConvId] = useState<string | null>(null);
@@ -347,7 +377,7 @@ export const AssistantPage: React.FC = () => {
 
   return (
     <div className="nutrilens-chatbox h-[calc(100vh-4.2rem)] -m-4 sm:-m-6 lg:-m-8 p-2 sm:p-3 overflow-hidden select-none">
-      <div className="chat-app">
+      <div className={`chat-app ${!sidebarOpen ? 'sidebar-collapsed' : ''}`}>
         {/* 1. Floating Sidebar */}
         <aside className={`chat-side${sidebarOpen ? ' open' : ''}`} aria-label="Conversations">
           {/* Brand Header */}
@@ -359,6 +389,15 @@ export const AssistantPage: React.FC = () => {
               <div className="chat-brand-title">NutriLens AI</div>
               <small className="chat-brand-sub">Nutrition Workspace</small>
             </div>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="chat-action-btn ml-auto p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white"
+              title="Collapse sidebar (Ctrl+B)"
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Search Box */}
@@ -464,13 +503,19 @@ export const AssistantPage: React.FC = () => {
         <main className={`chat-main ${isWelcome ? 'is-welcome' : 'is-chat'}`}>
           {/* Top Bar */}
           <div className="chat-topbar">
+            {/* Sidebar toggle button (ALL views: desktop, tablet, mobile) */}
             <button
               className="chat-menu-btn"
               type="button"
-              aria-label="Open conversations"
-              onClick={() => setSidebarOpen(true)}
+              aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+              title={sidebarOpen ? 'Collapse sidebar (Ctrl+B)' : 'Expand sidebar (Ctrl+B)'}
+              onClick={toggleSidebar}
             >
-              <Menu className="w-4 h-4" />
+              {sidebarOpen ? (
+                <PanelLeftClose className="w-4 h-4" />
+              ) : (
+                <PanelLeft className="w-4 h-4" />
+              )}
             </button>
 
             {/* Model status pill with green pulsing dot */}
