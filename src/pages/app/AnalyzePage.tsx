@@ -17,6 +17,7 @@ import { Button } from '../../components/common/Button';
 import {
   validateMealImageFile,
   fileToBase64,
+  compressMealImage,
   analyzeMealImage,
 } from '../../services/mealAnalysisService';
 
@@ -111,11 +112,11 @@ export const AnalyzePage: React.FC = () => {
     setIsAnalyzing(true);
 
     try {
-      setAnalysisStep('Uploading and validating photo resolution...');
+      setAnalysisStep('Optimizing image for fast AI inference...');
       let base64: string | undefined;
 
       if (selectedFile) {
-        base64 = await fileToBase64(selectedFile);
+        base64 = await compressMealImage(selectedFile, 1024, 0.82);
       }
 
       setAnalysisStep('Analyzing plate with Gemini Vision multimodal detection...');
@@ -127,9 +128,6 @@ export const AnalyzePage: React.FC = () => {
         manualQuery: manualQuery || undefined,
         language: lang,
       });
-
-      setAnalysisStep('Mapping food items to Bangladeshi FAO composition catalog...');
-      await new Promise((r) => setTimeout(r, 300));
 
       navigate('/app/confirm', {
         state: {

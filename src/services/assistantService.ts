@@ -273,15 +273,13 @@ async function callGoogleGemmaDirect(
   const candidateKeys = [primaryKey, backupKey].filter(Boolean);
 
   // Fast, ultra-responsive cascade:
-  // Prioritizes lightning-fast flash models (1.1-1.6s response times)
-  const configuredModel = (import.meta.env.VITE_GEMINI_CHAT_MODEL || '').trim();
+  // Prioritizes the user's configured model first, followed by rapid failover
+  const configuredModel = (import.meta.env.VITE_GEMINI_CHAT_MODEL || 'gemma-4-26b-a4b-it').trim();
   const candidateModels = [
     configuredModel,
-    'gemini-flash-lite-latest',
-    'gemini-3.6-flash',
     'gemini-3.5-flash-lite',
+    'gemini-flash-lite-latest',
     'gemini-3.1-flash-lite',
-    'gemma-4-26b-a4b-it',
   ].filter(Boolean);
   // Deduplicate
   const uniqueModels = Array.from(new Set(candidateModels));
@@ -402,7 +400,7 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
             ],
             generationConfig: {
               temperature: 0.3,
-              maxOutputTokens: 800,
+              maxOutputTokens: 600,
             },
           }
         : {
@@ -412,7 +410,7 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
             },
             generationConfig: {
               temperature: 0.3,
-              maxOutputTokens: 800,
+              maxOutputTokens: 600,
             },
           };
 
@@ -450,6 +448,14 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
     `This fits within your calorie target (${calTarget}) and provides approximately 18g of clean protein. ` +
     `(Grounding: FAO Bangladesh Food Composition Table FCTB 2014 & FoodNetBD).`
   );
+}
+
+// In-memory cache for personal context summary to eliminate 8 sequential DB roundtrips on every single chat message
+let cachedContextSummary: { summary: PersonalContextSummary; timestamp: number } | null = null;
+const CONTEXT_CACHE_TTL_MS = 60000; // 60 seconds
+
+export function invalidateContextSummaryCache(): void {
+  cachedContextSummary = null;
 }
 
 export const assistantService = {
@@ -553,41 +559,44 @@ export const assistantService = {
     }
     localStorage.setItem(convKey, JSON.stringify(storedConvs));
 
-    // Synchronize to Supabase centralized ai_conversations and ai_messages tables
+    // Return response IMMEDIATELY to user UI for instant sub-second response
+    // Database and cloud cross-device sync runs asynchronously in the background
     if (user && user.id) {
-      try {
-        await supabase.from('ai_conversations').upsert({
-          id: resolvedConvId,
-          user_id: user.id,
-          title: convSummary.title,
-          updated_at: nowIso,
-        }, { onConflict: 'id' });
-
-        await supabase.from('ai_messages').insert([
-          {
-            id: userMsgId,
-            conversation_id: resolvedConvId,
+      (async () => {
+        try {
+          await supabase.from('ai_conversations').upsert({
+            id: resolvedConvId,
             user_id: user.id,
-            role: 'user',
-            content: message,
-            created_at: nowIso,
-          },
-          {
-            id: asstMsgId,
-            conversation_id: resolvedConvId,
-            user_id: user.id,
-            role: 'assistant',
-            content: replyText,
-            created_at: nowIso,
-            metadata: asstMsg.metadata,
-          },
-        ]);
-      } catch (dbErr) {
-        console.warn('Centralized assistant message sync notice:', dbErr);
-      }
+            title: convSummary.title,
+            updated_at: nowIso,
+          }, { onConflict: 'id' });
 
-      // Also synchronize to cloud user_metadata for 100% reliable cross-device sync
-      await syncChatToCloud(user, resolvedConvId, updatedMessages, storedConvs);
+          await supabase.from('ai_messages').insert([
+            {
+              id: userMsgId,
+              conversation_id: resolvedConvId,
+              user_id: user.id,
+              role: 'user',
+              content: message,
+              created_at: nowIso,
+            },
+            {
+              id: asstMsgId,
+              conversation_id: resolvedConvId,
+              user_id: user.id,
+              role: 'assistant',
+              content: replyText,
+              created_at: nowIso,
+              metadata: asstMsg.metadata,
+            },
+          ]);
+        } catch (dbErr) {
+          console.warn('Background assistant message sync notice:', dbErr);
+        }
+
+        // Also synchronize to cloud user_metadata for 100% reliable cross-device sync
+        await syncChatToCloud(user, resolvedConvId, updatedMessages, storedConvs);
+      })().catch((err) => console.warn('Background sync error:', err));
     }
 
     return {
@@ -990,6 +999,10 @@ export const assistantService = {
    * Auto-extracts from Supabase client if FastAPI backend is offline.
    */
   async getContextSummary(): Promise<PersonalContextSummary> {
+    if (cachedContextSummary && Date.now() - cachedContextSummary.timestamp < CONTEXT_CACHE_TTL_MS) {
+      return cachedContextSummary.summary;
+    }
+
     const headers = await getAuthHeaders();
     if (shouldAttemptBackend()) {
       try {
@@ -1006,6 +1019,7 @@ export const assistantService = {
             payload?.data?.goals?.daily_calorie_target
           ) {
             markBackendStatus(true);
+            cachedContextSummary = { summary: payload.data, timestamp: Date.now() };
             return payload.data;
           }
         } else {
@@ -1016,7 +1030,7 @@ export const assistantService = {
       }
     }
 
-    // Direct Supabase Client extraction
+    // Direct Supabase Client parallel extraction
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || '00000000-0000-0000-0000-000000000000';
 
@@ -1029,16 +1043,23 @@ export const assistantService = {
 
     try {
       if (user) {
-        const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        if (p) {
-          profileData = p;
-          userAllergies = toSafeArray(p.declared_allergens);
-          dislikedFoods = toSafeArray(p.disliked_foods);
+        // Execute all profile table lookups concurrently in a single batch
+        const [pRes, condsRes, allergiesRes, intolRes, prefsRes] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+          supabase.from('user_medical_conditions').select('condition_name, condition_specify, diabetes_type').eq('user_id', user.id),
+          supabase.from('user_food_allergies').select('allergy_name, allergen_name, allergy_specify').eq('user_id', user.id),
+          supabase.from('user_food_intolerances').select('intolerance_name, intolerance_specify').eq('user_id', user.id),
+          supabase.from('user_nutrition_preferences').select('favorite_foods, disliked_foods, daily_calorie_target, protein_target_g, carb_target_g, fat_target_g').eq('user_id', user.id).maybeSingle(),
+        ]);
+
+        if (pRes.data) {
+          profileData = pRes.data;
+          userAllergies = toSafeArray(pRes.data.declared_allergens);
+          dislikedFoods = toSafeArray(pRes.data.disliked_foods);
         }
 
-        const { data: conds } = await supabase.from('user_medical_conditions').select('condition_name, condition_specify, diabetes_type').eq('user_id', user.id);
-        if (conds) {
-          userConditions = toSafeArray(conds.map((c: any) => {
+        if (condsRes.data) {
+          userConditions = toSafeArray(condsRes.data.map((c: any) => {
             let name = c.condition_name;
             if (c.diabetes_type) name += ` (${c.diabetes_type})`;
             if (c.condition_specify) name += ` - ${c.condition_specify}`;
@@ -1046,21 +1067,18 @@ export const assistantService = {
           }));
         }
 
-        const { data: allergiesList } = await supabase.from('user_food_allergies').select('allergy_name, allergen_name, allergy_specify').eq('user_id', user.id);
-        if (allergiesList) {
-          const directAllergies = toSafeArray(allergiesList.map((a: any) => a.allergy_name || a.allergen_name || a.allergy_specify));
+        if (allergiesRes.data) {
+          const directAllergies = toSafeArray(allergiesRes.data.map((a: any) => a.allergy_name || a.allergen_name || a.allergy_specify));
           userAllergies = Array.from(new Set([...userAllergies, ...directAllergies]));
         }
 
-        const { data: intolList } = await supabase.from('user_food_intolerances').select('intolerance_name, intolerance_specify').eq('user_id', user.id);
-        if (intolList) {
-          userIntolerances = toSafeArray(intolList.map((i: any) => i.intolerance_name || i.intolerance_specify));
+        if (intolRes.data) {
+          userIntolerances = toSafeArray(intolRes.data.map((i: any) => i.intolerance_name || i.intolerance_specify));
         }
 
-        const { data: prefs } = await supabase.from('user_nutrition_preferences').select('favorite_foods, disliked_foods, daily_calorie_target, protein_target_g, carb_target_g, fat_target_g').eq('user_id', user.id).single();
-        if (prefs) {
-          if (prefs.favorite_foods) favoriteFoods = toSafeArray(prefs.favorite_foods);
-          if (prefs.disliked_foods) dislikedFoods = Array.from(new Set([...dislikedFoods, ...toSafeArray(prefs.disliked_foods)]));
+        if (prefsRes.data) {
+          if (prefsRes.data.favorite_foods) favoriteFoods = toSafeArray(prefsRes.data.favorite_foods);
+          if (prefsRes.data.disliked_foods) dislikedFoods = Array.from(new Set([...dislikedFoods, ...toSafeArray(prefsRes.data.disliked_foods)]));
         }
       }
     } catch (e) {
@@ -1125,7 +1143,7 @@ export const assistantService = {
     const spentToday = metrics.todayCost;
     const remainingBudget = Number((dailyBudget - spentToday).toFixed(2));
 
-    return {
+    const result: PersonalContextSummary = {
       user_id: userId,
       profile: {
         display_name: profileData.display_name || profileData.full_name || user?.user_metadata?.full_name || 'Valued User',
@@ -1175,5 +1193,8 @@ export const assistantService = {
         household_size: profileData.household_size || 1,
       },
     };
+
+    cachedContextSummary = { summary: result, timestamp: Date.now() };
+    return result;
   },
 };
