@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingPage } from '../pages/public/LandingPage';
 import { LoginPage } from '../pages/public/LoginPage';
@@ -14,12 +14,17 @@ import { DashboardPage } from '../pages/app/DashboardPage';
 import { AnalyzePage } from '../pages/app/AnalyzePage';
 import { ConfirmPage } from '../pages/app/ConfirmPage';
 import { ReportPage } from '../pages/app/ReportPage';
-import { BazarPage } from '../pages/app/BazarPage';
 import { MealRescuePage } from '../pages/app/MealRescuePage';
 import { ShoppingPage } from '../pages/app/ShoppingPage';
 import { ProfilePage } from '../pages/app/ProfilePage';
 import { SettingsPage } from '../pages/app/SettingsPage';
 import { AssistantPage } from '../pages/app/AssistantPage';
+
+// Lazy-load BazarPage: the WFP dataset (~4 MB) is split into its own chunk
+// and only downloaded when the user navigates to /app/bazar
+const BazarPage = lazy(() =>
+  import('../pages/app/BazarPage').then((m) => ({ default: m.BazarPage }))
+);
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -70,7 +75,18 @@ export const AppRoutes: React.FC = () => {
         <Route path="analyze" element={<AnalyzePage />} />
         <Route path="confirm" element={<ConfirmPage />} />
         <Route path="report" element={<ReportPage />} />
-        <Route path="bazar" element={<BazarPage />} />
+        <Route
+          path="bazar"
+          element={
+            <Suspense fallback={
+              <div className="flex items-center justify-center min-h-[60vh] text-slate-500 dark:text-slate-400 text-sm">
+                Loading market price data…
+              </div>
+            }>
+              <BazarPage />
+            </Suspense>
+          }
+        />
         <Route path="meal-rescue" element={<MealRescuePage />} />
         <Route path="shopping" element={<ShoppingPage />} />
         <Route path="assistant" element={<AssistantPage />} />

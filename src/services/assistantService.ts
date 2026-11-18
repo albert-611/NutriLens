@@ -170,6 +170,25 @@ export function toSafeArray(val: any): string[] {
   return [String(val).trim()].filter(Boolean);
 }
 
+// UUID Generation and Validation Helpers for Supabase PostgreSQL UUID primary keys
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export function isValidUUID(val: any): boolean {
+  return (
+    typeof val === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim())
+  );
+}
+
 // Local conversation storage helpers for client fallback mode
 function getLocalConvKey(userId: string): string {
   return `nutrilens_ai_conversations_${userId}`;
@@ -209,16 +228,15 @@ async function callGoogleGemmaDirect(
   const backupKey = envBackup || FALLBACK_BACKUP_KEY;
   const candidateKeys = [primaryKey, backupKey].filter(Boolean);
 
-  // Fast, ultra-responsive cascade:
-  // Prioritizes lightning-fast flash models (1.1-1.6s response times)
+  // Fast, verified models from Google AI Studio:
+  // Prioritize production gemini-1.5-flash and gemini-2.0-flash for rich, accurate nutritional advice
   const configuredModel = (import.meta.env.VITE_GEMINI_CHAT_MODEL || '').trim();
   const candidateModels = [
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
     configuredModel,
-    'gemini-flash-lite-latest',
-    'gemini-3.6-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-3.1-flash-lite',
-    'gemma-4-26b-a4b-it',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-pro',
   ].filter(Boolean);
   // Deduplicate
   const uniqueModels = Array.from(new Set(candidateModels));
@@ -354,8 +372,8 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
           };
 
       const abortCtrl = new AbortController();
-      // Tight 4.5s timeout: if a model hangs, immediately proceed to the next ultra-fast model
-      const timer = setTimeout(() => abortCtrl.abort(), 4500);
+      // 9s timeout gives Gemini API time to produce grounded nutritional markdown
+      const timer = setTimeout(() => abortCtrl.abort(), 9000);
 
       try {
         const response = await fetch(url, {
@@ -425,11 +443,14 @@ export const assistantService = {
       }
     }
 
-    // 2. Client-Side Fallback: Direct Google AI Studio Gemma 4 26B
+    // 2. Client-Side Fallback: Direct Google AI Studio Gemini Multimodal
     const context = await this.getContextSummary();
-    const resolvedConvId = conversationId || `conv-${Date.now()}`;
-    const userMsgId = `msg-user-${Date.now()}`;
-    const asstMsgId = `msg-asst-${Date.now()}`;
+    const resolvedConvId =
+      conversationId && isValidUUID(conversationId)
+        ? conversationId
+        : generateUUID();
+    const userMsgId = generateUUID();
+    const asstMsgId = generateUUID();
     const nowIso = new Date().toISOString();
 
     // Retrieve past messages for conversation
@@ -575,6 +596,9 @@ export const assistantService = {
           .order('updated_at', { ascending: false });
 
         if (!dbErr && dbConvs && dbConvs.length > 0) {
+          // Cache in local storage for offline resiliency
+          const convKey = getLocalConvKey(user.id);
+          localStorage.setItem(convKey, JSON.stringify(dbConvs));
           return dbConvs;
         }
       } catch (err) {
@@ -614,7 +638,7 @@ export const assistantService = {
 
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'guest';
-    const cid = `conv-${Date.now()}`;
+    const cid = generateUUID();
     const nowIso = new Date().toISOString();
     const summary: ConversationSummary = {
       id: cid,
@@ -632,7 +656,9 @@ export const assistantService = {
           created_at: nowIso,
           updated_at: nowIso,
         });
-      } catch {}
+      } catch (dbErr) {
+        console.warn('Supabase createConversation notice:', dbErr);
+      }
     }
 
     const convKey = getLocalConvKey(userId);
@@ -668,7 +694,7 @@ export const assistantService = {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user && user.id) {
+    if (user && user.id && isValidUUID(conversationId)) {
       try {
         const [convRes, msgRes] = await Promise.all([
           supabase
@@ -686,18 +712,23 @@ export const assistantService = {
         ]);
 
         if (msgRes.data && msgRes.data.length > 0) {
+          const formattedMessages: ChatMessageItem[] = msgRes.data.map((m: any) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            created_at: m.created_at,
+            metadata: m.metadata,
+          }));
+          localStorage.setItem(
+            getLocalMessagesKey(conversationId),
+            JSON.stringify(formattedMessages)
+          );
           return {
             id: conversationId,
             title: convRes.data?.title || 'Personal Nutrition Chat',
             created_at: convRes.data?.created_at || msgRes.data[0].created_at,
             updated_at: convRes.data?.updated_at || msgRes.data[msgRes.data.length - 1].created_at,
-            messages: msgRes.data.map((m: any) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-              created_at: m.created_at,
-              metadata: m.metadata,
-            })),
+            messages: formattedMessages,
           };
         }
       } catch (err) {
@@ -753,13 +784,27 @@ export const assistantService = {
 
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'guest';
+    const nowIso = new Date().toISOString();
+
+    if (user && user.id && isValidUUID(conversationId)) {
+      try {
+        await supabase
+          .from('ai_conversations')
+          .update({ title, updated_at: nowIso })
+          .eq('id', conversationId)
+          .eq('user_id', user.id);
+      } catch (dbErr) {
+        console.warn('Supabase renameConversation notice:', dbErr);
+      }
+    }
+
     const convKey = getLocalConvKey(userId);
     const storedConvs: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
     const target = storedConvs.find((c) => c.id === conversationId);
 
     if (target) {
       target.title = title;
-      target.updated_at = new Date().toISOString();
+      target.updated_at = nowIso;
       localStorage.setItem(convKey, JSON.stringify(storedConvs));
       return target;
     }
@@ -767,8 +812,8 @@ export const assistantService = {
     return {
       id: conversationId,
       title,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: nowIso,
+      updated_at: nowIso,
     };
   },
 
@@ -797,6 +842,18 @@ export const assistantService = {
 
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id || 'guest';
+
+    if (user && user.id && isValidUUID(conversationId)) {
+      try {
+        await supabase
+          .from('ai_conversations')
+          .delete()
+          .eq('id', conversationId)
+          .eq('user_id', user.id);
+      } catch (dbErr) {
+        console.warn('Supabase deleteConversation notice:', dbErr);
+      }
+    }
     const convKey = getLocalConvKey(userId);
     const storedConvs: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
     const filtered = storedConvs.filter((c) => c.id !== conversationId);

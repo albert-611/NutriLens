@@ -46,6 +46,8 @@ export default defineConfig({
           'vendor-gsap': ['gsap'],
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-i18n': ['i18next', 'react-i18next'],
+          // Split the 4 MB WFP dataset into its own lazy-loaded chunk
+          'wfp-data': ['./src/lib/wfpMarketPrices'],
         },
       },
     },
