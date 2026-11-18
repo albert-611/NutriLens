@@ -148,17 +148,17 @@ Return valid JSON conforming to this schema:
 `;
 
   // Dual-Model Architecture: Primary Model + Secondary/Fallback Model
-  const primaryModel = (import.meta.env.VITE_GEMINI_VISION_MODEL || 'gemini-1.5-flash').trim();
-  const secondaryModel = (import.meta.env.VITE_GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash').trim();
+  const primaryModel = (import.meta.env.VITE_GEMINI_VISION_MODEL || 'gemini-3.5-flash-lite').trim();
+  const secondaryModel = (import.meta.env.VITE_GEMINI_FALLBACK_MODEL || 'gemini-3.1-flash-lite').trim();
 
-  // Deduplicated candidate models in failover priority order using official Google AI Studio endpoints
+  // Deduplicated candidate models in failover priority order
   const rawModels = [
-    'gemini-1.5-flash',
-    'gemini-2.0-flash',
+    'gemini-flash-lite-latest',
+    'gemini-3.6-flash',
     primaryModel,
     secondaryModel,
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-pro',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
   ];
   const seenModels = new Set<string>();
   const modelsToTry = rawModels.filter((m) => {
