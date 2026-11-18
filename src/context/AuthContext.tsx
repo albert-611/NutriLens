@@ -522,6 +522,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           k &&
           (k.startsWith('nutrilens_confirmed_meals_') ||
            k.startsWith('nutrilens_convs_') ||
+           k.startsWith('nutrilens_ai_conversations_') ||
+           k.startsWith('nutrilens_ai_messages_') ||
            k.startsWith('nutrilens_pending_signup_') ||
            k.startsWith('nutrilens_current_analysis_draft'))
         ) {

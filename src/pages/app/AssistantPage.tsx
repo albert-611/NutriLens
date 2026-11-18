@@ -153,12 +153,12 @@ export const AssistantPage: React.FC = () => {
 
       setMessages((prev) => [...prev, asstMsg]);
 
-      // If this was a new conversation, update activeConversationId and reload list
+      // Refresh conversation list to show updated ordering and title
       if (!activeConversationId && response.conversation_id) {
         setActiveConversationId(response.conversation_id);
-        const updatedList = await assistantService.listConversations();
-        setConversations(updatedList);
       }
+      const updatedList = await assistantService.listConversations();
+      setConversations(updatedList);
     } catch (err: any) {
       setErrorMsg(err.message || 'Unable to connect to NutriLens AI. Please try again.');
     } finally {
