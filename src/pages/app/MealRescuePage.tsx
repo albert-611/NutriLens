@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -13,9 +13,9 @@ import {
   BookOpen,
   Utensils,
   ShoppingBag,
-  Info,
-  Check,
   RefreshCw,
+  Dices,
+  Flame,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { formatCurrency } from '../../lib/formatters';
@@ -26,16 +26,19 @@ export const MealRescuePage: React.FC = () => {
   const navigate = useNavigate();
 
   // Constraints State
-  const [budget, setBudget] = useState(130);
+  const [budget, setBudget] = useState(180);
   const [servings, setServings] = useState(1);
-  const [prepTimeLimit, setPrepTimeLimit] = useState(30);
+  const [prepTimeLimit, setPrepTimeLimit] = useState(40);
   const [selectedExclusions, setSelectedExclusions] = useState<string[]>([]);
   const [selectedCuisine, setSelectedCuisine] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Recipes State
   const [recipes, setRecipes] = useState<MealRescueRecipe[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRandomLoading, setIsRandomLoading] = useState<boolean>(false);
+  const [visibleCount, setVisibleCount] = useState<number>(12);
   const [activeRecipeModal, setActiveRecipeModal] = useState<MealRescueRecipe | null>(null);
 
   // Quick rescue suggestion templates
@@ -45,6 +48,19 @@ export const MealRescuePage: React.FC = () => {
     { label: '🍝 Mediterranean Pasta', query: 'Pasta' },
     { label: '🐟 Pond Fish / Tilapia', query: 'Fish' },
     { label: '🌱 High-Fibre Veggie', query: 'Vegetarian' },
+    { label: '🍲 Warm Soup & Broth', query: 'Soup' },
+  ];
+
+  // Categories supported by TheMealDB
+  const mealCategories = [
+    { id: 'all', label: 'All Categories' },
+    { id: 'Chicken', label: '🍗 Chicken' },
+    { id: 'Vegetarian', label: '🥦 Vegetarian' },
+    { id: 'Seafood', label: '🐟 Seafood & Fish' },
+    { id: 'Pasta', label: '🍝 Pasta & Noodles' },
+    { id: 'Breakfast', label: '🍳 Breakfast & Eggs' },
+    { id: 'Beef', label: '🥩 Beef & Meat' },
+    { id: 'Side', label: '🥗 Salads & Sides' },
   ];
 
   // Fetch / Generate Meal Rescues
@@ -59,6 +75,7 @@ export const MealRescuePage: React.FC = () => {
           servings,
           maxPrepTime: prepTimeLimit,
           cuisineType: selectedCuisine,
+          category: selectedCategory !== 'all' ? selectedCategory : undefined,
           exclusions: selectedExclusions,
           searchQuery: searchQuery || undefined,
         });
@@ -66,6 +83,7 @@ export const MealRescuePage: React.FC = () => {
         if (!isCancelled) {
           setRecipes(results);
           setIsLoading(false);
+          setVisibleCount(12);
         }
       } catch (err) {
         if (!isCancelled) {
@@ -73,13 +91,13 @@ export const MealRescuePage: React.FC = () => {
           setIsLoading(false);
         }
       }
-    }, 250);
+    }, 200);
 
     return () => {
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [budget, servings, prepTimeLimit, selectedCuisine, selectedExclusions, searchQuery]);
+  }, [budget, servings, prepTimeLimit, selectedCuisine, selectedCategory, selectedExclusions, searchQuery]);
 
   const toggleExclusion = (ex: string) => {
     setSelectedExclusions((prev) =>
@@ -100,6 +118,23 @@ export const MealRescuePage: React.FC = () => {
     });
   };
 
+  const handleRandomRescue = async () => {
+    setIsRandomLoading(true);
+    try {
+      const randomMeal = await recipeService.getRandomMeal();
+      if (randomMeal) {
+        setRecipes((prev) => [randomMeal, ...prev.filter((r) => r.id !== randomMeal.id)]);
+        setActiveRecipeModal(randomMeal);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch random meal:', err);
+    } finally {
+      setIsRandomLoading(false);
+    }
+  };
+
+  const visibleRecipes = recipes.slice(0, visibleCount);
+
   return (
     <div className="space-y-8 animate-fadeIn max-w-5xl mx-auto">
       {/* Title & Header */}
@@ -115,12 +150,31 @@ export const MealRescuePage: React.FC = () => {
             WFP 2026 Price Grounding
           </span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-          {t('meal_rescue.title')}
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-          {t('meal_rescue.subtitle')}
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              {t('meal_rescue.title')}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              {t('meal_rescue.subtitle')}
+            </p>
+          </div>
+
+          {/* Random Meal Generator Button */}
+          <button
+            type="button"
+            onClick={handleRandomRescue}
+            disabled={isRandomLoading}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all shrink-0 active:scale-95 disabled:opacity-70"
+          >
+            {isRandomLoading ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Dices className="w-4 h-4" />
+            )}
+            <span>Surprise Rescue / Random Meal</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Quick Filter Bar */}
@@ -131,7 +185,7 @@ export const MealRescuePage: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search dish or main ingredient to rescue (e.g. Chicken, Biryani, Pasta, Egg, Lentil, Fish)..."
+            placeholder="Search any dish or ingredient to rescue (e.g. Chicken, Biryani, Pasta, Egg, Lentil, Fish, Soup, Salad)..."
             className="w-full pl-11 pr-10 py-3 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-sm"
           />
           {searchQuery && (
@@ -165,6 +219,29 @@ export const MealRescuePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Categories Horizontal Pills */}
+      <div className="space-y-2">
+        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+          Recipe Category
+        </label>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {mealCategories.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                selectedCategory === cat.id
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Interactive Constraints Controls */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -180,16 +257,16 @@ export const MealRescuePage: React.FC = () => {
             </div>
             <input
               type="range"
-              min="40"
-              max="250"
-              step="5"
+              min="50"
+              max="400"
+              step="10"
               value={budget}
               onChange={(e) => setBudget(parseInt(e.target.value))}
               className="w-full accent-emerald-500 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-sans tabular-nums">
-              <span>৳40 min</span>
-              <span>৳250 max</span>
+              <span>৳50 min</span>
+              <span>৳400 max</span>
             </div>
           </div>
 
@@ -222,7 +299,7 @@ export const MealRescuePage: React.FC = () => {
               Max Prep Time
             </label>
             <div className="flex items-center gap-2">
-              {[15, 25, 40].map((mins) => (
+              {[20, 35, 60].map((mins) => (
                 <button
                   key={mins}
                   type="button"
@@ -246,7 +323,7 @@ export const MealRescuePage: React.FC = () => {
             Exclude Ingredients (Hard Constraint)
           </label>
           <div className="flex flex-wrap gap-2 text-xs">
-            {['Beef', 'Shellfish / Prawns', 'Dairy', 'Gluten', 'Excess Oil'].map((ex) => {
+            {['Beef', 'Shellfish / Prawns', 'Dairy', 'Gluten'].map((ex) => {
               const active = selectedExclusions.includes(ex);
               return (
                 <button
@@ -293,24 +370,26 @@ export const MealRescuePage: React.FC = () => {
 
       {/* Results Header */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-500" />
-            Ranked Feasible Alternatives ({recipes.length})
+            <span>
+              Generated Meal Rescues ({recipes.length} available)
+            </span>
           </h2>
           {isLoading ? (
             <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              Solving constraints...
+              Generating from TheMealDB...
             </span>
           ) : (
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              Ranked by cash savings & protein value
+              Showing {Math.min(visibleCount, recipes.length)} of {recipes.length} recipes
             </span>
           )}
         </div>
 
-        {/* Recipes Grid / List */}
+        {/* Recipes Grid */}
         {recipes.length === 0 && !isLoading ? (
           <div className="p-8 text-center bg-white dark:bg-forest-card rounded-3xl border border-slate-200 dark:border-forest-border space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-forest-root text-slate-400 mx-auto flex items-center justify-center">
@@ -322,9 +401,10 @@ export const MealRescuePage: React.FC = () => {
             </p>
             <Button
               onClick={() => {
-                setBudget(160);
+                setBudget(220);
                 setSelectedExclusions([]);
                 setSelectedCuisine('all');
+                setSelectedCategory('all');
                 setSearchQuery('');
               }}
               variant="outline"
@@ -334,127 +414,111 @@ export const MealRescuePage: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5">
-            {recipes.map((recipe) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {visibleRecipes.map((recipe) => (
               <div
                 key={recipe.id}
-                className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm hover:border-emerald-500/50 transition-all duration-200 space-y-4"
+                className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm hover:border-emerald-500/50 transition-all duration-200 flex flex-col justify-between space-y-4"
               >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  {/* Recipe Image & Title */}
-                  <div className="flex items-start gap-4">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 border border-slate-200 dark:border-forest-border bg-slate-100 dark:bg-forest-root">
-                      <img
-                        src={recipe.thumbnail}
-                        alt={recipe.name}
-                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                    </div>
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Recipe Image & Title */}
+                    <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 border border-slate-200 dark:border-forest-border bg-slate-100 dark:bg-forest-root shadow-xs">
+                        <img
+                          src={recipe.thumbnail}
+                          alt={recipe.name}
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
 
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                          {recipe.name}
-                        </h3>
-                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white line-clamp-1" title={recipe.name}>
+                            {recipe.name}
+                          </h3>
+                        </div>
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md inline-block">
                           Saves {formatCurrency(recipe.savingsBdt * servings)}
-                        </span>
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                          Swap for: <span className="line-through text-slate-400">{recipe.originalDishName}</span>
+                        </p>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {recipe.nameBn || recipe.category} • Original Target:{' '}
-                        <span className="line-through text-slate-400 font-medium">
-                          {recipe.originalDishName}
-                        </span>
+                    </div>
+
+                    {/* Price Tag */}
+                    <div className="text-right shrink-0">
+                      <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 font-sans tabular-nums">
+                        {formatCurrency(recipe.estimatedCostBdt * servings)}
                       </p>
-                      <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-forest-root font-medium">
-                          {recipe.cuisineMatchLabel}
-                        </span>
-                        <span>•</span>
-                        <span>{recipe.ingredients.length} ingredients</span>
-                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        {servings > 1 ? `(${servings} people)` : '1 serving'}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Price Tag */}
-                  <div className="text-left sm:text-right shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100 dark:border-forest-border/40">
-                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-sans tabular-nums">
-                      {formatCurrency(recipe.estimatedCostBdt * servings)}
-                    </p>
-                    <p className="text-[10px] text-slate-400">
-                      for {servings} serving{servings > 1 ? 's' : ''} (৳{recipe.estimatedCostBdt}/ea)
-                    </p>
+                  {/* Substitution Details Pill */}
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 text-xs grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                        Protein Retention
+                      </span>
+                      <p className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 text-xs">
+                        {recipe.proteinRetained}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                        Cooking Time
+                      </span>
+                      <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center gap-1 text-xs">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        {recipe.prepTimeLabel}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Ingredients Preview */}
+                  <div className="flex flex-wrap gap-1">
+                    {recipe.ingredients.slice(0, 4).map((ing, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-forest-root text-slate-600 dark:text-slate-300 text-[10px]"
+                      >
+                        {ing.name}
+                      </span>
+                    ))}
+                    {recipe.ingredients.length > 4 && (
+                      <span className="text-[10px] text-slate-400 self-center">
+                        +{recipe.ingredients.length - 4} more
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Substitution Details Pill */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                      Constraint Swap Made
-                    </span>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 line-clamp-1">
-                      {recipe.swapMade}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                      Protein Retention
-                    </span>
-                    <p className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                      {recipe.proteinRetained}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                      Prep & Cooking Time
-                    </span>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      {recipe.prepTimeLabel}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Ingredients Pill Summary */}
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {recipe.ingredients.slice(0, 5).map((ing, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-forest-root text-slate-600 dark:text-slate-300 text-[11px]"
-                    >
-                      {ing.name} {ing.measure ? `(${ing.measure})` : ''}
-                    </span>
-                  ))}
-                  {recipe.ingredients.length > 5 && (
-                    <span className="text-[11px] text-slate-400 self-center">
-                      +{recipe.ingredients.length - 5} more
-                    </span>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-forest-border/50">
+                {/* Card Actions */}
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-forest-border/50">
                   <button
                     type="button"
                     onClick={() => setActiveRecipeModal(recipe)}
-                    className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 py-1.5 transition"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
                   >
-                    <BookOpen className="w-4 h-4 text-emerald-500" />
-                    <span>View Recipe & Steps ({recipe.instructionSteps.length} steps)</span>
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>View Recipe</span>
                   </button>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {recipe.youtubeUrl && (
                       <a
                         href={recipe.youtubeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
+                        className="p-1.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
                         title="Watch Cooking Video on YouTube"
                       >
                         <Youtube className="w-4 h-4" />
@@ -466,12 +530,26 @@ export const MealRescuePage: React.FC = () => {
                       size="sm"
                       icon={<ShoppingBag className="w-3.5 h-3.5" />}
                     >
-                      Generate Shopping List
+                      Shop
                     </Button>
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Load More Recipes Button */}
+        {recipes.length > visibleCount && (
+          <div className="pt-4 text-center">
+            <button
+              type="button"
+              onClick={() => setVisibleCount((prev) => prev + 12)}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-700 dark:text-slate-200 hover:border-emerald-500 font-bold text-xs shadow-sm hover:shadow transition-all"
+            >
+              <span>Load More Recipes ({recipes.length - visibleCount} more available)</span>
+              <ArrowRight className="w-4 h-4 text-emerald-500" />
+            </button>
           </div>
         )}
       </div>
@@ -504,7 +582,7 @@ export const MealRescuePage: React.FC = () => {
                 <img
                   src={activeRecipeModal.thumbnail}
                   alt={activeRecipeModal.name}
-                  className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-forest-border"
+                  className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-forest-border shadow-xs"
                 />
                 <div>
                   <h3 className="font-extrabold text-lg text-slate-900 dark:text-white">
