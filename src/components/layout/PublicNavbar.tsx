@@ -67,8 +67,8 @@ export const PublicNavbar: React.FC = () => {
           
           {/* Brand Logo & Wordmark */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-forest-card dark:bg-forest-card border border-forest-border flex items-center justify-center p-1.5 shadow-sm group-hover:border-emerald-500 transition-colors duration-200">
-              <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-white/95 border border-emerald-200/70 dark:border-white/20 flex items-center justify-center p-1.5 shadow-sm group-hover:border-emerald-500 transition-colors duration-200">
+              <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white font-sans block">

@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <rect width="48" height="48" rx="12" fill="#07130e"/>
-  <circle cx="24" cy="24" r="14" stroke="#10b981" stroke-width="2.5" stroke-dasharray="4 2"/>
-  <circle cx="24" cy="24" r="8" fill="#10b981" fill-opacity="0.2" stroke="#34d399" stroke-width="2"/>
-  <path d="M24 16V24L29 27" stroke="#6ee7b7" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="24" cy="24" r="2.5" fill="#a7f3d0"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 300 300" role="img" aria-labelledby="title desc">
+  <title id="title">NutriLens logo mark</title>
+  <desc id="desc">Standalone green N-shaped optical lens symbol on a transparent background.</desc>
+  <g fill="#156739">
+    <path d="M29 281 V51 C29 36.3 38 29 52.8 29 C64.2 27.9 72.3 29.1 82 35.1 L167 94.1 C176 100.1 182.7 106.5 187 111.1 C178 104.5 169 100 159 98.2 C121.4 92.6 85.3 116.2 72.6 147.6 C69.1 156.1 66.2 165.1 66 174 C71.9 162.2 80.7 152.7 90 150 V252 Z"/>
+    <path d="M270 20 L209 48 L208 172 C216.2 166.5 226.5 153.8 233 149 C228.4 180.1 203.4 208.4 170 213.1 C147.5 217.5 128.3 209.1 111 199 C132.3 220.3 177.5 250.4 213 270.1 C224.8 278.2 240.9 284 253.6 277.8 C264.7 272.4 270 264.7 270 252 Z"/>
+  </g>
 </svg>

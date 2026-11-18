@@ -117,8 +117,8 @@ export const ResetPasswordPage: React.FC = () => {
         <div className="rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border p-6 sm:p-8 shadow-xl space-y-6">
           {/* Logo & Headline */}
           <div className="text-center space-y-1.5">
-            <div className="w-12 h-12 rounded-2xl bg-forest-card dark:bg-forest-root border border-forest-border mx-auto flex items-center justify-center p-2 shadow-sm">
-              <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full" />
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-white/95 border border-emerald-200/60 dark:border-white/20 mx-auto flex items-center justify-center p-2 shadow-sm">
+              <img src="/logo.svg" alt="NutriLens Logo" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white font-sans">
               Choose New Password
