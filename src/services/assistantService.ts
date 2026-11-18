@@ -281,6 +281,8 @@ async function callGoogleGemmaDirect(
     'gemini-3.5-flash-lite',
     'gemini-flash-lite-latest',
     'gemini-3.1-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
   ].filter(Boolean);
   // Deduplicate
   const uniqueModels = Array.from(new Set(candidateModels));
@@ -544,6 +546,8 @@ export const assistantService = {
     // 1. Attempt Backend API First (only if backend is reachable)
     if (shouldAttemptBackend()) {
       try {
+        const backendAbort = new AbortController();
+        const backendTimer = setTimeout(() => backendAbort.abort(), 700);
         const res = await fetch(`${API_BASE}/api/v1/assistant/chat`, {
           method: 'POST',
           headers,
@@ -551,7 +555,9 @@ export const assistantService = {
             message,
             conversation_id: conversationId || null,
           }),
+          signal: backendAbort.signal,
         });
+        clearTimeout(backendTimer);
 
         if (res.ok) {
           markBackendStatus(true);

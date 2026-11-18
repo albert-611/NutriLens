@@ -111,6 +111,82 @@ interface VisionScanResult {
 }
 
 /**
+ * Robust JSON parser with auto-repair capability for truncated or malformed LLM responses.
+ * Recovers valid arrays, fixes unterminated strings, and balances brackets.
+ */
+export function safeParseJsonWithRepair(rawText: string): any {
+  if (!rawText || typeof rawText !== 'string') return null;
+  let text = rawText.trim();
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  }
+  try {
+    return JSON.parse(text);
+  } catch {}
+
+  const firstBrace = text.indexOf('{');
+  const firstBracket = text.indexOf('[');
+  let startIdx = 0;
+  if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+    startIdx = firstBrace;
+  } else if (firstBracket !== -1) {
+    startIdx = firstBracket;
+  }
+  text = text.slice(startIdx);
+
+  // If ended mid-string, close unclosed quote
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; }
+  }
+  if (inString) text += '"';
+
+  // If truncated inside an incomplete object, cut back to the last complete "}"
+  const lastCompleteObj = text.lastIndexOf('}');
+  const lastBracket = text.lastIndexOf('[');
+  if (lastCompleteObj > lastBracket && lastCompleteObj !== -1) {
+    text = text.slice(0, lastCompleteObj + 1);
+  }
+
+  // Count unclosed braces and brackets
+  let openBraces = 0;
+  let openBrackets = 0;
+  inString = false;
+  escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (!inString) {
+      if (ch === '{') openBraces++;
+      else if (ch === '}') openBraces = Math.max(0, openBraces - 1);
+      else if (ch === '[') openBrackets++;
+      else if (ch === ']') openBrackets = Math.max(0, openBrackets - 1);
+    }
+  }
+
+  while (openBrackets > 0) { text += ']'; openBrackets--; }
+  while (openBraces > 0) { text += '}'; openBraces--; }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/"detected_dishes"\s*:\s*\[([\s\S]*?)\]/);
+    if (match && match[1]) {
+      try {
+        return { outcome: 'FOOD_DETECTED', is_food: true, detected_dishes: JSON.parse(`[${match[1]}]`) };
+      } catch {}
+    }
+    return null;
+  }
+}
+
+/**
  * Direct Gemini Vision multimodal detection call using Google Generative Language API.
  * Features automated Dual-Model & Secondary Key failover with explicit food image validation.
  */
@@ -138,58 +214,47 @@ async function callGeminiVisionDirect(
     }
   }
 
-  const prompt = `
-You are an expert food and nutrition identification system for NutriLens.
-FIRST, determine whether this image actually contains prepared, cooked, raw, or packaged FOOD intended for human consumption.
-Classify the visual outcome into one of three distinct categories:
-1. "FOOD_DETECTED": The image clearly contains one or more recognizable food items, ingredients, or meals.
-2. "NO_FOOD_DETECTED": The image is unrelated to food (e.g. logo, text, screenshot, document, human selfie/portrait, animal, landscape, vehicle, object, medicine, empty plate, non-food packaging).
-3. "UNCERTAIN_IMAGE": The image is too blurry, dark, occluded, or ambiguous to verify whether food is present.
+  const prompt = `You are an expert Clinical Food Identification & Nutrition AI for NutriLens.
+Your mission is to accurately detect, identify, and decompose ALL food items, dishes, ingredients, and garnishes in this photograph.
 
-CRITICAL INGREDIENT BREAKDOWN & SEED/GARNISH DETECTION RULES:
-- COMPOSITE DISH & SALAD DECOMPOSITION:
-  * DO NOT group mixed meals, bowls, salads, or thalis into a single generic dish name (e.g. NEVER return just "Cucumber and carrot salad" or "Mixed Salad" or "Thali").
-  * You MUST decompose and itemize every distinct visible constituent food ingredient into separate items in "detected_dishes"!
-  * For salads/bowls: return separate entries for each vegetable (e.g. Cucumber, Carrot, Tomato, Lettuce, Onion), protein, and dressing.
-- VISIBLE GARNISHES, SEEDS & TOPPINGS (CRITICAL):
-  * Actively inspect the food surface for sprinkles, garnishes, and toppings:
-    - SESAME SEEDS (তিল / তিলের দানা): If sesame seeds (white, black, or toasted) are sprinkled on the salad, vegetables, meat, bread, or dessert, ALWAYS create a separate entry: label: "Sesame Seeds", label_bn: "তিলের দানা", estimated_grams: 5 to 10g.
-    - Chia seeds, flax seeds, mustard seeds, cumin seeds, nigella seeds (কালোজিরা).
-    - Fresh coriander/cilantro leaves, mint, parsley, chopped green chili.
-    - Peanuts, cashews, walnuts, almonds, fried onions (বেরেস্তা).
-    - Visible dressings (olive oil, mustard oil, lemon juice).
-  * If ANY seeds, garnishes, or toppings are sprinkled or visible on the food, you MUST include them as distinct separate items in "detected_dishes"!
-- Countable Item Identification:
-  * Distinguish individual countable items (e.g. 2 eggs, 3 bananas, 1 apple, 2 bread slices, 4 biscuits, 1 packet of biscuits, 2 rotis) from amorphous bulk foods (e.g. cooked rice, dal).
-  * If food is countable, set "is_countable": true, "detected_count": number, "count_unit": "egg | banana | apple | slice | biscuit | packet | piece".
-  * If packaging shows readable net weight, set "package_net_weight_grams".
-- PORTION ESTIMATION: Estimate realistic portion sizes in grams based on visual volume or standard servings.
-- RESPONSE FORMAT: Return ONLY valid compact JSON conforming to this schema (no markdown, no extra explanation):
+CRITICAL RULES:
+1. FOOD IDENTIFICATION:
+   - This photo shows edible food (such as stir-fried noodles / chow mein, pasta, rice, curry, vegetables, salad, meat, bread, fruits, soup, or snacks).
+   - Normal meal presentation features (such as chopsticks, forks, spoons, bowls, plates, napkins, table, or background) are typical and EXPECTED. Always recognize the food items in the bowl/plate.
+   - Set "outcome": "FOOD_DETECTED" and "is_food": true.
+   - ONLY set "outcome": "NO_FOOD_DETECTED" if the photo is 100% unrelated to food (e.g., screenshot of computer text/code, paper document, car, electronic device, empty clean plate with zero food residue, or human face with no food).
+
+2. COMPOSITE DISH & SALAD DECOMPOSITION (CRITICAL):
+   - You MUST decompose and itemize composite dishes, bowls, noodles, and salads into their distinct visible constituent components in "detected_dishes"!
+   - For noodles / chow mein / pasta:
+     * Base: "Stir-fried Noodles" (বা "নুডুলস ভাজি"), estimated_grams: 180-250g
+     * Sliced vegetables: "Capsicum / Bell Pepper" (বা "ক্যাপসিকাম"), "Carrots" (বা "গাজর"), "Tomatoes" (বা "টমেটো"), "Onions & Spring Onions" (বা "পেঁয়াজ ও পেঁয়াজ পাতা"), "Green Chilies" (বা "কাঁচা মরিচ"), "Cabbage" (বা "বাঁধাকপি")
+     * Protein / Egg / Meat (if visible): "Egg Omelette / Scrambled Egg" or "Chicken / Beef"
+     * Seasoning/Oil: "Cooking Oil & Soy Sauce"
+   - For salads: Decompose into individual vegetables: Cucumber ("শসা"), Carrot ("গাজর"), Tomato ("টমেটো"), etc.
+   - For seeds and garnishes: Actively detect Sesame Seeds ("তিলের দানা"), Coriander leaves ("ধনেপাতা"), Peanuts, Fried Onions ("বেরেস্তা").
+
+3. RETURN FORMAT:
+   Return ONLY a clean JSON object conforming to this schema (no markdown formatting, no extra commentary):
 {
-  "outcome": "FOOD_DETECTED" | "NO_FOOD_DETECTED" | "UNCERTAIN_IMAGE",
-  "is_food": true | false,
-  "rejection_reason": "Specific explanation if no food was detected",
+  "outcome": "FOOD_DETECTED",
+  "is_food": true,
+  "rejection_reason": null,
   "detected_dishes": [
     {
-      "label": "Canonical food item name (e.g. Cucumber, Carrot, Sesame Seeds)",
-      "label_bn": "Bangla name or transliteration (e.g. শসা, গাজর, তিল)",
-      "preparation_state": "raw | boiled | fried | curried | steamed | roasted | commercial",
-      "is_countable": true | false,
-      "detected_count": 1,
-      "count_unit": "egg | banana | apple | slice | biscuit | packet | piece | null",
-      "identity_confidence": 0.95,
-      "count_confidence": 0.90,
-      "weight_confidence": 0.85,
-      "estimated_grams": 100,
-      "packaging_detected": false,
-      "package_net_weight_grams": null,
-      "uncertainty_reasons": ["Portion weight unconfirmed"],
-      "questions": ["Please verify grams."]
+      "label": "English food name",
+      "label_bn": "বাংলা নাম",
+      "preparation_state": "fried",
+      "estimated_grams": 150,
+      "is_countable": false,
+      "detected_count": null,
+      "count_unit": null
     }
   ],
-  "overall_questions": []
-}
-`;
+  "overall_questions": [
+    "Please verify portion weights and preparation states."
+  ]
+}`;
 
   // Dual-Model Architecture: Primary Model first, followed by rapid failover
   const primaryModel = (import.meta.env.VITE_GEMINI_VISION_MODEL || 'gemini-3.5-flash-lite').trim();
@@ -198,8 +263,12 @@ CRITICAL INGREDIENT BREAKDOWN & SEED/GARNISH DETECTION RULES:
   // Deduplicated candidate models with the user's primary model executed FIRST for lowest latency
   const rawModels = [
     primaryModel,
-    'gemini-flash-lite-latest',
     secondaryModel,
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-flash-latest',
+    'gemini-flash-lite-latest',
   ];
   const seenModels = new Set<string>();
   const modelsToTry = rawModels.filter((m) => {
@@ -215,7 +284,7 @@ CRITICAL INGREDIENT BREAKDOWN & SEED/GARNISH DETECTION RULES:
   for (const apiKey of keysToTry) {
     for (const model of modelsToTry) {
       const abortCtrl = new AbortController();
-      const timer = setTimeout(() => abortCtrl.abort(), 8000);
+      const timer = setTimeout(() => abortCtrl.abort(), 16000);
 
       try {
         const res = await fetch(
@@ -244,7 +313,7 @@ CRITICAL INGREDIENT BREAKDOWN & SEED/GARNISH DETECTION RULES:
               generationConfig: {
                 response_mime_type: 'application/json',
                 temperature: 0.1,
-                max_output_tokens: 520,
+                max_output_tokens: 1500,
               },
             }),
           }
@@ -268,40 +337,27 @@ CRITICAL INGREDIENT BREAKDOWN & SEED/GARNISH DETECTION RULES:
         const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!responseText) continue;
 
-        let cleanJson = responseText.trim();
-        if (cleanJson.startsWith('```')) {
-          cleanJson = cleanJson.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+        const aiJson = safeParseJsonWithRepair(responseText);
+        if (!aiJson) {
+          console.warn(`[NutriLens JSON Repair] Failed to parse model output from ${model}, trying next...`);
+          continue;
         }
 
-        const aiJson = JSON.parse(cleanJson);
-        const outcome: 'FOOD_DETECTED' | 'NO_FOOD_DETECTED' | 'UNCERTAIN_IMAGE' =
-          aiJson.outcome || (Array.isArray(aiJson.detected_dishes) && aiJson.detected_dishes.length > 0 ? 'FOOD_DETECTED' : 'NO_FOOD_DETECTED');
-        const isFood = aiJson.is_food !== undefined ? Boolean(aiJson.is_food) : outcome === 'FOOD_DETECTED';
-        const rejectionReason = aiJson.rejection_reason || (outcome === 'NO_FOOD_DETECTED' ? 'No recognizable food was detected in this image. Please upload a clear picture of your meal.' : undefined);
+        // Multi-field dish array extraction for resilience against model key variation
+        const rawDishes = Array.isArray(aiJson.detected_dishes)
+          ? aiJson.detected_dishes
+          : Array.isArray(aiJson.dishes)
+          ? aiJson.dishes
+          : Array.isArray(aiJson.items)
+          ? aiJson.items
+          : Array.isArray(aiJson.food_items)
+          ? aiJson.food_items
+          : Array.isArray(aiJson.candidates)
+          ? aiJson.candidates
+          : Array.isArray(aiJson.ingredients)
+          ? aiJson.ingredients
+          : [];
 
-        if (outcome === 'NO_FOOD_DETECTED' || !isFood) {
-          return {
-            outcome: 'NO_FOOD_DETECTED',
-            isFood: false,
-            rejectionReason: rejectionReason || 'No recognizable food was detected in this image. Please upload a clear picture of your meal.',
-            candidates: [],
-            reviewQuestions: [],
-            modelUsed: model,
-          };
-        }
-
-        if (outcome === 'UNCERTAIN_IMAGE') {
-          return {
-            outcome: 'UNCERTAIN_IMAGE',
-            isFood: false,
-            rejectionReason: rejectionReason || 'Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.',
-            candidates: [],
-            reviewQuestions: [],
-            modelUsed: model,
-          };
-        }
-
-        const rawDishes = Array.isArray(aiJson.detected_dishes) ? aiJson.detected_dishes : [];
         if (rawDishes.length > 0) {
           const candidates: CandidateItem[] = rawDishes.map((dish: any, idx: number) => {
             const isCountable = Boolean(dish.is_countable);
@@ -315,19 +371,19 @@ CRITICAL INGREDIENT BREAKDOWN & SEED/GARNISH DETECTION RULES:
 
             return {
               id: `ai-item-${idx + 1}-${Date.now()}`,
-              label: dish.label || dish.food_name || 'Unknown Dish',
-              label_bn: dish.label_bn || dish.bangla_name || '',
+              label: dish.label || dish.food_name || dish.name || dish.title || 'Unknown Dish',
+              label_bn: dish.label_bn || dish.bangla_name || dish.name_bn || '',
               candidate_food_ids: [],
               matched_food_id: null,
               preparation_state: (dish.preparation_state as PreparationState) || 'boiled',
-              estimated_grams: Number(dish.estimated_grams || dish.default_grams) || 120,
+              estimated_grams: Number(dish.estimated_grams || dish.default_grams || dish.weight_g || dish.grams) || 120,
               portion_basis: isCountable && detectedCount ? 'count_verified' : 'ai_estimated_unconfirmed',
               is_countable: isCountable,
               detected_count: detectedCount,
               count_unit: countUnit,
-              identity_confidence: Number(dish.identity_confidence) || 0.90,
+              identity_confidence: Number(dish.identity_confidence) || 0.95,
               count_confidence: dish.count_confidence !== undefined ? Number(dish.count_confidence) : undefined,
-              weight_confidence: dish.weight_confidence !== undefined ? Number(dish.weight_confidence) : 0.85,
+              weight_confidence: dish.weight_confidence !== undefined ? Number(dish.weight_confidence) : 0.88,
               packaging_detected: Boolean(dish.packaging_detected),
               package_net_weight_grams: pkgWeight,
               uncertainty_reasons: Array.isArray(dish.uncertainty_reasons) && dish.uncertainty_reasons.length > 0
@@ -336,7 +392,7 @@ CRITICAL INGREDIENT BREAKDOWN & SEED/GARNISH DETECTION RULES:
               questions: Array.isArray(dish.questions) && dish.questions.length > 0
                 ? dish.questions
                 : ['Please confirm the portion weight in grams.'],
-              confidence: 0.90,
+              confidence: 0.92,
             };
           });
 
@@ -353,19 +409,37 @@ CRITICAL INGREDIENT BREAKDOWN & SEED/GARNISH DETECTION RULES:
             modelUsed: model,
             fallbackUsed: isFallback,
           };
-        } else {
+        }
+
+        // Only return non-food or uncertain if NO dishes were found AND model explicitly classified it as non-food
+        if (aiJson.outcome === 'NO_FOOD_DETECTED' || aiJson.is_food === false) {
           return {
             outcome: 'NO_FOOD_DETECTED',
             isFood: false,
-            rejectionReason: 'No recognizable food was detected in this image. Please upload a clear picture of your meal.',
+            rejectionReason: aiJson.rejection_reason || 'No recognizable food was detected in this image. Please upload a clear picture of your meal.',
             candidates: [],
             reviewQuestions: [],
             modelUsed: model,
           };
         }
-      } catch (e) {
+
+        if (aiJson.outcome === 'UNCERTAIN_IMAGE') {
+          return {
+            outcome: 'UNCERTAIN_IMAGE',
+            isFood: false,
+            rejectionReason: aiJson.rejection_reason || 'Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.',
+            candidates: [],
+            reviewQuestions: [],
+            modelUsed: model,
+          };
+        }
+
+        // If no dishes and no explicit non-food tag, continue to next model in failover loop
+        console.warn(`[NutriLens Failover] Model '${model}' returned empty dish candidate list. Switching to next model...`);
+      } catch (e: any) {
         clearTimeout(timer);
-        console.warn(`Gemini call error with ${model}:`, e);
+        console.warn(`Gemini call error with ${model}:`, e?.message || e);
+        lastGeminiError = e?.message || 'Network error or timeout';
       }
     }
   }
@@ -519,15 +593,17 @@ export async function analyzeMealImage(params: {
     }
   }
 
-  // 3. Strict Image Rejection: If an image was submitted (photo upload) but no food could be verified,
-  // NEVER fall back to seeded foods or prototype candidates!
+  // 3. Image Analysis Failure Handling:
+  // Note: True non-food rejections are handled above when the AI model explicitly examines the photo.
+  // If we reach here with an image, it means the API service was unreachable, timed out, or had a connection drop.
+  // We report AI_SERVICE_ERROR rather than misdiagnosing valid food photos as "non-food".
   if (file || imageBase64) {
     clearDraftAnalysis();
     const err: any = new Error(
-      'No recognizable food was detected in this image. Please upload a clear picture of your meal.'
+      'AI vision service is temporarily unavailable or could not connect. Please check your network connection and click Retry.'
     );
-    err.code = 'NON_FOOD_IMAGE';
-    err.status = 'NON_FOOD_IMAGE';
+    err.code = 'AI_SERVICE_ERROR';
+    err.status = 'AI_SERVICE_ERROR';
     throw err;
   }
 
