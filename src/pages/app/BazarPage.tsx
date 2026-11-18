@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Store,
@@ -13,44 +13,55 @@ import {
   CheckCircle2,
   Calendar,
   Layers,
+  Sparkles,
 } from 'lucide-react';
 import {
-  WFP_2026_MARKET_OBSERVATIONS,
   WFP_DIVISIONS,
   WFP_DIVISION_NAMES_BN,
   WFP_DIVISION_MARKETS,
   WFPPriceObservation,
 } from '../../lib/wfpMarketPrices';
+import {
+  fetchBazarDataset,
+  getBazarObservations,
+  type BazarDataset,
+} from '../../services/bazarService';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Categories' },
   { id: 'grains_and_cereals', label: 'Grains & Rice' },
   { id: 'pulses_and_legumes', label: 'Lentils & Pulses' },
-  { id: 'eggs', label: 'Eggs' },
-  { id: 'meat_and_poultry', label: 'Meat & Poultry' },
   { id: 'fish_and_seafood', label: 'Fish & Seafood' },
+  { id: 'meat_and_poultry', label: 'Meat & Poultry' },
+  { id: 'eggs', label: 'Eggs & Dairy' },
   { id: 'vegetables', label: 'Vegetables' },
   { id: 'fruits', label: 'Fruits' },
   { id: 'oils_and_fats', label: 'Oils & Fats' },
   { id: 'spices_and_condiments', label: 'Spices & Salt' },
-];
-
-const YEARS = [
-  { id: 'all', label: '2024–2026' },
-  { id: '2026', label: '2026' },
-  { id: '2025', label: '2025' },
-  { id: '2024', label: '2024' },
+  { id: 'snacks_and_sweets', label: 'Sweets & Street Food' },
 ];
 
 export const BazarPage: React.FC = () => {
   const { t } = useTranslation();
   const [selectedDivision, setSelectedDivision] = useState<string>('all');
   const [selectedMarket, setSelectedMarket] = useState<string>('all');
-  const [selectedYear, setSelectedYear] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortField, setSortField] = useState<'commodity' | 'price' | 'date'>('date');
-  const [sortAsc, setSortAsc] = useState<boolean>(false);
+  const [sortField, setSortField] = useState<'commodity' | 'price' | 'date'>('commodity');
+  const [sortAsc, setSortAsc] = useState<boolean>(true);
+  const [dataset, setDataset] = useState<BazarDataset | null>(null);
+  const [isLoadingDataset, setIsLoadingDataset] = useState<boolean>(true);
+
+  // Load the comprehensive 2026 bajar_data.json dataset in the background
+  useEffect(() => {
+    fetchBazarDataset()
+      .then((data) => {
+        if (data) setDataset(data);
+      })
+      .finally(() => {
+        setIsLoadingDataset(false);
+      });
+  }, []);
 
   // Markets available for the currently selected division
   const availableMarkets = useMemo(() => {
@@ -70,37 +81,16 @@ export const BazarPage: React.FC = () => {
     setSelectedMarket('all');
   };
 
-  // Filter observations based on search, division, market, year, and category
+  // Filter observations based on search, division, market, and category across 2026 dataset
   const filteredItems = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return WFP_2026_MARKET_OBSERVATIONS.filter((item) => {
-      // 1. Division filter
-      const matchesDivision =
-        selectedDivision === 'all' || item.division.toLowerCase() === selectedDivision.toLowerCase();
+    const raw = getBazarObservations(dataset, {
+      division: selectedDivision,
+      market: selectedMarket,
+      category: selectedCategory,
+      query: searchQuery,
+    });
 
-      // 2. Market filter
-      const matchesMarket =
-        selectedMarket === 'all' || item.market.toLowerCase() === selectedMarket.toLowerCase();
-
-      // 3. Year filter
-      const matchesYear =
-        selectedYear === 'all' || item.year === selectedYear || item.observedAt.startsWith(selectedYear);
-
-      // 4. Category filter
-      const matchesCategory =
-        selectedCategory === 'all' || item.category === selectedCategory;
-
-      // 5. Search query
-      const matchesSearch =
-        !q ||
-        item.name.toLowerCase().includes(q) ||
-        (item.nameBn && item.nameBn.includes(q)) ||
-        item.market.toLowerCase().includes(q) ||
-        item.division.toLowerCase().includes(q) ||
-        (item.district && item.district.toLowerCase().includes(q));
-
-      return matchesDivision && matchesMarket && matchesYear && matchesCategory && matchesSearch;
-    }).sort((a, b) => {
+    return raw.sort((a, b) => {
       if (sortField === 'price') {
         return sortAsc ? a.price - b.price : b.price - a.price;
       }
@@ -113,26 +103,26 @@ export const BazarPage: React.FC = () => {
         ? a.name.localeCompare(b.name)
         : b.name.localeCompare(a.name);
     });
-  }, [selectedDivision, selectedMarket, selectedYear, selectedCategory, searchQuery, sortField, sortAsc]);
+  }, [dataset, selectedDivision, selectedMarket, selectedCategory, searchQuery, sortField, sortAsc]);
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Title & Verified WFP Header */}
+      {/* Title & Verified 2026 Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs uppercase font-extrabold tracking-wider px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Official WFP Bangladesh Dataset (2024–2026)
+            Bazar Intelligence Dataset (2026)
           </span>
           <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            United Nations World Food Programme • 8 Divisions • 118 Physical Markets
+            8 Administrative Divisions • 118 Physical Markets • 368 Monitored Food Items
           </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-          Bazar Intelligence & Live Market Prices
+          Bazar Intelligence & Live Market Prices (2026)
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-          Real retail commodity prices monitored across Bangladesh divisions from 2024 to 2026 to power realistic meal cost and dietary budget planning.
+          Current retail food commodity prices monitored across Bangladesh divisions and local wet markets in 2026 to power realistic meal cost and dietary budget planning.
         </p>
       </div>
 
@@ -141,15 +131,15 @@ export const BazarPage: React.FC = () => {
         <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
         <div>
           <p className="font-bold text-slate-900 dark:text-white">
-            Comprehensive Real-World Data across All 8 Divisions & 118 Markets (2024–2026)
+            Comprehensive Real-World Data across All 8 Divisions & 118 Markets (2026 Dataset)
           </p>
           <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
-            Choose any <strong>Division</strong> below to browse all regional wet markets and wholesale centers (e.g. Kawran Bazar, Mirpur 1, Savar, Chittagong, Sylhet Sadar). All prices are official monitoring observations from the World Food Programme.
+            Select any <strong>Division</strong> below to browse all regional wet markets and wholesale centers (e.g. Kawran Bazar, Mirpur 1, Savar, Chittagong, Sylhet Sadar). Sourced directly from <strong>bajar_data.json</strong> with exclusive 2026 market monitoring.
           </p>
         </div>
       </div>
 
-      {/* Control Panel: Division, Market, Year, Search, & Categories */}
+      {/* Control Panel: Division, Market, Search, & Categories */}
       <div className="p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-5">
         
         {/* 1. Division Selector (Primary Location Hierarchy) */}
@@ -200,7 +190,7 @@ export const BazarPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 2. Market Location Selector & Search & Year Controls */}
+        {/* 2. Market Location Selector & Search Controls */}
         <div className="pt-3 border-t border-slate-100 dark:border-forest-border/50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
           {/* Specific Market Location in Selected Division */}
@@ -239,24 +229,12 @@ export const BazarPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Right Controls: Year Filter & Search Bar */}
+          {/* Right Controls: Year Badge (2026 Only) & Search Bar */}
           <div className="flex items-center gap-3 w-full lg:w-auto">
-            {/* Year Selector */}
-            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-forest-root rounded-xl border border-slate-200 dark:border-forest-border/60 shrink-0">
-              <Calendar className="w-3.5 h-3.5 text-slate-400 ml-1.5" />
-              {YEARS.map((y) => (
-                <button
-                  key={y.id}
-                  onClick={() => setSelectedYear(y.id)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    selectedYear === y.id
-                      ? 'bg-white dark:bg-forest-card text-emerald-600 dark:text-emerald-400 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                  }`}
-                >
-                  {y.label}
-                </button>
-              ))}
+            {/* Year Indicator (Strictly 2026 dataset) */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 dark:bg-emerald-950/40 rounded-xl border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 shrink-0 text-xs font-bold">
+              <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>2026 Data</span>
             </div>
 
             {/* Search Input */}
@@ -298,28 +276,16 @@ export const BazarPage: React.FC = () => {
       <div className="rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-forest-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
-            Showing <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm">{filteredItems.length}</span> Verified Price Observations
+            Showing <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm">{filteredItems.length}</span> Verified 2026 Price Observations
             {selectedDivision !== 'all' && (
               <span className="text-slate-500 dark:text-slate-400 font-normal"> in {selectedDivision} Division</span>
             )}
             {selectedMarket !== 'all' && (
               <span className="text-slate-500 dark:text-slate-400 font-normal"> • {selectedMarket}</span>
             )}
-            {selectedYear !== 'all' && (
-              <span className="text-slate-500 dark:text-slate-400 font-normal"> ({selectedYear})</span>
-            )}
           </p>
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-400 text-[11px]">Sort:</span>
-            <button
-              onClick={() => {
-                if (sortField === 'date') setSortAsc(!sortAsc);
-                else { setSortField('date'); setSortAsc(false); }
-              }}
-              className={`px-2 py-0.5 rounded font-semibold text-[11px] ${sortField === 'date' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'text-slate-500'}`}
-            >
-              Date {sortField === 'date' ? (sortAsc ? '↑' : '↓') : ''}
-            </button>
             <button
               onClick={() => {
                 if (sortField === 'commodity') setSortAsc(!sortAsc);
@@ -337,6 +303,15 @@ export const BazarPage: React.FC = () => {
               className={`px-2 py-0.5 rounded font-semibold text-[11px] ${sortField === 'price' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'text-slate-500'}`}
             >
               Price {sortField === 'price' ? (sortAsc ? '↑' : '↓') : ''}
+            </button>
+            <button
+              onClick={() => {
+                if (sortField === 'date') setSortAsc(!sortAsc);
+                else { setSortField('date'); setSortAsc(false); }
+              }}
+              className={`px-2 py-0.5 rounded font-semibold text-[11px] ${sortField === 'date' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'text-slate-500'}`}
+            >
+              Date {sortField === 'date' ? (sortAsc ? '↑' : '↓') : ''}
             </button>
           </div>
         </div>
@@ -403,13 +378,13 @@ export const BazarPage: React.FC = () => {
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-forest-root text-slate-600 dark:text-slate-400 font-medium text-[11px]">
                           <Minus className="w-3 h-3 text-slate-400" />
-                          Stable
+                          {item.change.startsWith('৳') ? item.change : 'Stable'}
                         </span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className="font-sans text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        WFP {item.year}
+                        2026 Data
                       </span>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-end gap-1">
                         <Clock className="w-3 h-3 text-slate-400" />
