@@ -1,168 +1,85 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Sparkles,
   ArrowRight,
-  ShieldCheck,
-  Scale,
   Clock,
-  Layers,
-  Check,
-  Store,
   ChefHat,
-  Filter,
+  Search,
+  ExternalLink,
+  Youtube,
+  X,
+  BookOpen,
+  Utensils,
+  ShoppingBag,
+  Info,
+  Check,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { formatCurrency } from '../../lib/formatters';
-
-interface FeasiblePivot {
-  id: string;
-  name: string;
-  nameBn: string;
-  cuisineType: 'bangladeshi' | 'western' | 'mediterranean' | 'asian';
-  originalDish: string;
-  substitutedIngredient: string;
-  replacementIngredient: string;
-  savingsBdt: number;
-  newMealCost: number;
-  proteinRetained: string;
-  prepTime: string;
-  cuisineMatch: string;
-  ingredients: string[];
-}
+import { recipeService, type MealRescueRecipe } from '../../services/recipeService';
 
 export const MealRescuePage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [budget, setBudget] = useState(120);
+  // Constraints State
+  const [budget, setBudget] = useState(130);
   const [servings, setServings] = useState(1);
   const [prepTimeLimit, setPrepTimeLimit] = useState(30);
   const [selectedExclusions, setSelectedExclusions] = useState<string[]>([]);
   const [selectedCuisine, setSelectedCuisine] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const allPivots: FeasiblePivot[] = [
-    // --- Bangladeshi Traditional ---
-    {
-      id: 'p1',
-      name: 'Dim Bhuna with Sada Bhat & Masoor Dal',
-      nameBn: 'ডিম ভুনা ও ডাল-ভাত',
-      cuisineType: 'bangladeshi',
-      originalDish: 'Beef Bhuna with Rice (৳220)',
-      substitutedIngredient: 'Beef (Lean meat 150g)',
-      replacementIngredient: 'Two Farm Fresh Eggs (100g) + Masoor Dal (150g)',
-      savingsBdt: 145.00,
-      newMealCost: 65.00,
-      proteinRetained: '26.4g (92% of original)',
-      prepTime: '20 mins',
-      cuisineMatch: 'Bangladeshi Everyday Classic',
-      ingredients: ['White Rice (200g)', 'Eggs (2 pcs)', 'Masoor Dal (150g)', 'Onion & Spices'],
-    },
-    {
-      id: 'p2',
-      name: 'Pond Tilapia Patla Jhol + Sada Bhat',
-      nameBn: 'তেলাপিয়া মাছের পাতলা ঝোল ও ভাত',
-      cuisineType: 'bangladeshi',
-      originalDish: 'Rohu Fish Jhol (৳110)',
-      substitutedIngredient: 'Rohu Fish steak (180g)',
-      replacementIngredient: 'Fresh Pond Tilapia (180g)',
-      savingsBdt: 38.00,
-      newMealCost: 72.00,
-      proteinRetained: '25.1g (100% of original)',
-      prepTime: '25 mins',
-      cuisineMatch: 'Light Fish Curry',
-      ingredients: ['White Rice (200g)', 'Tilapia Fish (180g)', 'Potato (70g)', 'Turmeric & Cumin'],
-    },
-    {
-      id: 'p3',
-      name: 'Chhola Bhuna with Handmade Whole Wheat Roti',
-      nameBn: 'ছোলা ভুনা ও আটার রুটি',
-      cuisineType: 'bangladeshi',
-      originalDish: 'Chicken Curry with Roti (৳135)',
-      substitutedIngredient: 'Chicken Curry (200g)',
-      replacementIngredient: 'Boiled Savory Chickpeas (200g)',
-      savingsBdt: 75.00,
-      newMealCost: 55.00,
-      proteinRetained: '21.0g (85% of original)',
-      prepTime: '15 mins',
-      cuisineMatch: 'High-Fibre Vegetarian',
-      ingredients: ['Whole Wheat Roti (2 pcs)', 'Chickpeas (200g)', 'Onion & Mustard Oil'],
-    },
+  // Recipes State
+  const [recipes, setRecipes] = useState<MealRescueRecipe[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [activeRecipeModal, setActiveRecipeModal] = useState<MealRescueRecipe | null>(null);
 
-    // --- Western / International ---
-    {
-      id: 'p4',
-      name: 'Grilled Chicken Breast with Steamed Brown Rice & Veggies',
-      nameBn: 'গ্রিল্ড চিকেন ও ব্রাউন রাইস বোল',
-      cuisineType: 'western',
-      originalDish: 'Cheeseburger & Large Fries (৳320)',
-      substitutedIngredient: 'Deep-fried Patty & Fries (30g saturated fat)',
-      replacementIngredient: 'Lean Grilled Chicken Breast (160g) + Steamed Vegetables',
-      savingsBdt: 180.00,
-      newMealCost: 110.00,
-      proteinRetained: '42.0g (135% of original)',
-      prepTime: '20 mins',
-      cuisineMatch: 'Western Clean Eating / High Protein',
-      ingredients: ['Grilled Chicken Breast (160g)', 'Steamed Rice (150g)', 'Broccoli & Carrots', 'Olive Oil & Herbs'],
-    },
-    {
-      id: 'p5',
-      name: 'Whole-Wheat Spaghetti Bolognese (Lean Minced Meat)',
-      nameBn: 'হোল-হুইট স্প্যাগেটি বলনিজ',
-      cuisineType: 'western',
-      originalDish: 'Creamy Bacon Carbonara (৳280)',
-      substitutedIngredient: 'Heavy Cream & Pork Bacon (45g fat)',
-      replacementIngredient: 'Whole-wheat Pasta with slow-cooked Tomato & Lean Beef Sauce',
-      savingsBdt: 140.00,
-      newMealCost: 115.00,
-      proteinRetained: '28.5g (110% of original)',
-      prepTime: '25 mins',
-      cuisineMatch: 'Italian Classic High-Fibre',
-      ingredients: ['Whole Wheat Spaghetti (120g)', 'Lean Minced Meat (100g)', 'Tomato Sauce', 'Garlic & Basil'],
-    },
-
-    // --- Mediterranean & Asian ---
-    {
-      id: 'p6',
-      name: 'Greek Salad with Grilled Chicken & Pita',
-      nameBn: 'গ্রিক চিকেন সালাদ ও পিটা ব্রেড',
-      cuisineType: 'mediterranean',
-      originalDish: 'Crispy Fried Chicken Combo (৳260)',
-      substitutedIngredient: 'Batter-fried Chicken Wings',
-      replacementIngredient: 'Grilled Chicken Strips + Cucumber, Feta & Olive Salad',
-      savingsBdt: 155.00,
-      newMealCost: 95.00,
-      proteinRetained: '32.0g (100% of original)',
-      prepTime: '15 mins',
-      cuisineMatch: 'Mediterranean Heart-Healthy',
-      ingredients: ['Grilled Chicken (140g)', 'Cucumber & Tomato', 'Feta Cheese (30g)', 'Whole Wheat Pita'],
-    },
-    {
-      id: 'p7',
-      name: 'Teriyaki Salmon Fillet with Edamame & Rice',
-      nameBn: 'তেরিয়াকি স্যামন ও রাইস বোল',
-      cuisineType: 'asian',
-      originalDish: 'Deep-Fried Prawn Tempura (৳350)',
-      substitutedIngredient: 'Deep-fried Battered Prawns',
-      replacementIngredient: 'Pan-seared Atlantic Salmon Fillet (140g)',
-      savingsBdt: 160.00,
-      newMealCost: 150.00,
-      proteinRetained: '34.0g (120% of original)',
-      prepTime: '20 mins',
-      cuisineMatch: 'Japanese Omega-3 Rich',
-      ingredients: ['Salmon Fillet (140g)', 'Steamed Jasmine Rice (150g)', 'Soy Glaze', 'Sesame & Greens'],
-    },
+  // Quick rescue suggestion templates
+  const quickPicks = [
+    { label: '🥚 High-Protein Egg & Dal', query: 'Egg' },
+    { label: '🍗 Lean Chicken Curry', query: 'Chicken' },
+    { label: '🍝 Mediterranean Pasta', query: 'Pasta' },
+    { label: '🐟 Pond Fish / Tilapia', query: 'Fish' },
+    { label: '🌱 High-Fibre Veggie', query: 'Vegetarian' },
   ];
 
-  const pivots = allPivots.filter((p) => {
-    if (selectedCuisine !== 'all' && p.cuisineType !== selectedCuisine) return false;
-    if (p.newMealCost > budget) return false;
-    if (selectedExclusions.some((ex) => p.ingredients.some((ing) => ing.toLowerCase().includes(ex.toLowerCase())))) {
-      return false;
-    }
-    return true;
-  });
+  // Fetch / Generate Meal Rescues
+  useEffect(() => {
+    let isCancelled = false;
+    setIsLoading(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await recipeService.generateMealRescues({
+          budgetBdt: budget,
+          servings,
+          maxPrepTime: prepTimeLimit,
+          cuisineType: selectedCuisine,
+          exclusions: selectedExclusions,
+          searchQuery: searchQuery || undefined,
+        });
+
+        if (!isCancelled) {
+          setRecipes(results);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn('Failed to load rescues:', err);
+          setIsLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [budget, servings, prepTimeLimit, selectedCuisine, selectedExclusions, searchQuery]);
 
   const toggleExclusion = (ex: string) => {
     setSelectedExclusions((prev) =>
@@ -170,26 +87,32 @@ export const MealRescuePage: React.FC = () => {
     );
   };
 
-  const handleSelectPivot = (pivot: FeasiblePivot) => {
+  const handleSelectPivot = (recipe: MealRescueRecipe) => {
     navigate('/app/shopping', {
       state: {
-        selectedMealName: pivot.name,
-        estimatedCost: pivot.newMealCost * servings,
+        selectedMealName: recipe.name,
+        estimatedCost: recipe.estimatedCostBdt * servings,
+        ingredients: recipe.ingredients.map((i) => ({
+          name: i.name,
+          measure: i.measure,
+        })),
       },
     });
   };
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-5xl mx-auto">
-      
-      {/* Title */}
+      {/* Title & Header */}
       <div className="space-y-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             Constraint Solver
           </span>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Cuisine-Preserving Substitution
+            Powered by TheMealDB Culinary API
+          </span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-forest-card text-slate-500 dark:text-slate-400 font-mono">
+            WFP 2026 Price Grounding
           </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -200,24 +123,65 @@ export const MealRescuePage: React.FC = () => {
         </p>
       </div>
 
+      {/* Search & Quick Filter Bar */}
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search dish or main ingredient to rescue (e.g. Chicken, Biryani, Pasta, Egg, Lentil, Fish)..."
+            className="w-full pl-11 pr-10 py-3 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-sm"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Quick Pick Chips */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          <span className="text-slate-400 text-[11px] font-semibold shrink-0">Quick Rescue:</span>
+          {quickPicks.map((pick) => (
+            <button
+              key={pick.label}
+              type="button"
+              onClick={() => setSearchQuery(pick.query === searchQuery ? '' : pick.query)}
+              className={`px-3 py-1 rounded-full whitespace-nowrap transition-all text-xs font-medium ${
+                searchQuery === pick.query
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {pick.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Interactive Constraints Controls */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          
           {/* Budget Slider */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold">
               <label className="text-slate-700 dark:text-slate-300">
                 {t('meal_rescue.budget_label')}
               </label>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold font-sans tabular-nums">
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold font-sans tabular-nums text-sm">
                 {formatCurrency(budget)}
               </span>
             </div>
             <input
               type="range"
               min="40"
-              max="200"
+              max="250"
               step="5"
               value={budget}
               onChange={(e) => setBudget(parseInt(e.target.value))}
@@ -225,7 +189,7 @@ export const MealRescuePage: React.FC = () => {
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-sans tabular-nums">
               <span>৳40 min</span>
-              <span>৳200 max</span>
+              <span>৳250 max</span>
             </div>
           </div>
 
@@ -243,7 +207,7 @@ export const MealRescuePage: React.FC = () => {
                   className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
                     servings === num
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                      : 'bg-slate-50 dark:bg-forest-root border-slate-200 dark:border-forest-border/70 text-slate-700 dark:text-slate-300'
+                      : 'bg-slate-50 dark:bg-forest-root border-slate-200 dark:border-forest-border/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
                   }`}
                 >
                   {num} {num === 1 ? 'Person' : 'People'}
@@ -266,7 +230,7 @@ export const MealRescuePage: React.FC = () => {
                   className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
                     prepTimeLimit === mins
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                      : 'bg-slate-50 dark:bg-forest-root border-slate-200 dark:border-forest-border/70 text-slate-700 dark:text-slate-300'
+                      : 'bg-slate-50 dark:bg-forest-root border-slate-200 dark:border-forest-border/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
                   }`}
                 >
                   {mins}m
@@ -292,7 +256,7 @@ export const MealRescuePage: React.FC = () => {
                   className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
                     active
                       ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800'
-                      : 'bg-slate-100 dark:bg-forest-root border-slate-200 dark:border-forest-border/60 text-slate-600 dark:text-slate-400'
+                      : 'bg-slate-50 dark:bg-forest-root border-slate-200 dark:border-forest-border/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
                   }`}
                 >
                   {active ? `✕ Excluded: ${ex}` : `+ ${ex}`}
@@ -307,10 +271,10 @@ export const MealRescuePage: React.FC = () => {
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {[
           { id: 'all', label: 'All Cuisines' },
-          { id: 'bangladeshi', label: '🇧🇩 Bangladeshi Local' },
+          { id: 'bangladeshi', label: '🇧🇩 Bangladeshi & South Asian' },
+          { id: 'mediterranean', label: '🥗 Mediterranean / Italian' },
           { id: 'western', label: '🍔 Western / International' },
-          { id: 'mediterranean', label: '🥗 Mediterranean' },
-          { id: 'asian', label: '🍱 Asian' },
+          { id: 'asian', label: '🍱 Asian & Oriental' },
         ].map((c) => (
           <button
             key={c.id}
@@ -319,7 +283,7 @@ export const MealRescuePage: React.FC = () => {
             className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
               selectedCuisine === c.id
                 ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                : 'bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:bg-slate-100'
             }`}
           >
             {c.label}
@@ -327,84 +291,331 @@ export const MealRescuePage: React.FC = () => {
         ))}
       </div>
 
-      {/* Recommended Pivots */}
+      {/* Results Header */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-500" />
-            Ranked Feasible Alternatives ({pivots.length})
+            Ranked Feasible Alternatives ({recipes.length})
           </h2>
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            All prices tagged SIMULATED DEMO DATA
-          </span>
+          {isLoading ? (
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              Solving constraints...
+            </span>
+          ) : (
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              Ranked by cash savings & protein value
+            </span>
+          )}
         </div>
 
-        <div className="space-y-4">
-          {pivots.map((pivot) => (
-            <div
-              key={pivot.id}
-              className="p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm hover:border-emerald-500/50 transition-all duration-200 space-y-4"
+        {/* Recipes Grid / List */}
+        {recipes.length === 0 && !isLoading ? (
+          <div className="p-8 text-center bg-white dark:bg-forest-card rounded-3xl border border-slate-200 dark:border-forest-border space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-forest-root text-slate-400 mx-auto flex items-center justify-center">
+              <Utensils className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-slate-800 dark:text-slate-200">No Meals Matched These Constraints</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              Try increasing your maximum meal budget slider or clearing specific ingredient exclusions.
+            </p>
+            <Button
+              onClick={() => {
+                setBudget(160);
+                setSelectedExclusions([]);
+                setSelectedCuisine('all');
+                setSearchQuery('');
+              }}
+              variant="outline"
+              size="sm"
             >
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                      {pivot.name}
-                    </h3>
-                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                      Saves {formatCurrency(pivot.savingsBdt * servings)}
-                    </span>
+              Reset Constraints
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5">
+            {recipes.map((recipe) => (
+              <div
+                key={recipe.id}
+                className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm hover:border-emerald-500/50 transition-all duration-200 space-y-4"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  {/* Recipe Image & Title */}
+                  <div className="flex items-start gap-4">
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 border border-slate-200 dark:border-forest-border bg-slate-100 dark:bg-forest-root">
+                      <img
+                        src={recipe.thumbnail}
+                        alt={recipe.name}
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          {recipe.name}
+                        </h3>
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+                          Saves {formatCurrency(recipe.savingsBdt * servings)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {recipe.nameBn || recipe.category} • Original Target:{' '}
+                        <span className="line-through text-slate-400 font-medium">
+                          {recipe.originalDishName}
+                        </span>
+                      </p>
+                      <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-forest-root font-medium">
+                          {recipe.cuisineMatchLabel}
+                        </span>
+                        <span>•</span>
+                        <span>{recipe.ingredients.length} ingredients</span>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Price Tag */}
+                  <div className="text-left sm:text-right shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100 dark:border-forest-border/40">
+                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-sans tabular-nums">
+                      {formatCurrency(recipe.estimatedCostBdt * servings)}
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      for {servings} serving{servings > 1 ? 's' : ''} (৳{recipe.estimatedCostBdt}/ea)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Substitution Details Pill */}
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                      Constraint Swap Made
+                    </span>
+                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 line-clamp-1">
+                      {recipe.swapMade}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                      Protein Retention
+                    </span>
+                    <p className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      {recipe.proteinRetained}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                      Prep & Cooking Time
+                    </span>
+                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      {recipe.prepTimeLabel}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Ingredients Pill Summary */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {recipe.ingredients.slice(0, 5).map((ing, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-forest-root text-slate-600 dark:text-slate-300 text-[11px]"
+                    >
+                      {ing.name} {ing.measure ? `(${ing.measure})` : ''}
+                    </span>
+                  ))}
+                  {recipe.ingredients.length > 5 && (
+                    <span className="text-[11px] text-slate-400 self-center">
+                      +{recipe.ingredients.length - 5} more
+                    </span>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-forest-border/50">
+                  <button
+                    type="button"
+                    onClick={() => setActiveRecipeModal(recipe)}
+                    className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 py-1.5 transition"
+                  >
+                    <BookOpen className="w-4 h-4 text-emerald-500" />
+                    <span>View Recipe & Steps ({recipe.instructionSteps.length} steps)</span>
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {recipe.youtubeUrl && (
+                      <a
+                        href={recipe.youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
+                        title="Watch Cooking Video on YouTube"
+                      >
+                        <Youtube className="w-4 h-4" />
+                      </a>
+                    )}
+                    <Button
+                      onClick={() => handleSelectPivot(recipe)}
+                      variant="primary"
+                      size="sm"
+                      icon={<ShoppingBag className="w-3.5 h-3.5" />}
+                    >
+                      Generate Shopping List
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* TheMealDB Attribution Footer as specified in SKILL.md */}
+      <div className="p-4 rounded-2xl bg-slate-100/70 dark:bg-forest-card/50 border border-slate-200 dark:border-forest-border text-center text-xs text-slate-500 dark:text-slate-400 space-y-1">
+        <p>
+          Recipe data, instructions, and imagery sourced from{' '}
+          <a
+            href="https://www.themealdb.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline inline-flex items-center gap-0.5"
+          >
+            TheMealDB <ExternalLink className="w-3 h-3 ml-0.5" />
+          </a>
+        </p>
+        <p className="text-[11px] text-slate-400">
+          Costs calculated using WFP 2026 Bangladesh Division Market Monitor. Check allergen labels and cross-contamination risks before preparing.
+        </p>
+      </div>
+
+      {/* Recipe Details Interactive Modal */}
+      {activeRecipeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-scaleIn">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-forest-border flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <img
+                  src={activeRecipeModal.thumbnail}
+                  alt={activeRecipeModal.name}
+                  className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-forest-border"
+                />
+                <div>
+                  <h3 className="font-extrabold text-lg text-slate-900 dark:text-white">
+                    {activeRecipeModal.name}
+                  </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {pivot.nameBn} • Original: <span className="line-through text-slate-400">{pivot.originalDish}</span>
+                    {activeRecipeModal.area} • {activeRecipeModal.category} • Cost:{' '}
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(activeRecipeModal.estimatedCostBdt * servings)}
+                    </span>
                   </p>
-                </div>
-
-                <div className="text-left sm:text-right shrink-0">
-                  <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(pivot.newMealCost * servings)}
-                  </p>
-                  <p className="text-[10px] text-slate-400">for {servings} serving(s)</p>
                 </div>
               </div>
 
-              {/* Substitution Details Pill */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Swap Made</span>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{pivot.replacementIngredient}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Protein Retention</span>
-                  <p className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">{pivot.proteinRetained}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Cook Time</span>
-                  <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{pivot.prepTime}</p>
+              <button
+                type="button"
+                onClick={() => setActiveRecipeModal(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-forest-root transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1 text-sm">
+              {/* Ingredients Section */}
+              <div className="space-y-3">
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <Utensils className="w-4 h-4 text-emerald-500" />
+                  Ingredients Required ({activeRecipeModal.ingredients.length})
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {activeRecipeModal.ingredients.map((ing, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 rounded-xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 flex items-center justify-between text-xs"
+                    >
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {ing.name}
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">
+                        {ing.measure || 'To taste'}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Action Button */}
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <ChefHat className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{pivot.cuisineMatch}</span>
+              {/* Step-by-Step Cooking Instructions */}
+              <div className="space-y-3">
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <ChefHat className="w-4 h-4 text-emerald-500" />
+                  Preparation & Cooking Steps
+                </h4>
+                <div className="space-y-2.5 text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {activeRecipeModal.instructionSteps.map((step, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-2xl bg-slate-50 dark:bg-forest-root/70 border border-slate-100 dark:border-forest-border/40 flex items-start gap-3"
+                    >
+                      <span className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs shrink-0 flex items-center justify-center mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <p className="flex-1">{step}</p>
+                    </div>
+                  ))}
                 </div>
+              </div>
+            </div>
 
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-forest-border flex items-center justify-between gap-3 bg-slate-50 dark:bg-forest-root/40">
+              {activeRecipeModal.youtubeUrl ? (
+                <a
+                  href={activeRecipeModal.youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-semibold hover:underline"
+                >
+                  <Youtube className="w-4 h-4" />
+                  Watch Video Tutorial
+                </a>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
                 <Button
-                  onClick={() => handleSelectPivot(pivot)}
+                  onClick={() => setActiveRecipeModal(null)}
+                  variant="outline"
+                  size="sm"
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    const r = activeRecipeModal;
+                    setActiveRecipeModal(null);
+                    handleSelectPivot(r);
+                  }}
                   variant="primary"
                   size="sm"
-                  icon={<ArrowRight className="w-3.5 h-3.5" />}
-                  iconPosition="right"
+                  icon={<ShoppingBag className="w-3.5 h-3.5" />}
                 >
                   Generate Shopping List
                 </Button>
               </div>
             </div>
-          ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

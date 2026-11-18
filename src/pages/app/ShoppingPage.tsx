@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ShoppingBag,
@@ -10,6 +11,8 @@ import {
   Share2,
   Archive,
   Info,
+  Sparkles,
+  Utensils,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { formatCurrency } from '../../lib/formatters';
@@ -29,8 +32,15 @@ interface BasketLine {
 
 export const ShoppingPage: React.FC = () => {
   const { t } = useTranslation();
+  const location = useLocation();
 
-  const [basket, setBasket] = useState<BasketLine[]>([
+  const rescueState = location.state as {
+    selectedMealName?: string;
+    estimatedCost?: number;
+    ingredients?: Array<{ name: string; measure: string }>;
+  } | undefined;
+
+  const defaultBasket: BasketLine[] = [
     {
       id: 's1',
       name: 'Farm Fresh Chicken Eggs',
@@ -91,7 +101,37 @@ export const ShoppingPage: React.FC = () => {
       consumedCost: 5.50,
       seller: 'In Pantry (Deducted)',
     },
-  ]);
+  ];
+
+  const [basket, setBasket] = useState<BasketLine[]>(() => {
+    if (rescueState?.ingredients && rescueState.ingredients.length > 0) {
+      const avgCost = Math.round((rescueState.estimatedCost || 90) / rescueState.ingredients.length);
+      return rescueState.ingredients.map((ing, idx) => {
+        const lowerName = ing.name.toLowerCase();
+        const isLikelyPantry =
+          lowerName.includes('salt') ||
+          lowerName.includes('water') ||
+          lowerName.includes('oil') ||
+          lowerName.includes('pepper') ||
+          lowerName.includes('turmeric') ||
+          lowerName.includes('chili');
+
+        return {
+          id: `rescue-item-${idx + 1}`,
+          name: ing.name,
+          nameBn: ing.name,
+          recipeNeeded: ing.measure || 'To taste',
+          inPantry: isLikelyPantry,
+          packUnit: 'Local Bazar Pack',
+          packCount: isLikelyPantry ? 0 : 1,
+          cashPrice: isLikelyPantry ? 0 : Math.max(15, Math.round(avgCost * 1.3)),
+          consumedCost: Math.max(10, avgCost),
+          seller: isLikelyPantry ? 'In Pantry (Deducted)' : 'Savar Local Bazar Stall',
+        };
+      });
+    }
+    return defaultBasket;
+  });
 
   const togglePantry = (id: string) => {
     setBasket((prev) =>
@@ -102,7 +142,7 @@ export const ShoppingPage: React.FC = () => {
             ...item,
             inPantry: nextInPantry,
             packCount: nextInPantry ? 0 : 1,
-            cashPrice: nextInPantry ? 0.00 : item.id === 's1' ? 48.00 : item.id === 's2' ? 65.00 : 20.00,
+            cashPrice: nextInPantry ? 0.00 : item.cashPrice > 0 ? item.cashPrice : 25.00,
           };
         }
         return item;
@@ -133,6 +173,22 @@ export const ShoppingPage: React.FC = () => {
           {t('shopping.subtitle')}
         </p>
       </div>
+
+      {rescueState?.selectedMealName && (
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-2.5 text-xs text-emerald-800 dark:text-emerald-200">
+            <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>
+              Shopping list generated from Meal Rescue:{' '}
+              <strong className="font-bold">{rescueState.selectedMealName}</strong> (
+              {basket.length} items)
+            </span>
+          </div>
+          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-white dark:bg-forest-card px-2.5 py-1 rounded-xl shadow-xs">
+            {formatCurrency(rescueState.estimatedCost || 0)}
+          </span>
+        </div>
+      )}
 
       {/* Cash Checkout vs Consumed Cost Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
