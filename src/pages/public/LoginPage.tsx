@@ -30,8 +30,8 @@ export const LoginPage: React.FC = () => {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendStatus, setResendStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const rawFrom = (location.state as any)?.from?.pathname;
-  const targetDestination = rawFrom && !['/login', '/register', '/onboarding'].includes(rawFrom) ? rawFrom : '/app';
+  // When logging in with ID/credentials, always navigate directly to the Dashboard (/app)
+  const targetDestination = '/app';
   const queryParams = new URLSearchParams(location.search);
   const isPendingConfirmation = queryParams.get('registered') === 'pending_confirmation';
 

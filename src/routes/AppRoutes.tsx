@@ -72,6 +72,7 @@ export const AppRoutes: React.FC = () => {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="dashboard" element={<Navigate to="/app" replace />} />
         <Route path="analyze" element={<AnalyzePage />} />
         <Route path="confirm" element={<ConfirmPage />} />
         <Route path="report" element={<ReportPage />} />

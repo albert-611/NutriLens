@@ -261,7 +261,7 @@ export const ReportPage: React.FC = () => {
 
         {/* Forward Action: Dashboard / Meal Rescue */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-forest-border/60">
-          <Link to="/app/dashboard">
+          <Link to="/app">
             <Button variant="outline" size="md" icon={<LayoutDashboard className="w-4 h-4 text-emerald-600" />}>
               View Dashboard & Intake
             </Button>
