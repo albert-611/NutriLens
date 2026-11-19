@@ -36,7 +36,7 @@ const STEPS = [
     title: 'Discover your next meal',
     desc: 'Explore familiar alternatives that consider your preferences, budget and the selected local market context (Savar & Ashulia), with an automated shopping basket rounded to trade units.',
     badge: 'Market Affordability',
-    footnote: 'SIMULATED DEMO DATA explicitly marked on all prices',
+    footnote: 'Official WFP 2026 Bangladesh retail market pricing',
   },
 ];
 

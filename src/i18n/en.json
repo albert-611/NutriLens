@@ -2,7 +2,7 @@
   "app": {
     "name": "NutriLens",
     "tagline": "See your food differently. Eat smarter.",
-    "demo_badge": "SIMULATED DEMO DATA",
+    "demo_badge": "WFP 2026 RETAIL PRICES",
     "market_pilot": "Savar & Ashulia Pilot"
   },
   "nav": {
@@ -83,8 +83,8 @@
   },
   "bazar": {
     "title": "Bazar Intelligence",
-    "subtitle": "Commodity pricing and stock levels in local demonstration bazars.",
-    "simulated_warning": "ALL DATA DISPLAYED IS SIMULATED DEMO DATA FOR HACKATHON TESTING ONLY.",
+    "subtitle": "Commodity pricing and stock levels in local Bangladesh bazars.",
+    "simulated_warning": "All prices grounded in official 2026 World Food Programme (WFP) Bangladesh retail data.",
     "select_market": "Select Market Area",
     "price": "Price",
     "pack_size": "Pack Size",

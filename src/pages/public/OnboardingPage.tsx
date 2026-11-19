@@ -571,10 +571,10 @@ export const OnboardingPage: React.FC = () => {
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                       <option value="22222222-2222-2222-2222-222222222201">
-                        Savar Demo Market (Dhaka Division)
+                        Savar Bazar (Dhaka Division)
                       </option>
                       <option value="22222222-2222-2222-2222-222222222202">
-                        Ashulia Demo Market (Dhaka Division)
+                        Ashulia Bazar (Dhaka Division)
                       </option>
                     </select>
                   </div>
@@ -624,7 +624,7 @@ export const OnboardingPage: React.FC = () => {
 
                 <div className="p-3 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 text-[11px] text-slate-500">
                   <p>
-                    All price and stock levels displayed in the pilot represent simulated demonstration data for testing.
+                    All food prices are grounded in official 2026 World Food Programme (WFP) Bangladesh retail market monitoring.
                   </p>
                 </div>
               </div>

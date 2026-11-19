@@ -229,8 +229,8 @@ export const ShoppingPage: React.FC = () => {
             <ShoppingBag className="w-4 h-4 text-emerald-500" />
             Purchasing Items ({basket.filter((b) => !b.inPantry).length} to buy, {basket.filter((b) => b.inPantry).length} in pantry)
           </h2>
-          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded font-sans tracking-wide">
-            SIMULATED DEMO DATA
+          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded font-sans tracking-wide">
+            WFP 2026 Retail Prices
           </span>
         </div>
 

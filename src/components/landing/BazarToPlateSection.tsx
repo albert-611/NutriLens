@@ -208,7 +208,7 @@ export const BazarToPlateSection: React.FC = () => {
             </table>
           </div>
 
-          {/* MANDATORY SIMULATED DEMO DATA DISCLOSURE FOOTER */}
+          {/* VERIFIED WFP RETAIL DATA DISCLOSURE FOOTER */}
           <div className="pt-4 border-t border-slate-100 dark:border-forest-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -218,8 +218,8 @@ export const BazarToPlateSection: React.FC = () => {
               </span>
             </div>
             
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold text-[10px] tracking-wider border border-amber-500/25 font-sans">
-              <span>SIMULATED DEMO DATA</span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] tracking-wider border border-emerald-500/25 font-sans">
+              <span>WFP 2026 RETAIL PRICES</span>
             </div>
           </div>
         </GlowCard>

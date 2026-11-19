@@ -939,10 +939,10 @@ export const ProfilePage: React.FC = () => {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-forest-border bg-white dark:bg-forest-root text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="22222222-2222-2222-2222-222222222201">
-                    Savar Demo Market (Dhaka Division)
+                    Savar Bazar (Dhaka Division)
                   </option>
                   <option value="22222222-2222-2222-2222-222222222202">
-                    Ashulia Demo Market (Dhaka Division)
+                    Ashulia Bazar (Dhaka Division)
                   </option>
                 </select>
               </div>

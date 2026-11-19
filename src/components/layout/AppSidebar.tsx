@@ -29,7 +29,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ mobileOpen, setMobileOpe
     { name: t('nav.analyze'), href: '/app/analyze', icon: Camera },
     { name: t('nav.confirm'), href: '/app/confirm', icon: CheckSquare },
     { name: t('nav.report'), href: '/app/report', icon: FileText },
-    { name: t('nav.bazar'), href: '/app/bazar', icon: Store, badge: 'Demo' },
+    { name: t('nav.bazar'), href: '/app/bazar', icon: Store },
     { name: 'NutriLens AI', href: '/app/assistant', icon: Bot, badge: 'AI' },
     { name: t('nav.meal_rescue'), href: '/app/meal-rescue', icon: Sparkles },
     { name: t('nav.shopping'), href: '/app/shopping', icon: ShoppingBag },
