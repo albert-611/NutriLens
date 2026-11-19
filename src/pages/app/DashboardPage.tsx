@@ -104,14 +104,14 @@ export const DashboardPage: React.FC = () => {
   const budgetPercent = metrics?.budgetPercent ?? 0;
 
   return (
-    <div className="space-y-5 animate-fadeIn pb-8">
+    <div className="space-y-3.5 animate-fadeIn pb-6">
       
-      {/* 1. Header & Context Card */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-200">
-        <div className="flex items-center gap-3.5 sm:gap-4.5">
+      {/* 1. Header & Context Card (Green to White gradient from right, sharp rounded-xl radius) */}
+      <div className="p-4 sm:p-5 rounded-xl bg-gradient-to-l from-emerald-500/12 via-emerald-500/3 to-white dark:from-emerald-950/25 dark:via-forest-card dark:to-forest-card border border-slate-200/80 dark:border-forest-border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3.5 transition-all duration-200">
+        <div className="flex items-center gap-3.5">
           {/* Profile Photo Avatar */}
           <div className="relative shrink-0">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-500 via-teal-500 to-emerald-700 text-white font-extrabold text-lg flex items-center justify-center shadow-md shadow-emerald-600/10 ring-2 ring-emerald-500/20 dark:ring-emerald-400/20">
+            <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-xl overflow-hidden bg-gradient-to-br from-emerald-500 via-teal-500 to-emerald-700 text-white font-extrabold text-base flex items-center justify-center shadow-xs ring-2 ring-emerald-500/20">
               {photoUrl && !imgError ? (
                 <img
                   src={photoUrl}
@@ -125,7 +125,7 @@ export const DashboardPage: React.FC = () => {
               )}
             </div>
             <div
-              className="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-emerald-500 border-2 border-white dark:border-forest-card rounded-full flex items-center justify-center shadow-xs"
+              className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-forest-card rounded-full flex items-center justify-center shadow-xs"
               title="Active Profile"
             >
               <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
@@ -134,24 +134,24 @@ export const DashboardPage: React.FC = () => {
 
           {/* Welcome Text & Live Intelligence Status */}
           <div className="space-y-0.5">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2 flex-wrap">
+            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5 flex-wrap">
               <span>{t('dashboard.welcome')}, {displayName}</span>
-              <span className="animate-wave text-xl sm:text-2xl select-none" role="img" aria-label="Waving hand">
+              <span className="animate-wave text-lg select-none" role="img" aria-label="Waving hand">
                 👋
               </span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
               Plate-to-market intelligence active. Tracking live nutrition against your {formatCurrency(dailyBudget)} daily budget.
             </p>
           </div>
         </div>
 
         {/* Quick Action Buttons (Smaller, Sleeker & Includes Recent Analysis) */}
-        <div className="shrink-0 flex items-center gap-2.5 flex-wrap">
+        <div className="shrink-0 flex items-center gap-2 flex-wrap">
           <button
             onClick={loadMetrics}
             disabled={isLoading}
-            className="p-2 rounded-xl border border-slate-200 dark:border-forest-border hover:bg-slate-50 dark:hover:bg-forest-root text-slate-600 dark:text-slate-300 transition-colors"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-forest-border hover:bg-slate-50 dark:hover:bg-forest-root text-slate-600 dark:text-slate-300 transition-colors"
             title="Refresh Live Data"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-500' : ''}`} />
@@ -162,6 +162,7 @@ export const DashboardPage: React.FC = () => {
               variant="outline"
               size="sm"
               icon={<History className="w-3.5 h-3.5 text-emerald-600" />}
+              className="rounded-lg text-xs py-1.5 px-3"
             >
               Recent Analysis
             </Button>
@@ -172,7 +173,7 @@ export const DashboardPage: React.FC = () => {
               variant="primary"
               size="sm"
               icon={<Camera className="w-3.5 h-3.5" />}
-              className="shadow-sm shadow-emerald-600/20"
+              className="rounded-lg text-xs py-1.5 px-3 shadow-xs"
             >
               Scan Food Photo
             </Button>
@@ -180,21 +181,21 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Key Metrics Grid — 100% Live Aggregates from Database */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* 2. Key Metrics Grid — Colors: kcal -> RED, protein -> ORANGE, carbs -> GREEN, cost -> BLUE */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         
-        {/* Calories Card */}
-        <div className="p-4 sm:p-4.5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-1.5">
+        {/* Calories Card: RED */}
+        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs">
-            <span className="font-medium">Energy Intake</span>
-            <Flame className="w-4 h-4 text-amber-500" />
+            <span className="font-semibold text-slate-700 dark:text-slate-300">Energy Intake</span>
+            <Flame className="w-4 h-4 text-red-500" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+          <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
             {todayCalories} <span className="text-xs font-normal text-slate-400">kcal</span>
           </p>
           <div className="w-full bg-slate-100 dark:bg-forest-root rounded-full h-1.5 overflow-hidden">
             <div
-              className="bg-amber-500 h-1.5 rounded-full transition-all duration-500"
+              className="bg-red-500 h-1.5 rounded-full transition-all duration-500"
               style={{ width: `${caloriesPercent}%` }}
             />
           </div>
@@ -203,18 +204,18 @@ export const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Protein Card */}
-        <div className="p-4 sm:p-4.5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-1.5">
+        {/* Protein Card: ORANGE */}
+        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs">
-            <span className="font-medium">Protein</span>
-            <Beef className="w-4 h-4 text-emerald-500" />
+            <span className="font-semibold text-slate-700 dark:text-slate-300">Protein</span>
+            <Beef className="w-4 h-4 text-orange-500" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+          <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
             {todayProtein.toFixed(1)} <span className="text-xs font-normal text-slate-400">g</span>
           </p>
           <div className="w-full bg-slate-100 dark:bg-forest-root rounded-full h-1.5 overflow-hidden">
             <div
-              className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500"
+              className="bg-orange-500 h-1.5 rounded-full transition-all duration-500"
               style={{ width: `${proteinPercent}%` }}
             />
           </div>
@@ -223,18 +224,18 @@ export const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Carbohydrates Card */}
-        <div className="p-4 sm:p-4.5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-1.5">
+        {/* Carbohydrates Card: GREEN */}
+        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs">
-            <span className="font-medium">Carbohydrates</span>
-            <Wheat className="w-4 h-4 text-sky-500" />
+            <span className="font-semibold text-slate-700 dark:text-slate-300">Carbohydrates</span>
+            <Wheat className="w-4 h-4 text-emerald-500" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+          <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
             {todayCarbs.toFixed(1)} <span className="text-xs font-normal text-slate-400">g</span>
           </p>
           <div className="w-full bg-slate-100 dark:bg-forest-root rounded-full h-1.5 overflow-hidden">
             <div
-              className="bg-sky-500 h-1.5 rounded-full transition-all duration-500"
+              className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500"
               style={{ width: `${carbsPercent}%` }}
             />
           </div>
@@ -243,19 +244,19 @@ export const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Budget Spend Card */}
-        <div className="p-4 sm:p-4.5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-1.5">
+        {/* Budget Spend Card: BLUE */}
+        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs">
-            <span className="font-medium">Bazar Cost</span>
-            <Store className="w-4 h-4 text-emerald-500" />
+            <span className="font-semibold text-slate-700 dark:text-slate-300">Bazar Cost</span>
+            <Store className="w-4 h-4 text-blue-500" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+          <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
             ৳ {todayCost.toFixed(2)}
           </p>
           <div className="w-full bg-slate-100 dark:bg-forest-root rounded-full h-1.5 overflow-hidden">
             <div
               className={`h-1.5 rounded-full transition-all duration-500 ${
-                todayCost > dailyBudget ? 'bg-rose-500' : 'bg-emerald-500'
+                todayCost > dailyBudget ? 'bg-rose-500' : 'bg-blue-500'
               }`}
               style={{ width: `${budgetPercent}%` }}
             />
@@ -263,8 +264,8 @@ export const DashboardPage: React.FC = () => {
           <p
             className={`text-[11px] truncate font-medium ${
               todayCost > dailyBudget
-                ? 'text-rose-600 dark:text-rose-400'
-                : 'text-emerald-600 dark:text-emerald-400'
+                ? 'text-rose-600 dark:text-rose-400 font-bold'
+                : 'text-blue-600 dark:text-blue-400'
             }`}
           >
             {metrics?.budgetStatusText || `Within ৳${dailyBudget} limit`}
@@ -272,8 +273,8 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Main Grid: Daily Nutrients Stacked Bar Chart & Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      {/* 3. Main Grid: Daily Nutrients Stacked Bar Chart & Quick Actions (Reduced gap, sharper corners) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         
         {/* Left Column: Stacked Bar Chart for Daily Nutrients Intake */}
         <div className="lg:col-span-8">
@@ -285,28 +286,28 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Right Column: Quick Workflows & Recent Activity Link */}
-        <div className="lg:col-span-4 space-y-3.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+        <div className="lg:col-span-4 space-y-2.5">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
               Quick Actions
             </h2>
             <Link
               to="/app/recent-analysis"
-              className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+              className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
             >
               <span>Recent Plates</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <Link
               to="/app/analyze"
-              className="block p-3.5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border hover:border-emerald-500 transition-all group shadow-2xs"
+              className="block p-3 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border hover:border-emerald-500 transition-all group shadow-2xs"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <Camera className="w-4 h-4" />
+              <div className="flex items-start gap-2.5">
+                <div className="w-7.5 h-7.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Camera className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <p className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
@@ -321,11 +322,11 @@ export const DashboardPage: React.FC = () => {
 
             <Link
               to="/app/recent-analysis"
-              className="block p-3.5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border hover:border-emerald-500 transition-all group shadow-2xs"
+              className="block p-3 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border hover:border-emerald-500 transition-all group shadow-2xs"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <History className="w-4 h-4" />
+              <div className="flex items-start gap-2.5">
+                <div className="w-7.5 h-7.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <History className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <p className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
@@ -340,11 +341,11 @@ export const DashboardPage: React.FC = () => {
 
             <Link
               to="/app/bazar"
-              className="block p-3.5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border hover:border-emerald-500 transition-all group shadow-2xs"
+              className="block p-3 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border hover:border-emerald-500 transition-all group shadow-2xs"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <Store className="w-4 h-4" />
+              <div className="flex items-start gap-2.5">
+                <div className="w-7.5 h-7.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Store className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <p className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
@@ -359,11 +360,11 @@ export const DashboardPage: React.FC = () => {
 
             <Link
               to="/app/meal-rescue"
-              className="block p-3.5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border hover:border-emerald-500 transition-all group shadow-2xs"
+              className="block p-3 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border hover:border-emerald-500 transition-all group shadow-2xs"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4" />
+              <div className="flex items-start gap-2.5">
+                <div className="w-7.5 h-7.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <p className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">

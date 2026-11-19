@@ -168,13 +168,13 @@ export const RecentAnalysisPage: React.FC = () => {
     <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn pb-12">
       
       {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-7 rounded-3xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 rounded-xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-xs">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <Clock className="w-4.5 h-4.5" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Recent Plate Analysis
             </h1>
           </div>
@@ -183,17 +183,17 @@ export const RecentAnalysisPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={loadData}
             disabled={isLoading}
-            className="p-2.5 rounded-2xl border border-slate-200 dark:border-forest-border hover:bg-slate-50 dark:hover:bg-forest-root text-slate-600 dark:text-slate-300 transition-colors"
+            className="p-2 rounded-lg border border-slate-200 dark:border-forest-border hover:bg-slate-50 dark:hover:bg-forest-root text-slate-600 dark:text-slate-300 transition-colors"
             title="Refresh database records"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-emerald-500' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-500' : ''}`} />
           </button>
           <Link to="/app/analyze">
-            <Button variant="primary" size="sm" icon={<Camera className="w-4 h-4" />}>
+            <Button variant="primary" size="sm" icon={<Camera className="w-3.5 h-3.5" />} className="rounded-lg text-xs py-1.5 px-3">
               Scan New Plate
             </Button>
           </Link>
@@ -203,13 +203,13 @@ export const RecentAnalysisPage: React.FC = () => {
       {/* 2. Filter Pills & Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Period Selector Tabs */}
-        <div className="flex items-center p-1 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-2xs self-start">
+        <div className="flex items-center p-0.5 rounded-lg bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-2xs self-start">
           <button
             type="button"
             onClick={() => setActivePeriod('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
               activePeriod === 'all'
-                ? 'bg-emerald-600 text-white shadow-xs'
+                ? 'bg-emerald-600 text-white shadow-2xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -218,9 +218,9 @@ export const RecentAnalysisPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActivePeriod('week')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
               activePeriod === 'week'
-                ? 'bg-emerald-600 text-white shadow-xs'
+                ? 'bg-emerald-600 text-white shadow-2xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -229,9 +229,9 @@ export const RecentAnalysisPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActivePeriod('month')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
               activePeriod === 'month'
-                ? 'bg-emerald-600 text-white shadow-xs'
+                ? 'bg-emerald-600 text-white shadow-2xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -241,62 +241,62 @@ export const RecentAnalysisPage: React.FC = () => {
 
         {/* Search Input */}
         <div className="relative min-w-[240px] sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search dish (e.g. Rice, Fish, Dal)..."
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-forest-border bg-white dark:bg-forest-card text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            className="w-full pl-8.5 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-forest-border bg-white dark:bg-forest-card text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
         </div>
       </div>
 
       {/* 3. Summary Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-1">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="p-3.5 rounded-xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-0.5">
           <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
             <Utensils className="w-3.5 h-3.5 text-emerald-500" />
             Total Meals
           </span>
-          <p className="text-xl font-bold text-slate-900 dark:text-white">
+          <p className="text-lg font-black text-slate-900 dark:text-white">
             {periodStats.count} <span className="text-xs font-normal text-slate-400">logged</span>
           </p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-1">
+        <div className="p-3.5 rounded-xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-0.5">
           <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <Flame className="w-3.5 h-3.5 text-amber-500" />
+            <Flame className="w-3.5 h-3.5 text-red-500" />
             Avg Calories
           </span>
-          <p className="text-xl font-bold text-slate-900 dark:text-white">
+          <p className="text-lg font-black text-slate-900 dark:text-white">
             {periodStats.avgCal} <span className="text-xs font-normal text-slate-400">kcal/meal</span>
           </p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-1">
+        <div className="p-3.5 rounded-xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-0.5">
           <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <Beef className="w-3.5 h-3.5 text-emerald-500" />
+            <Beef className="w-3.5 h-3.5 text-orange-500" />
             Total Protein
           </span>
-          <p className="text-xl font-bold text-slate-900 dark:text-white">
+          <p className="text-lg font-black text-slate-900 dark:text-white">
             {periodStats.totalPro} <span className="text-xs font-normal text-slate-400">g</span>
           </p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-1">
+        <div className="p-3.5 rounded-xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-0.5">
           <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-            <Store className="w-3.5 h-3.5 text-emerald-500" />
+            <Store className="w-3.5 h-3.5 text-blue-500" />
             Total Bazar Cost
           </span>
-          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+          <p className="text-lg font-black text-blue-600 dark:text-blue-400">
             ৳ {periodStats.totalCost.toFixed(2)}
           </p>
         </div>
       </div>
 
       {/* 4. Meal Cards List */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {isLoading ? (
           <div className="p-12 text-center text-slate-500 text-sm">
             Loading meal records from database...
@@ -314,7 +314,7 @@ export const RecentAnalysisPage: React.FC = () => {
                   handleMealClick(meal);
                 }
               }}
-              className="group p-5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-xs hover:border-emerald-500/60 dark:hover:border-emerald-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              className="group p-4 rounded-xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-2xs hover:border-emerald-500/60 dark:hover:border-emerald-500/60 hover:shadow-sm transition-all duration-150 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3.5"
               title="Click to view full nutrition evidence receipt"
             >
               {/* Left Info */}
