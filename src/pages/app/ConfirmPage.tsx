@@ -1000,7 +1000,7 @@ export const ConfirmPage: React.FC = () => {
 
               // 1. Persist exact verified nutrients & items JSON snapshot to meal_reports
               try {
-                await supabase.from('meal_reports').upsert({
+                await supabase.from('meal_reports').insert({
                   meal_log_id: savedMealLogId,
                   revision: 1,
                   total_energy_kcal: mealTotals.calories,
@@ -1008,7 +1008,7 @@ export const ConfirmPage: React.FC = () => {
                   total_carbohydrate_g: mealTotals.carbs,
                   total_fat_g: mealTotals.fat,
                   evidence_sources: confirmedMealItems,
-                }, { onConflict: 'meal_log_id,revision' });
+                });
               } catch (repErr) {
                 console.warn('meal_reports snapshot notice:', repErr);
               }

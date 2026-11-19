@@ -18,11 +18,13 @@ import {
   UtensilsCrossed,
   CheckCircle2,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { formatCurrency } from '../../lib/formatters';
 import {
   getDashboardMetrics,
+  deleteMealLog,
   type DashboardMetrics,
   type ConfirmedMealRecord,
 } from '../../services/dashboardService';
@@ -37,6 +39,7 @@ export const DashboardPage: React.FC = () => {
   const [imgError, setImgError] = useState(false);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setImgError(false);
@@ -61,6 +64,19 @@ export const DashboardPage: React.FC = () => {
       console.warn('Failed to load dashboard metrics:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteMeal = async (mealId: string) => {
+    const effectiveUserId = user?.id || profile?.id || 'guest';
+    setDeletingId(mealId);
+    try {
+      await deleteMealLog(effectiveUserId, mealId);
+      await loadMetrics();
+    } catch (err) {
+      console.warn('Failed to delete meal:', err);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -287,15 +303,30 @@ export const DashboardPage: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-6 text-xs shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-5 text-xs shrink-0">
                     <div className="text-left sm:text-right">
-                      <p className="font-bold text-slate-900 dark:text-white">{meal.calories} kcal</p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">Protein: {meal.protein}g</p>
+                      <p className="font-bold text-slate-900 dark:text-white">
+                        {Number(meal.calories ?? 0).toFixed(0)} kcal
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Protein: {Number(meal.protein ?? 0).toFixed(1)}g
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-emerald-600 dark:text-emerald-400">৳ {meal.bazarCost.toFixed(2)}</p>
+                      <p className="font-bold text-emerald-600 dark:text-emerald-400">
+                        ৳ {Number(meal.bazarCost ?? (meal as any).cost ?? 0).toFixed(2)}
+                      </p>
                       <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 font-sans font-medium">FCDB VERIFIED</p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteMeal(meal.id)}
+                      disabled={deletingId === meal.id}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0"
+                      title="Delete meal record"
+                    >
+                      <Trash2 className={`w-4 h-4 ${deletingId === meal.id ? 'animate-spin' : ''}`} />
+                    </button>
                   </div>
                 </div>
               ))}
