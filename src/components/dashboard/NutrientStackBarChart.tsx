@@ -102,13 +102,29 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
     return maxVal;
   }, [loadedStats]);
 
-  const active = activeDay || (hoveredBarDate ? loadedStats.find((s) => s.date === hoveredBarDate) : null) || loadedStats[loadedStats.length - 1] || null;
+  const todayStat = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return (
+      loadedStats.find((s) => s.date === todayStr || s.dayLabel.toLowerCase() === 'today') ||
+      loadedStats[loadedStats.length - 1] ||
+      null
+    );
+  }, [loadedStats]);
+
+  const active = (hoveredBarDate ? loadedStats.find((s) => s.date === hoveredBarDate) : null) || activeDay || todayStat;
 
   return (
-    <div className={`p-3 sm:p-4 rounded-xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-3 ${className}`}>
+    <div
+      onMouseLeave={() => {
+        setHoveredBarDate(null);
+        setHoveredNutrient(null);
+        setActiveDay(null);
+      }}
+      className={`p-4 rounded-xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-4 ${className}`}
+    >
       
       {/* 1. Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
@@ -128,10 +144,10 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
         </div>
 
         {/* Legend & Filter Controls - Shifted to Right Corner */}
-        <div className="flex flex-wrap items-center justify-end gap-2.5 sm:gap-3 self-end lg:self-auto lg:ml-auto">
-          {/* Interactive Legend: 3 Shades of Green (Theme Color) */}
+        <div className="flex flex-wrap items-center justify-end gap-3 self-end lg:self-auto lg:ml-auto">
+          {/* Interactive Legend: carbo -> #66CDAA, Protein -> #3CB371, Fats -> #2E8B57 */}
           <div className="flex items-center gap-2.5 text-xs select-none">
-            {/* Protein: Deep Forest Green (#047857 / emerald-700) */}
+            {/* Protein: #3CB371 */}
             <button
               type="button"
               onMouseEnter={() => setHoveredNutrient('protein')}
@@ -141,11 +157,11 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
               }`}
               title="Highlight Protein"
             >
-              <span className="w-2.5 h-2.5 rounded-xs bg-emerald-700 dark:bg-emerald-600 shadow-2xs" />
+              <span className="w-2.5 h-2.5 rounded-xs shadow-2xs" style={{ backgroundColor: '#3CB371' }} />
               <span className="text-slate-700 dark:text-slate-300">Protein</span>
             </button>
 
-            {/* Carbohydrate: Vibrant Emerald Green (#10b981 / emerald-500) */}
+            {/* Carbohydrate: #66CDAA */}
             <button
               type="button"
               onMouseEnter={() => setHoveredNutrient('carbs')}
@@ -155,11 +171,11 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
               }`}
               title="Highlight Carbohydrate"
             >
-              <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 shadow-2xs" />
+              <span className="w-2.5 h-2.5 rounded-xs shadow-2xs" style={{ backgroundColor: '#66CDAA' }} />
               <span className="text-slate-700 dark:text-slate-300">Carbohydrate</span>
             </button>
 
-            {/* Fats: Fresh Mint Green (#6ee7b7 / emerald-300) */}
+            {/* Fats: #2E8B57 */}
             <button
               type="button"
               onMouseEnter={() => setHoveredNutrient('fat')}
@@ -169,7 +185,7 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
               }`}
               title="Highlight Fats"
             >
-              <span className="w-2.5 h-2.5 rounded-xs bg-emerald-300 dark:bg-emerald-400 shadow-2xs" />
+              <span className="w-2.5 h-2.5 rounded-xs shadow-2xs" style={{ backgroundColor: '#2E8B57' }} />
               <span className="text-slate-700 dark:text-slate-300">Fats</span>
             </button>
           </div>
@@ -255,8 +271,8 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
           <div className="border-b border-dashed border-slate-400 w-full" />
         </div>
 
-        {/* Bars Container */}
-        <div className="flex items-end justify-between gap-1.5 sm:gap-2 h-44 sm:h-48 px-1 overflow-x-auto select-none">
+        {/* Bars Container - Compact height to eliminate vertical scroll */}
+        <div className="flex items-end justify-between gap-1.5 sm:gap-2 h-36 sm:h-40 px-1 overflow-x-auto select-none">
           {loadedStats.map((stat) => {
             const stackTotal = stat.carbs + stat.protein + stat.fat;
             const barHeightPct = stackTotal > 0 ? Math.min(100, Math.max(12, (stackTotal / maxStackValue) * 100)) : 3;
@@ -299,14 +315,14 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
                   {stat.calories > 0 ? `${stat.calories}` : ''}
                 </span>
 
-                {/* THE STACKED BAR: 3 Shades of Green (Theme Color), subtle unsharp top corners (rounded-t-[3.5px]) */}
+                {/* THE STACKED BAR: Carbo -> #66CDAA, Protein -> #3CB371, Fats -> #2E8B57 */}
                 <div
                   className="w-full max-w-[42px] rounded-t-[3.5px] overflow-hidden flex flex-col justify-end transition-all duration-150"
                   style={{ height: `${barHeightPct}%` }}
                 >
                   {stackTotal > 0 ? (
                     <>
-                      {/* 1. Fats: Fresh Mint Green (#6ee7b7 / emerald-300) - Top */}
+                      {/* 1. Fats: #2E8B57 (Sea Green) - Top */}
                       {fatHeightPct > 0 && (
                         <div
                           onMouseEnter={(e) => {
@@ -314,17 +330,20 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
                             setHoveredNutrient('fat');
                           }}
                           onMouseLeave={() => setHoveredNutrient(null)}
-                          className={`w-full bg-emerald-300 dark:bg-emerald-400 transition-all duration-150 border-b border-white/20 dark:border-forest-card/30 ${
+                          className={`w-full transition-all duration-150 border-b border-white/20 dark:border-forest-card/30 ${
                             hoveredNutrient && hoveredNutrient !== 'fat'
                               ? 'opacity-20'
                               : 'opacity-100 hover:brightness-110'
                           }`}
-                          style={{ height: `${fatHeightPct}%` }}
+                          style={{
+                            height: `${fatHeightPct}%`,
+                            backgroundColor: '#2E8B57',
+                          }}
                           title={`Fats: ${stat.fat}g`}
                         />
                       )}
 
-                      {/* 2. Protein: Deep Forest Green (#047857 / emerald-700) - Middle */}
+                      {/* 2. Protein: #3CB371 (Medium Sea Green) - Middle */}
                       {proteinHeightPct > 0 && (
                         <div
                           onMouseEnter={(e) => {
@@ -332,17 +351,20 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
                             setHoveredNutrient('protein');
                           }}
                           onMouseLeave={() => setHoveredNutrient(null)}
-                          className={`w-full bg-emerald-700 dark:bg-emerald-600 transition-all duration-150 border-b border-white/20 dark:border-forest-card/30 ${
+                          className={`w-full transition-all duration-150 border-b border-white/20 dark:border-forest-card/30 ${
                             hoveredNutrient && hoveredNutrient !== 'protein'
                               ? 'opacity-20'
                               : 'opacity-100 hover:brightness-110'
                           }`}
-                          style={{ height: `${proteinHeightPct}%` }}
+                          style={{
+                            height: `${proteinHeightPct}%`,
+                            backgroundColor: '#3CB371',
+                          }}
                           title={`Protein: ${stat.protein}g`}
                         />
                       )}
 
-                      {/* 3. Carbohydrates: Vibrant Emerald Green (#10b981 / emerald-500) - Bottom */}
+                      {/* 3. Carbohydrates: #66CDAA (Medium Aquamarine) - Bottom */}
                       {carbsHeightPct > 0 && (
                         <div
                           onMouseEnter={(e) => {
@@ -350,12 +372,15 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
                             setHoveredNutrient('carbs');
                           }}
                           onMouseLeave={() => setHoveredNutrient(null)}
-                          className={`w-full bg-emerald-500 transition-all duration-150 ${
+                          className={`w-full transition-all duration-150 ${
                             hoveredNutrient && hoveredNutrient !== 'carbs'
                               ? 'opacity-20'
                               : 'opacity-100 hover:brightness-110'
                           }`}
-                          style={{ height: `${carbsHeightPct}%` }}
+                          style={{
+                            height: `${carbsHeightPct}%`,
+                            backgroundColor: '#66CDAA',
+                          }}
                           title={`Carbohydrates: ${stat.carbs}g`}
                         />
                       )}
@@ -386,9 +411,9 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
         </div>
       </div>
 
-      {/* 3. Active Day Detail Inspector: Clean bold black & gray typography (No badges) */}
+      {/* 3. Active Day Detail Inspector: Interactive Nutrient Text Focus Highlighting */}
       {active && (
-        <div className="p-2.5 sm:p-3 rounded-lg bg-slate-50 dark:bg-forest-root border border-slate-200/70 dark:border-forest-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all duration-150">
+        <div className="p-3 rounded-lg bg-slate-50 dark:bg-forest-root border border-slate-200/70 dark:border-forest-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all duration-150">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-slate-200 dark:bg-forest-card text-slate-700 dark:text-slate-300 font-bold shrink-0">
               <Calendar className="w-3.5 h-3.5" />
@@ -406,34 +431,76 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
             </div>
           </div>
 
-          {/* Clean Nutrients: Gray Label + Bold Black Value (No badge background/borders) */}
+          {/* Clean Nutrients: Focused nutrient text gets colored with its exact nutrient color */}
           <div className="flex items-center justify-between sm:justify-end gap-5 sm:gap-7 shrink-0 px-1 sm:px-0">
-            {/* Protein */}
-            <div className="text-center sm:text-right">
-              <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            {/* Protein: #3CB371 */}
+            <div
+              className={`text-center sm:text-right transition-all duration-150 ${
+                hoveredNutrient && hoveredNutrient !== 'protein' ? 'opacity-30' : 'opacity-100'
+              }`}
+            >
+              <span
+                className="block text-[10px] font-bold uppercase tracking-wider transition-colors duration-150 text-slate-500 dark:text-slate-400"
+                style={{
+                  color: hoveredNutrient === 'protein' ? '#3CB371' : undefined,
+                }}
+              >
                 Protein
               </span>
-              <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+              <span
+                className="text-sm sm:text-base font-black transition-colors duration-150 text-slate-900 dark:text-white"
+                style={{
+                  color: hoveredNutrient === 'protein' ? '#3CB371' : undefined,
+                }}
+              >
                 {active.protein}g
               </span>
             </div>
 
-            {/* Carbohydrate */}
-            <div className="text-center sm:text-right">
-              <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            {/* Carbohydrate: #66CDAA */}
+            <div
+              className={`text-center sm:text-right transition-all duration-150 ${
+                hoveredNutrient && hoveredNutrient !== 'carbs' ? 'opacity-30' : 'opacity-100'
+              }`}
+            >
+              <span
+                className="block text-[10px] font-bold uppercase tracking-wider transition-colors duration-150 text-slate-500 dark:text-slate-400"
+                style={{
+                  color: hoveredNutrient === 'carbs' ? '#66CDAA' : undefined,
+                }}
+              >
                 Carbs
               </span>
-              <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+              <span
+                className="text-sm sm:text-base font-black transition-colors duration-150 text-slate-900 dark:text-white"
+                style={{
+                  color: hoveredNutrient === 'carbs' ? '#66CDAA' : undefined,
+                }}
+              >
                 {active.carbs}g
               </span>
             </div>
 
-            {/* Fats */}
-            <div className="text-center sm:text-right">
-              <span className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            {/* Fats: #2E8B57 */}
+            <div
+              className={`text-center sm:text-right transition-all duration-150 ${
+                hoveredNutrient && hoveredNutrient !== 'fat' ? 'opacity-30' : 'opacity-100'
+              }`}
+            >
+              <span
+                className="block text-[10px] font-bold uppercase tracking-wider transition-colors duration-150 text-slate-500 dark:text-slate-400"
+                style={{
+                  color: hoveredNutrient === 'fat' ? '#2E8B57' : undefined,
+                }}
+              >
                 Fats
               </span>
-              <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+              <span
+                className="text-sm sm:text-base font-black transition-colors duration-150 text-slate-900 dark:text-white"
+                style={{
+                  color: hoveredNutrient === 'fat' ? '#2E8B57' : undefined,
+                }}
+              >
                 {active.fat}g
               </span>
             </div>

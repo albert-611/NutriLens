@@ -19,7 +19,7 @@ export const AppLayout: React.FC = () => {
         <AppHeader
           onMobileMenuToggle={() => setMobileSidebarOpen(true)}
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
+        <main className="flex-1 p-3 max-w-7xl w-full mx-auto overflow-y-auto">
           <Outlet />
         </main>
       </div>
