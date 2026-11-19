@@ -1480,4 +1480,14 @@ CREATE POLICY "Users can delete their own messages"
 ALTER TABLE public.meal_items ALTER COLUMN food_id DROP NOT NULL;
 ALTER TABLE public.meal_items DROP CONSTRAINT IF EXISTS meal_items_food_id_fkey;
 
+-- 8. Explicit Permissions & Grants for Supabase Kong API Gateway & PostgREST
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO postgres, anon, authenticated, service_role;
+
 

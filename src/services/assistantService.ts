@@ -205,13 +205,23 @@ async function syncChatToCloud(
   // We avoid mutating raw_user_meta_data via auth.updateUser to prevent rate limits and unnecessary JWT bloat.
 }
 
-// Local conversation storage helpers for client fallback mode
-function getLocalConvKey(userId: string): string {
-  return `nutrilens_ai_conversations_${userId}`;
-}
+// 100% In-memory session caches (zero localStorage storage)
+const inMemoryConversations = new Map<string, ConversationSummary[]>();
+const inMemoryMessages = new Map<string, ChatMessageItem[]>();
 
-function getLocalMessagesKey(conversationId: string): string {
-  return `nutrilens_ai_messages_${conversationId}`;
+// Scrub any legacy conversation items from localStorage
+export function scrubLegacyChatLocalStorage(): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('nutrilens_ai_') || k.startsWith('nutrilens_convs_') || k.startsWith('nutrilens_chat_'))) {
+        toRemove.push(k);
+      }
+    }
+    toRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {}
 }
 
 async function getAuthHeaders(): Promise<HeadersInit> {
@@ -587,7 +597,7 @@ export const assistantService = {
     };
 
     const updatedMessages = [...existingMessages, userMsg, asstMsg];
-    localStorage.setItem(getLocalMessagesKey(resolvedConvId), JSON.stringify(updatedMessages));
+    inMemoryMessages.set(resolvedConvId, updatedMessages);
 
     // Update conversation summary
     let authUser: any = null;
@@ -602,8 +612,7 @@ export const assistantService = {
       } catch {}
     }
     const userId = authUser?.id || 'guest';
-    const convKey = getLocalConvKey(userId);
-    const storedConvs: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
+    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || [];
     const existingIndex = storedConvs.findIndex((c) => c.id === resolvedConvId);
 
     const title = existingIndex >= 0 ? storedConvs[existingIndex].title : message.slice(0, 30);
@@ -619,7 +628,7 @@ export const assistantService = {
     } else {
       storedConvs.unshift(convSummary);
     }
-    localStorage.setItem(convKey, JSON.stringify(storedConvs));
+    inMemoryConversations.set(userId, storedConvs);
 
     // Persist conversation and messages to PostgreSQL ai_conversations & ai_messages in background
     if (authUser && authUser.id && isValidUUID(resolvedConvId)) {
@@ -715,28 +724,23 @@ export const assistantService = {
       } catch {}
     }
     const userId = user?.id || 'guest';
-    const convKey = getLocalConvKey(userId);
+    scrubLegacyChatLocalStorage();
 
-    // 1. Read local storage cache first
-    let localConvs: ConversationSummary[] = [];
-    try {
-      localConvs = JSON.parse(localStorage.getItem(convKey) || '[]');
-      if (userId !== 'guest') {
-        const guestConvs: ConversationSummary[] = JSON.parse(
-          localStorage.getItem(getLocalConvKey('guest')) || '[]'
-        );
-        if (guestConvs.length > 0) {
-          const map = new Map<string, ConversationSummary>();
-          for (const c of localConvs) map.set(c.id, c);
-          for (const c of guestConvs) {
-            if (!map.has(c.id)) map.set(c.id, c);
-          }
-          localConvs = Array.from(map.values()).sort(
-            (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-          );
+    // 1. Read in-memory cache first (zero localStorage)
+    let localConvs: ConversationSummary[] = inMemoryConversations.get(userId) || [];
+    if (userId !== 'guest') {
+      const guestConvs = inMemoryConversations.get('guest') || [];
+      if (guestConvs.length > 0) {
+        const map = new Map<string, ConversationSummary>();
+        for (const c of localConvs) map.set(c.id, c);
+        for (const c of guestConvs) {
+          if (!map.has(c.id)) map.set(c.id, c);
         }
+        localConvs = Array.from(map.values()).sort(
+          (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        );
       }
-    } catch {}
+    }
 
     // 2. Fetch and merge from PostgreSQL ai_conversations table
     if (user && user.id) {
@@ -758,9 +762,7 @@ export const assistantService = {
           const merged = Array.from(map.values()).sort(
             (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
           );
-          try {
-            localStorage.setItem(convKey, JSON.stringify(merged));
-          } catch {}
+          inMemoryConversations.set(userId, merged);
           return merged;
         }
       } catch (err) {
@@ -821,10 +823,9 @@ export const assistantService = {
       }
     }
 
-    const convKey = getLocalConvKey(userId);
-    const stored: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
+    const stored: ConversationSummary[] = inMemoryConversations.get(userId) || [];
     stored.unshift(summary);
-    localStorage.setItem(convKey, JSON.stringify(stored));
+    inMemoryConversations.set(userId, stored);
 
     return summary;
   },
@@ -866,19 +867,11 @@ export const assistantService = {
       } catch {}
     }
     const userId = user?.id || 'guest';
-    const convKey = getLocalConvKey(userId);
-    let storedConvs: ConversationSummary[] = [];
-    try {
-      storedConvs = JSON.parse(localStorage.getItem(convKey) || '[]');
-    } catch {}
+    scrubLegacyChatLocalStorage();
+    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || [];
     const currentConv = storedConvs.find((c) => c.id === conversationId);
 
-    let localMessages: ChatMessageItem[] = [];
-    try {
-      localMessages = JSON.parse(
-        localStorage.getItem(getLocalMessagesKey(conversationId)) || '[]'
-      );
-    } catch {}
+    let localMessages: ChatMessageItem[] = inMemoryMessages.get(conversationId) || [];
 
     if (user && user.id && isValidUUID(conversationId)) {
       try {
@@ -915,12 +908,7 @@ export const assistantService = {
             (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
 
-          try {
-            localStorage.setItem(
-              getLocalMessagesKey(conversationId),
-              JSON.stringify(mergedMessages)
-            );
-          } catch {}
+          inMemoryMessages.set(conversationId, mergedMessages);
 
           return {
             id: conversationId,
@@ -1008,14 +996,13 @@ export const assistantService = {
       } catch {}
     }
 
-    const convKey = getLocalConvKey(userId);
-    const storedConvs: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
+    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || [];
     const target = storedConvs.find((c) => c.id === conversationId);
 
     if (target) {
       target.title = title;
       target.updated_at = nowIso;
-      localStorage.setItem(convKey, JSON.stringify(storedConvs));
+      inMemoryConversations.set(userId, storedConvs);
       return target;
     }
 
@@ -1084,11 +1071,10 @@ export const assistantService = {
         }
       } catch {}
     }
-    const convKey = getLocalConvKey(userId);
-    const storedConvs: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
+    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || [];
     const filtered = storedConvs.filter((c) => c.id !== conversationId);
-    localStorage.setItem(convKey, JSON.stringify(filtered));
-    localStorage.removeItem(getLocalMessagesKey(conversationId));
+    inMemoryConversations.set(userId, filtered);
+    inMemoryMessages.delete(conversationId);
     return true;
   },
 

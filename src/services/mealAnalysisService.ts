@@ -282,7 +282,7 @@ CRITICAL RULES:
   for (const apiKey of keysToTry) {
     for (const model of modelsToTry) {
       const abortCtrl = new AbortController();
-      const timer = setTimeout(() => abortCtrl.abort(), 16000);
+      const timer = setTimeout(() => abortCtrl.abort(), 8000);
 
       try {
         const res = await fetch(
@@ -851,40 +851,39 @@ async function enrichCandidateWithDatabase(candidate: CandidateItem): Promise<Ca
   return candidate;
 }
 
-const DRAFT_STORAGE_KEY = 'nutrilens_active_meal_analysis';
+// 100% In-memory session draft storage (zero localStorage)
+let memoryDraftAnalysis: AnalyzeMealResponse | null = null;
 
 /**
- * Persists the current draft analysis to localStorage so user edits are not lost on refresh.
+ * Persists the current draft analysis in memory.
  */
 export function saveDraftAnalysis(data: AnalyzeMealResponse): void {
+  memoryDraftAnalysis = data;
   try {
-    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error('Failed to save draft meal analysis:', e);
-  }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('nutrilens_active_meal_analysis');
+      localStorage.removeItem('nutrilens_current_analysis_draft');
+    }
+  } catch {}
 }
 
 /**
  * Retrieves the currently active draft analysis if available.
  */
 export function getDraftAnalysis(): AnalyzeMealResponse | null {
-  try {
-    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const validated = AnalyzeMealResponseSchema.safeParse(parsed);
-    return validated.success ? validated.data : null;
-  } catch (e) {
-    return null;
-  }
+  return memoryDraftAnalysis;
 }
 
 /**
  * Clears the active draft after confirmation or cancellation.
  */
 export function clearDraftAnalysis(): void {
+  memoryDraftAnalysis = null;
   try {
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
-  } catch (e) {}
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('nutrilens_active_meal_analysis');
+      localStorage.removeItem('nutrilens_current_analysis_draft');
+    }
+  } catch {}
 }
 

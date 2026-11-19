@@ -24,6 +24,8 @@ import {
   deleteUserAccount,
   ensureProfileExists,
 } from '../services/authService';
+import { inMemoryPendingSignups } from '../services/registrationService';
+import { clearDraftAnalysis } from '../services/mealAnalysisService';
 
 interface AuthContextType {
   user: User | null;
@@ -162,18 +164,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Pre-set profile with actual server-authenticated metadata so UI displays real user data immediately
       setProfile((prev) => (prev ? { ...prev, ...meta } : initialProfile));
 
-      // 1. One-time sync of pending signup data ONLY if explicitly present in localStorage
+      // 1. One-time sync of pending signup data if available in memory or legacy storage
       const userEmail = effectiveUser?.email?.toLowerCase();
       if (userEmail) {
-        const pendingKey = `nutrilens_pending_signup_${userEmail}`;
-        const pendingRaw = localStorage.getItem(pendingKey);
-        if (pendingRaw) {
-          localStorage.removeItem(pendingKey);
+        let pendingData = inMemoryPendingSignups.get(userEmail);
+        inMemoryPendingSignups.delete(userEmail);
+
+        if (!pendingData && typeof localStorage !== 'undefined') {
+          const pendingKey = `nutrilens_pending_signup_${userEmail}`;
+          const pendingRaw = localStorage.getItem(pendingKey);
+          if (pendingRaw) {
+            localStorage.removeItem(pendingKey);
+            try {
+              pendingData = JSON.parse(pendingRaw);
+            } catch {}
+          }
+        }
+
+        if (pendingData && typeof pendingData === 'object') {
           try {
-            const pendingData = JSON.parse(pendingRaw);
-            if (pendingData && typeof pendingData === 'object') {
-              await saveFullNutritionProfile(userId, pendingData);
-            }
+            await saveFullNutritionProfile(userId, pendingData);
           } catch (e) {
             console.warn('Pending signup profile synchronization notice:', e);
           }
@@ -483,10 +493,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Only clear transient, in-flight scan drafts; NEVER delete the user's permanent meal logs or chat conversations
-    try {
-      localStorage.removeItem('nutrilens_current_analysis_draft');
-    } catch {}
+    // Only clear transient in-flight scan drafts; NEVER delete the user's permanent meal logs or chat conversations
+    clearDraftAnalysis();
 
     setUser(null);
     setProfile(null);

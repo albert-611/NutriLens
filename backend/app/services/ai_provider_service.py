@@ -88,7 +88,7 @@ class AIProviderService:
                             "parts": [{"text": system_prompt}]
                         }
 
-                    async with httpx.AsyncClient(timeout=20.0) as client:
+                    async with httpx.AsyncClient(timeout=8.0) as client:
                         resp = await client.post(
                             url,
                             headers={"Content-Type": "application/json"},

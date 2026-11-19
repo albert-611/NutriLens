@@ -71,23 +71,16 @@ export const AssistantPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
-  // Sidebar toggle state (supported in ALL views, remembered in localStorage on desktop)
+  // Sidebar toggle state (in-memory state, zero localStorage)
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
-      if (window.innerWidth <= 860) return false;
-      return localStorage.getItem('nutrilens_chat_sidebar') !== 'false';
+      return window.innerWidth > 860;
     }
     return true;
   });
 
   const toggleSidebar = () => {
-    setSidebarOpen((prev) => {
-      const next = !prev;
-      if (typeof window !== 'undefined' && window.innerWidth > 860) {
-        localStorage.setItem('nutrilens_chat_sidebar', String(next));
-      }
-      return next;
-    });
+    setSidebarOpen((prev) => !prev);
   };
 
   // Keyboard shortcut Ctrl+B / Cmd+B to toggle sidebar across all views

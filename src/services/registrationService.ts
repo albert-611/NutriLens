@@ -9,6 +9,9 @@ import {
   uploadProfilePhoto,
 } from './authService';
 
+// In-memory pending signup preferences (zero localStorage)
+export const inMemoryPendingSignups = new Map<string, any>();
+
 export interface RegistrationResult {
   success: boolean;
   user?: any;
@@ -136,7 +139,9 @@ export async function registerComprehensiveAccount(
 
     // Prepare email for registration: clear any deleted flags and purge any prior deleted ghost accounts
     try {
-      localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+      }
       await supabase.rpc('prepare_email_for_registration', { p_email: cleanEmail });
       await supabase.from('deleted_accounts').delete().eq('email', cleanEmail);
     } catch (e) {
@@ -240,7 +245,10 @@ export async function registerComprehensiveAccount(
 
     // Successfully created new account: permanently clear any deletion tracking for this email
     try {
-      localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+        localStorage.removeItem(`nutrilens_pending_signup_${cleanEmail}`);
+      }
       await supabase.from('deleted_accounts').delete().eq('email', cleanEmail);
     } catch {}
 
@@ -248,15 +256,11 @@ export async function registerComprehensiveAccount(
     const userId = createdUser.id;
     const emailConfirmationRequired = !authData.session && !createdUser.confirmed_at;
 
-    // Cache registration preferences in localStorage so it can be restored whenever user logs in
-    try {
-      localStorage.setItem(`nutrilens_pending_signup_${cleanEmail}`, JSON.stringify({
-        ...data,
-        avatarUrl: data.avatarUrl,
-      }));
-    } catch (e) {
-      console.warn('Could not store pending signup in localStorage:', e);
-    }
+    // Cache registration preferences in memory (zero localStorage)
+    inMemoryPendingSignups.set(cleanEmail, {
+      ...data,
+      avatarUrl: data.avatarUrl,
+    });
 
     let finalAvatarUrl = data.avatarUrl || null;
 
@@ -315,8 +319,11 @@ export async function registerComprehensiveAccount(
       });
 
       // Clear pending cache since it was saved successfully
+      inMemoryPendingSignups.delete(cleanEmail);
       try {
-        localStorage.removeItem(`nutrilens_pending_signup_${cleanEmail}`);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(`nutrilens_pending_signup_${cleanEmail}`);
+        }
       } catch {}
     }
 

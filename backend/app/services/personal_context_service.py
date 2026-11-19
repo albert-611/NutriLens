@@ -12,6 +12,10 @@ from app.integrations.supabase import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
+# Lightweight in-memory TTL cache to eliminate redundant multi-table DB calls and minimize latency
+_CONTEXT_CACHE: Dict[str, Any] = {}
+_CONTEXT_CACHE_TTL = 45.0  # seconds
+
 class PersonalNutritionContextService:
     @staticmethod
     async def build_user_context(user_id: str, access_token: Optional[str] = None) -> Dict[str, Any]:
@@ -21,6 +25,13 @@ class PersonalNutritionContextService:
         """
         if not user_id:
             raise ValueError("user_id is required to build personal nutrition context")
+
+        import time
+        now = time.time()
+        if user_id in _CONTEXT_CACHE:
+            cached_time, cached_ctx = _CONTEXT_CACHE[user_id]
+            if now - cached_time < _CONTEXT_CACHE_TTL:
+                return cached_ctx
 
         client = get_supabase_client(access_token)
         
@@ -290,6 +301,8 @@ class PersonalNutritionContextService:
         except Exception as e:
             logger.warning(f"Could not load meal history: {e}")
 
+        import time
+        _CONTEXT_CACHE[user_id] = (time.time(), context)
         return context
 
     @staticmethod

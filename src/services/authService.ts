@@ -12,6 +12,9 @@ export interface AuthResponse<T = any> {
   error?: Error | null;
 }
 
+// In-memory deleted email cache (zero localStorage)
+const inMemoryDeletedEmails = new Set<string>();
+
 /**
  * Signs up a new user with email and password via Supabase Auth.
  */
@@ -31,8 +34,11 @@ export async function signUpUser(
   const cleanEmail = email.trim().toLowerCase();
 
   // Clear any past deletion markers so newly re-registered account can sign in smoothly
+  inMemoryDeletedEmails.delete(cleanEmail);
   try {
-    localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+    }
     await supabase.rpc('prepare_email_for_registration', { p_email: cleanEmail });
     await supabase.from('deleted_accounts').delete().eq('email', cleanEmail);
   } catch {}
@@ -101,19 +107,20 @@ export async function signInUser(
     }
 
     // Reject if auth metadata indicates account was marked deleted and not yet purged
-    if (data?.user?.user_metadata?.account_deleted) {
+    if (data?.user?.user_metadata?.account_deleted || inMemoryDeletedEmails.has(cleanEmail)) {
       await supabase.auth.signOut();
-      try {
-        localStorage.setItem(`nutrilens_deleted_${cleanEmail}`, 'true');
-      } catch {}
+      inMemoryDeletedEmails.add(cleanEmail);
       return {
         error: new Error('This email is not registered. Please sign up.'),
       };
     }
 
-    // Active, valid user: clear any legacy deletion marker so login is permanently clean
+    // Active, valid user: clear any deletion marker so login is permanently clean
+    inMemoryDeletedEmails.delete(cleanEmail);
     try {
-      localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(`nutrilens_deleted_${cleanEmail}`);
+      }
       await supabase.from('deleted_accounts').delete().eq('email', cleanEmail);
     } catch {}
 
@@ -654,10 +661,13 @@ export async function deleteUserAccount(): Promise<AuthResponse> {
         console.warn('deleted_accounts record notice:', e);
       }
 
-      // Clean up pending signup storage and mark local blacklist
+      // Clean up legacy pending signup storage and mark in-memory deletion
+      inMemoryDeletedEmails.add(email);
       try {
-        localStorage.removeItem(`nutrilens_pending_signup_${email}`);
-        localStorage.setItem(`nutrilens_deleted_${email}`, 'true');
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(`nutrilens_pending_signup_${email}`);
+          localStorage.removeItem(`nutrilens_deleted_${email}`);
+        }
       } catch {}
     }
 
@@ -710,9 +720,11 @@ export async function deleteUserAccount(): Promise<AuthResponse> {
     await supabase.auth.signOut();
     try {
       sessionStorage.clear();
-      // Keep only the deleted email blacklist in localStorage
       if (email) {
-        localStorage.setItem(`nutrilens_deleted_${email}`, 'true');
+        inMemoryDeletedEmails.add(email);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem(`nutrilens_deleted_${email}`);
+        }
       }
     } catch {}
 
