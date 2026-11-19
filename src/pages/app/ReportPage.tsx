@@ -270,7 +270,14 @@ export const ReportPage: React.FC = () => {
             <Link to="/app/bazar" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
               ← Explore Savar Bazar Prices
             </Link>
-            <Link to="/app/meal-rescue">
+            <Link
+              to="/app/meal-rescue"
+              state={{
+                confirmedItems: confirmedRows,
+                originalMealName: "Confirmed Edible Meal",
+                totals: totals,
+              }}
+            >
               <Button variant="primary" size="md" icon={<Sparkles className="w-4 h-4" />} iconPosition="right">
                 Optimize Next Meal
               </Button>

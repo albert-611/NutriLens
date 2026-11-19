@@ -36,7 +36,9 @@ def mock_external_services():
          patch("app.api.v1.users.get_supabase_client", return_value=mock_client), \
          patch("app.api.v1.assistant.get_supabase_client", return_value=mock_client), \
          patch("app.services.personal_context_service.get_supabase_client", return_value=mock_client), \
-         patch("app.api.v1.food_recognition.get_supabase_client", return_value=mock_client):
+         patch("app.api.v1.food_recognition.get_supabase_client", return_value=mock_client), \
+         patch("app.api.v1.meal_rescue.get_supabase_client", return_value=mock_client), \
+         patch("app.services.meal_rescue_service.get_supabase_client", return_value=mock_client):
         yield mock_client
 
     settings.GEMINI_API_KEY = original_gemini_key

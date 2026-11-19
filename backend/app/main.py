@@ -18,6 +18,7 @@ from app.api.v1.meal_plans import router as meal_plans_router
 from app.api.v1.markets import router as markets_router
 from app.api.v1.shopping import router as shopping_router
 from app.api.v1.assistant import router as assistant_router
+from app.api.v1.meal_rescue import router as meal_rescue_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -73,3 +74,4 @@ app.include_router(meal_plans_router, prefix=api_v1)
 app.include_router(markets_router, prefix=api_v1)
 app.include_router(shopping_router, prefix=api_v1)
 app.include_router(assistant_router, prefix=api_v1)
+app.include_router(meal_rescue_router, prefix=api_v1)

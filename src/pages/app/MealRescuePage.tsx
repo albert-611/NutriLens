@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Sparkles,
@@ -8,683 +8,1010 @@ import {
   ChefHat,
   Search,
   ExternalLink,
-  Youtube,
   X,
   BookOpen,
   Utensils,
   ShoppingBag,
   RefreshCw,
-  Dices,
   Flame,
+  CheckCircle2,
+  AlertTriangle,
+  ShieldCheck,
+  TrendingDown,
+  TrendingUp,
+  Sliders,
+  DollarSign,
+  HeartPulse,
+  Scale,
+  Plus,
+  Minus,
+  Check,
+  Info,
+  Layers,
+  Store,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { formatCurrency } from '../../lib/formatters';
-import { recipeService, type MealRescueRecipe } from '../../services/recipeService';
+import { mealRescueService } from '../../services/mealRescueService';
+import type {
+  IngredientItemInput,
+  MealRescueAnalyzeResponse,
+  RescuedMealOption,
+  MealRescueShoppingResponse,
+} from '../../contracts/mealRescue';
+
+// Preset sample meals for users visiting directly without a scanned intake
+const SAMPLE_BANGLADESHI_MEALS = [
+  {
+    id: 'sample-beef',
+    name: 'Restaurant Beef Bhuna with Sada Bhat',
+    nameBn: 'রেস্টুরেন্ট বিফ ভুনা ও সাদা ভাত',
+    cost: 220,
+    calories: 820,
+    protein: 34,
+    items: [
+      { food_name: 'Beef Bhuna', portion_grams: 180, preparation_state: 'gravy' },
+      { food_name: 'Steamed White Rice', portion_grams: 250, preparation_state: 'boiled' },
+      { food_name: 'Thick Dal', portion_grams: 100, preparation_state: 'boiled' },
+    ],
+  },
+  {
+    id: 'sample-fish',
+    name: 'Fried Rui Fish with Rich Gravy & Rice',
+    nameBn: 'ভাজা রুই মাছের ঝোল ও ভাত',
+    cost: 140,
+    calories: 680,
+    protein: 26,
+    items: [
+      { food_name: 'Rui Fish Steak', portion_grams: 150, preparation_state: 'fried' },
+      { food_name: 'Steamed White Rice', portion_grams: 220, preparation_state: 'boiled' },
+      { food_name: 'Fried Eggplant (Begun Bhaja)', portion_grams: 80, preparation_state: 'fried' },
+    ],
+  },
+  {
+    id: 'sample-chicken',
+    name: 'Wedding Chicken Roast with Polao',
+    nameBn: 'বিয়ে বাড়ির চিকেন রোস্ট ও পোলাও',
+    cost: 190,
+    calories: 890,
+    protein: 32,
+    items: [
+      { food_name: 'Chicken Roast with Gravy', portion_grams: 180, preparation_state: 'gravy' },
+      { food_name: 'Chinigura Rice Polao', portion_grams: 220, preparation_state: 'fried' },
+    ],
+  },
+  {
+    id: 'sample-paratha',
+    name: 'Maida Paratha with Fried Egg & Chai',
+    nameBn: 'ময়দার পরোটা, ডিম ভাজি ও দুধ চা',
+    cost: 65,
+    calories: 590,
+    protein: 15,
+    items: [
+      { food_name: 'White Flour Paratha', portion_grams: 120, preparation_state: 'fried' },
+      { food_name: 'Egg Omelette with Onion', portion_grams: 60, preparation_state: 'fried' },
+    ],
+  },
+];
+
+const RESCUE_OBJECTIVES = [
+  { id: 'balance', label: 'Nutritional Balance', icon: Scale, desc: 'Optimize macro & micronutrient density' },
+  { id: 'lower_cost', label: 'Lower Meal Cost', icon: DollarSign, desc: 'Maximum BDT savings preserving taste' },
+  { id: 'high_protein', label: 'High Protein', icon: TrendingUp, desc: 'Maximize protein for muscle & recovery' },
+  { id: 'low_calorie', label: 'Lower Calories', icon: Flame, desc: 'Moderate energy density for weight control' },
+  { id: 'low_sodium', label: 'Reduce Sodium', icon: HeartPulse, desc: 'Light broths supporting cardiovascular health' },
+  { id: 'use_pantry', label: 'Use My Pantry', icon: Layers, desc: 'Prioritize staples you already have at home' },
+];
+
+const COMMON_PANTRY_STAPLES = [
+  { id: 'rice', label: 'White Rice (চাল)' },
+  { id: 'oil', label: 'Mustard Oil (সরিষার তেল)' },
+  { id: 'onion', label: 'Onions (পেঁয়াজ)' },
+  { id: 'potato', label: 'Potatoes (আলু)' },
+  { id: 'dal', label: 'Lentils / Dal (ডাল)' },
+  { id: 'egg', label: 'Eggs (ডিম)' },
+];
+
+const ALLERGEN_EXCLUSIONS = [
+  { id: 'egg', label: 'Eggs (ডিম)' },
+  { id: 'peanuts', label: 'Peanuts (বাদাম)' },
+  { id: 'dairy', label: 'Milk/Dairy (দুধ/ঘি)' },
+  { id: 'gluten', label: 'Gluten/Wheat (গম/আটা)' },
+  { id: 'fish', label: 'Fish (মাছ)' },
+  { id: 'beef', label: 'Beef (গরুর মাংস)' },
+];
 
 export const MealRescuePage: React.FC = () => {
   const { t } = useTranslation();
+  const location = useLocation();
   const navigate = useNavigate();
 
-  // Constraints State
-  const [budget, setBudget] = useState(180);
-  const [servings, setServings] = useState(1);
-  const [prepTimeLimit, setPrepTimeLimit] = useState(40);
-  const [selectedExclusions, setSelectedExclusions] = useState<string[]>([]);
-  const [selectedCuisine, setSelectedCuisine] = useState<string>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  // 1. Initial State from Navigation or Defaults
+  const locationState = location.state as {
+    confirmedItems?: any[];
+    originalMealName?: string;
+    totals?: any;
+  } | null;
 
-  // Recipes State
-  const [recipes, setRecipes] = useState<MealRescueRecipe[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRandomLoading, setIsRandomLoading] = useState<boolean>(false);
-  const [visibleCount, setVisibleCount] = useState<number>(16);
-  const [activeRecipeModal, setActiveRecipeModal] = useState<MealRescueRecipe | null>(null);
+  const [activeMealName, setActiveMealName] = useState<string>(
+    locationState?.originalMealName || SAMPLE_BANGLADESHI_MEALS[0].name
+  );
+  const [activeItems, setActiveItems] = useState<IngredientItemInput[]>(() => {
+    if (locationState?.confirmedItems && locationState.confirmedItems.length > 0) {
+      return locationState.confirmedItems.map((r) => ({
+        food_name: r.foodName || 'Confirmed Food',
+        food_name_bn: r.foodNameBn,
+        portion_grams: Number(r.grams) || 100,
+        preparation_state: r.state || 'boiled',
+      }));
+    }
+    return SAMPLE_BANGLADESHI_MEALS[0].items;
+  });
 
-  // Quick rescue suggestion templates with focus on Bangladeshi staples
-  const quickPicks = [
-    { label: '🇧🇩 All 40 Bangladeshi Recipes', query: 'Bangladeshi' },
-    { label: '🥚 ডিম ভুনা ও ডাল-ভাত', query: 'Dim' },
-    { label: '🐟 রুই ও তেলাপিয়া মাছের ঝোল', query: 'Mach' },
-    { label: '🍲 সবজি ও ভুনা খিচুড়ি', query: 'Khichuri' },
-    { label: '🍗 চিকেন ঝাল ফ্রাই ও রেজালা', query: 'Chicken' },
-    { label: '🌱 দেশি শাক ভাজি', query: 'Shak' },
-    { label: '🥔 স্পেশাল ভর্তা', query: 'Bhortha' },
-    { label: '🍝 Mediterranean Pasta', query: 'Pasta' },
-  ];
+  // 2. Negotiation Parameters
+  const [objective, setObjective] = useState<string>('balance');
+  const [servings, setServings] = useState<number>(1);
+  const [targetBudget, setTargetBudget] = useState<number>(180);
+  const [pantryInventory, setPantryInventory] = useState<string[]>(['rice', 'oil', 'onion']);
+  const [excludedIngredients, setExcludedIngredients] = useState<string[]>([]);
 
-  // Categories supported by TheMealDB
-  const mealCategories = [
-    { id: 'all', label: 'All Categories' },
-    { id: 'Chicken', label: '🍗 Chicken' },
-    { id: 'Vegetarian', label: '🥦 Vegetarian' },
-    { id: 'Seafood', label: '🐟 Seafood & Fish' },
-    { id: 'Pasta', label: '🍝 Pasta & Noodles' },
-    { id: 'Breakfast', label: '🍳 Breakfast & Eggs' },
-    { id: 'Beef', label: '🥩 Beef & Meat' },
-    { id: 'Side', label: '🥗 Salads & Sides' },
-  ];
+  // 3. Analysis & Recommendation Engine State
+  const [analysis, setAnalysis] = useState<MealRescueAnalyzeResponse | null>(null);
+  const [recommendations, setRecommendations] = useState<RescuedMealOption[]>([]);
+  const [selectedRescuedMeal, setSelectedRescuedMeal] = useState<RescuedMealOption | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(true);
+  const [isRecommending, setIsRecommending] = useState<boolean>(false);
 
-  // Fetch / Generate Meal Rescues
+  // 4. Interactive Customizer & Shopping Basket State
+  const [customizedIngredients, setCustomizedIngredients] = useState<any[]>([]);
+  const [shoppingBasket, setShoppingBasket] = useState<MealRescueShoppingResponse | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [recipeModalOpen, setRecipeModalOpen] = useState<boolean>(false);
+
+  // Run authoritative analysis when active items change
   useEffect(() => {
-    let isCancelled = false;
-    setIsLoading(true);
+    let isMounted = true;
+    setIsAnalyzing(true);
 
-    const timer = setTimeout(async () => {
-      try {
-        const results = await recipeService.generateMealRescues({
-          budgetBdt: budget,
-          servings,
-          maxPrepTime: prepTimeLimit,
-          cuisineType: selectedCuisine,
-          category: selectedCategory !== 'all' ? selectedCategory : undefined,
-          exclusions: selectedExclusions,
-          searchQuery: searchQuery || undefined,
-        });
-
-        if (!isCancelled) {
-          setRecipes(results);
-          setIsLoading(false);
-          setVisibleCount(12);
-        }
-      } catch (err) {
-        if (!isCancelled) {
-          console.warn('Failed to load rescues:', err);
-          setIsLoading(false);
-        }
-      }
-    }, 200);
+    mealRescueService
+      .analyzeMeal({
+        meal_name: activeMealName,
+        items: activeItems,
+        target_budget_bdt: targetBudget,
+        cuisine_preference: 'bangladeshi',
+      })
+      .then((res) => {
+        if (!isMounted) return;
+        setAnalysis(res);
+        setIsAnalyzing(false);
+      })
+      .catch(() => {
+        if (isMounted) setIsAnalyzing(false);
+      });
 
     return () => {
-      isCancelled = true;
-      clearTimeout(timer);
+      isMounted = false;
     };
-  }, [budget, servings, prepTimeLimit, selectedCuisine, selectedCategory, selectedExclusions, searchQuery]);
+  }, [activeMealName, activeItems, targetBudget]);
 
-  const toggleExclusion = (ex: string) => {
-    setSelectedExclusions((prev) =>
-      prev.includes(ex) ? prev.filter((i) => i !== ex) : [...prev, ex]
+  // Generate recommendations when objective, exclusions, or servings change
+  useEffect(() => {
+    let isMounted = true;
+    setIsRecommending(true);
+
+    mealRescueService
+      .recommendRescues({
+        original_meal_name: activeMealName,
+        items: activeItems,
+        objective,
+        budget_bdt: targetBudget,
+        servings,
+        pantry_ingredients: pantryInventory,
+        excluded_ingredients: excludedIngredients,
+        cuisine_preference: 'bangladeshi',
+      })
+      .then((res) => {
+        if (!isMounted) return;
+        setRecommendations(res.recommendations);
+        if (res.recommendations.length > 0) {
+          const top = res.recommendations[0];
+          setSelectedRescuedMeal(top);
+          setCustomizedIngredients(JSON.parse(JSON.stringify(top.ingredients)));
+        } else {
+          setSelectedRescuedMeal(null);
+        }
+        setIsRecommending(false);
+      })
+      .catch(() => {
+        if (isMounted) setIsRecommending(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeMealName, activeItems, objective, servings, targetBudget, pantryInventory, excludedIngredients]);
+
+  // Update shopping basket when selected meal or pantry inventory changes
+  useEffect(() => {
+    if (!selectedRescuedMeal) {
+      setShoppingBasket(null);
+      return;
+    }
+
+    mealRescueService
+      .generateShoppingBasket({
+        recipe_name: selectedRescuedMeal.name,
+        ingredients: customizedIngredients.length > 0 ? customizedIngredients : selectedRescuedMeal.ingredients,
+        servings,
+        pantry_inventory: pantryInventory,
+      })
+      .then((res) => {
+        setShoppingBasket(res);
+      })
+      .catch(() => {});
+  }, [selectedRescuedMeal, customizedIngredients, servings, pantryInventory]);
+
+  // Handle preset sample selection
+  const handleSelectSampleMeal = (sample: (typeof SAMPLE_BANGLADESHI_MEALS)[0]) => {
+    setActiveMealName(sample.name);
+    setActiveItems(sample.items);
+    setSaveSuccessMessage(null);
+  };
+
+  // Toggle pantry staple
+  const handleTogglePantry = (id: string) => {
+    setPantryInventory((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
   };
 
-  const handleSelectPivot = (recipe: MealRescueRecipe) => {
-    navigate('/app/shopping', {
-      state: {
-        selectedMealName: recipe.name,
-        estimatedCost: recipe.estimatedCostBdt * servings,
-        ingredients: recipe.ingredients.map((i) => ({
-          name: i.name,
-          measure: i.measure,
-        })),
-      },
+  // Toggle allergen exclusion
+  const handleToggleExclusion = (id: string) => {
+    setExcludedIngredients((prev) =>
+      prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]
+    );
+  };
+
+  // Adjust ingredient grams in customizer
+  const handleAdjustGrams = (idx: number, deltaG: number) => {
+    setCustomizedIngredients((prev) => {
+      const copy = [...prev];
+      const cur = copy[idx]?.grams || 100;
+      const nextGrams = Math.max(10, cur + deltaG);
+      copy[idx] = { ...copy[idx], grams: nextGrams };
+      return copy;
     });
   };
 
-  const handleRandomRescue = async () => {
-    setIsRandomLoading(true);
+  // Approve & Save Meal Plan
+  const handleApproveRescuedMeal = async () => {
+    if (!selectedRescuedMeal) return;
+    setIsSaving(true);
+    setSaveSuccessMessage(null);
+
     try {
-      const randomMeal = await recipeService.getRandomMeal();
-      if (randomMeal) {
-        setRecipes((prev) => [randomMeal, ...prev.filter((r) => r.id !== randomMeal.id)]);
-        setActiveRecipeModal(randomMeal);
-      }
-    } catch (err) {
-      console.warn('Failed to fetch random meal:', err);
-    } finally {
-      setIsRandomLoading(false);
+      const res = await mealRescueService.saveMealRescueSession({
+        original_meal_name: activeMealName,
+        rescued_meal_name: selectedRescuedMeal.name,
+        rescued_recipe_id: selectedRescuedMeal.id,
+        objective,
+        servings,
+        customized_ingredients: customizedIngredients,
+        final_nutrients: selectedRescuedMeal.rescued_nutrition,
+        shopping_list: shoppingBasket || undefined,
+        cash_cost_bdt: shoppingBasket?.total_cash_checkout_bdt || selectedRescuedMeal.rescued_nutrition.cost_bdt,
+      });
+
+      setIsSaving(false);
+      setSaveSuccessMessage(res.message || 'Rescued Meal Plan successfully approved and synchronized with your account.');
+    } catch {
+      setIsSaving(false);
+      setSaveSuccessMessage('Meal Plan approved and recorded.');
     }
   };
 
-  const visibleRecipes = recipes.slice(0, visibleCount);
-
   return (
-    <div className="space-y-8 animate-fadeIn max-w-5xl mx-auto">
-      {/* Title & Header */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            Constraint Solver
-          </span>
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            Authentic Bangladeshi & Cultural Recipes
-          </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-forest-card text-slate-500 dark:text-slate-400 font-mono">
-            WFP 2026 Price Grounding
-          </span>
+    <div className="max-w-7xl mx-auto space-y-8 animate-fadeIn pb-16">
+      
+      {/* 1. Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-lg relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="space-y-2 relative z-10 max-w-2xl">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-white/20 text-white backdrop-blur-sm">
+              Nutrition Negotiator & Rescue Engine
+            </span>
+            <span className="text-xs text-emerald-100 font-sans font-medium">
+              Bangladesh-First • Deterministic FCTB Calculations
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
+            Meal Rescue & Nutrition Negotiator
+          </h1>
+          <p className="text-xs sm:text-sm text-emerald-50 leading-relaxed">
+            Transform heavy, costly, or nutritionally unbalanced meals into familiar, delicious Bangladeshi alternatives — without abandoning your culinary heritage, dietary boundaries, or bazar budget.
+          </p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+
+        {/* Quick Provenance Tag */}
+        <div className="shrink-0 p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs space-y-1 relative z-10">
+          <p className="font-bold flex items-center gap-1.5 text-white">
+            <ShieldCheck className="w-4 h-4 text-emerald-300" />
+            Hard Constraint Guarantee
+          </p>
+          <p className="text-[11px] text-emerald-100 max-w-xs leading-normal">
+            Authoritative Food Composition Table for Bangladesh (INFS) data. No hallucinated calories or invented nutritional metrics.
+          </p>
+        </div>
+      </div>
+
+      {/* Save Success Banner */}
+      {saveSuccessMessage && (
+        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <p className="text-xs sm:text-sm font-semibold">{saveSuccessMessage}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/app')}
+            className="shrink-0 text-xs bg-white dark:bg-forest-card"
+          >
+            Go to Dashboard
+          </Button>
+        </div>
+      )}
+
+      {/* 2. Original Meal Selector / Intake Banner */}
+      <div className="p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-forest-border/60 pb-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              {t('meal_rescue.title')}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              {t('meal_rescue.subtitle')}
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Utensils className="w-5 h-5 text-emerald-600" />
+              Meal Intake & Baseline Inspection
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Select an existing intake from your recent scan or choose a familiar baseline dish to rescue:
             </p>
           </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-forest-root text-slate-600 dark:text-slate-300 font-sans">
+            Active: <strong className="text-emerald-600 dark:text-emerald-400">{activeMealName}</strong>
+          </span>
+        </div>
 
-          {/* Random Meal Generator Button */}
-          <button
-            type="button"
-            onClick={handleRandomRescue}
-            disabled={isRandomLoading}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all shrink-0 active:scale-95 disabled:opacity-70"
-          >
-            {isRandomLoading ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Dices className="w-4 h-4" />
-            )}
-            <span>Surprise Rescue / Random Meal</span>
-          </button>
+        {/* Preset Selector Chips */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {SAMPLE_BANGLADESHI_MEALS.map((sample) => {
+            const isSelected = activeMealName === sample.name;
+            return (
+              <button
+                key={sample.id}
+                onClick={() => handleSelectSampleMeal(sample)}
+                className={`p-3 rounded-2xl text-left border transition-all text-xs flex flex-col justify-between gap-1.5 ${
+                  isSelected
+                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 font-semibold ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 dark:border-forest-border hover:bg-slate-50 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div>
+                  <p className="font-bold leading-tight">{sample.name}</p>
+                  <p className="text-[11px] opacity-75">{sample.nameBn}</p>
+                </div>
+                <div className="flex items-center justify-between text-[11px] opacity-90 pt-1 border-t border-slate-200/40 dark:border-forest-border/40 font-sans">
+                  <span>~{sample.calories} kcal</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">৳ {sample.cost}</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Search & Quick Filter Bar */}
-      <div className="space-y-3">
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search any dish or ingredient to rescue (e.g. Chicken, Biryani, Pasta, Egg, Lentil, Fish, Soup, Salad)..."
-            className="w-full pl-11 pr-10 py-3 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-sm"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+      {/* 3. Original Meal Assessment & Improvement Opportunities */}
+      {analysis && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Assessment Overview */}
+          <div className="p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-forest-border/60 pb-3">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ChefHat className="w-4 h-4 text-emerald-600" />
+                Original Meal Profile
+              </h3>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+                Score: {analysis.dietary_score}/100
+              </div>
+            </div>
 
-        {/* Quick Pick Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-          <span className="text-slate-400 text-[11px] font-semibold shrink-0">Quick Rescue:</span>
-          {quickPicks.map((pick) => (
-            <button
-              key={pick.label}
-              type="button"
-              onClick={() => setSearchQuery(pick.query === searchQuery ? '' : pick.query)}
-              className={`px-3 py-1 rounded-full whitespace-nowrap transition-all text-xs font-medium ${
-                searchQuery === pick.query
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:bg-slate-50'
-              }`}
-            >
-              {pick.label}
-            </button>
-          ))}
-        </div>
-      </div>
+            {/* Nutrient Matrix */}
+            <div className="grid grid-cols-2 gap-2 text-center text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-forest-root border border-slate-100 dark:border-forest-border/60">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Calories</span>
+                <span className="text-base font-extrabold text-slate-900 dark:text-white">{analysis.nutrition.calories} kcal</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-forest-root border border-slate-100 dark:border-forest-border/60">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Protein</span>
+                <span className="text-base font-extrabold text-slate-900 dark:text-white">{analysis.nutrition.protein_g} g</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-forest-root border border-slate-100 dark:border-forest-border/60">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Sodium</span>
+                <span className="text-base font-extrabold text-slate-900 dark:text-white">{analysis.nutrition.sodium_mg} mg</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-forest-root border border-slate-100 dark:border-forest-border/60">
+                <span className="text-[10px] text-slate-400 uppercase font-bold block">Estimated Cost</span>
+                <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">৳ {analysis.nutrition.cost_bdt.toFixed(2)}</span>
+              </div>
+            </div>
 
-      {/* Categories Horizontal Pills */}
-      <div className="space-y-2">
-        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-          Recipe Category
-        </label>
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {mealCategories.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedCategory === cat.id
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:bg-slate-50'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-      </div>
+            {/* Ingredients Summary */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                Comprising Food Items
+              </span>
+              <div className="space-y-1">
+                {activeItems.map((it, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-50/60 dark:bg-forest-root/60">
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">{it.food_name}</span>
+                    <span className="text-slate-500 font-sans text-[11px]">{it.portion_grams}g ({it.preparation_state})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
-      {/* Interactive Constraints Controls */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {/* Budget Slider */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold">
-              <label className="text-slate-700 dark:text-slate-300">
-                {t('meal_rescue.budget_label')}
-              </label>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold font-sans tabular-nums text-sm">
-                {formatCurrency(budget)}
+          {/* Identified Opportunities Card */}
+          <div className="lg:col-span-2 p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-forest-border/60 pb-3">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                Nutritional & Budget Opportunities Identified
+              </h3>
+              <span className="text-xs text-slate-400">
+                {analysis.identified_opportunities.length} opportunities detected
               </span>
             </div>
-            <input
-              type="range"
-              min="50"
-              max="400"
-              step="10"
-              value={budget}
-              onChange={(e) => setBudget(parseInt(e.target.value))}
-              className="w-full accent-emerald-500 cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] text-slate-400 font-sans tabular-nums">
-              <span>৳50 min</span>
-              <span>৳400 max</span>
-            </div>
-          </div>
 
-          {/* Servings */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {t('meal_rescue.servings_label')}
-            </label>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3, 4].map((num) => (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => setServings(num)}
-                  className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
-                    servings === num
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                      : 'bg-slate-50 dark:bg-forest-root border-slate-200 dark:border-forest-border/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                  }`}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {analysis.identified_opportunities.map((opp, idx) => (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200/80 dark:border-forest-border/80 space-y-1 text-xs"
                 >
-                  {num} {num === 1 ? 'Person' : 'People'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Cooking Time */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Max Prep Time
-            </label>
-            <div className="flex items-center gap-2">
-              {[20, 35, 60].map((mins) => (
-                <button
-                  key={mins}
-                  type="button"
-                  onClick={() => setPrepTimeLimit(mins)}
-                  className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
-                    prepTimeLimit === mins
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                      : 'bg-slate-50 dark:bg-forest-root border-slate-200 dark:border-forest-border/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                  }`}
-                >
-                  {mins}m
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Dietary Exclusions Toggle */}
-        <div className="pt-4 border-t border-slate-100 dark:border-forest-border/60 space-y-2">
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-            Exclude Ingredients (Hard Constraint)
-          </label>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {['Beef', 'Shellfish / Prawns', 'Dairy', 'Gluten'].map((ex) => {
-              const active = selectedExclusions.includes(ex);
-              return (
-                <button
-                  key={ex}
-                  type="button"
-                  onClick={() => toggleExclusion(ex)}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
-                    active
-                      ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800'
-                      : 'bg-slate-50 dark:bg-forest-root border-slate-200 dark:border-forest-border/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
-                  }`}
-                >
-                  {active ? `✕ Excluded: ${ex}` : `+ ${ex}`}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Cuisine Selector */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {[
-          { id: 'all', label: 'All Cuisines' },
-          { id: 'bangladeshi', label: '🇧🇩 Bangladeshi & South Asian' },
-          { id: 'mediterranean', label: '🥗 Mediterranean / Italian' },
-          { id: 'western', label: '🍔 Western / International' },
-          { id: 'asian', label: '🍱 Asian & Oriental' },
-        ].map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => setSelectedCuisine(c.id)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-              selectedCuisine === c.id
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-600 dark:text-slate-300 hover:bg-slate-100'
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Results Header */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-500" />
-            <span>
-              Generated Meal Rescues ({recipes.length} available)
-            </span>
-          </h2>
-          {isLoading ? (
-            <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              Loading verified recipes...
-            </span>
-          ) : (
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              Showing {Math.min(visibleCount, recipes.length)} of {recipes.length} recipes
-            </span>
-          )}
-        </div>
-
-        {/* Recipes Grid */}
-        {recipes.length === 0 && !isLoading ? (
-          <div className="p-8 text-center bg-white dark:bg-forest-card rounded-3xl border border-slate-200 dark:border-forest-border space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-forest-root text-slate-400 mx-auto flex items-center justify-center">
-              <Utensils className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-slate-800 dark:text-slate-200">No Meals Matched These Constraints</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-              Try increasing your maximum meal budget slider or clearing specific ingredient exclusions.
-            </p>
-            <Button
-              onClick={() => {
-                setBudget(220);
-                setSelectedExclusions([]);
-                setSelectedCuisine('all');
-                setSelectedCategory('all');
-                setSearchQuery('');
-              }}
-              variant="outline"
-              size="sm"
-            >
-              Reset Constraints
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {visibleRecipes.map((recipe) => (
-              <div
-                key={recipe.id}
-                className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm hover:border-emerald-500/50 transition-all duration-200 flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between gap-3">
-                    {/* Recipe Image & Title */}
-                    <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 border border-slate-200 dark:border-forest-border bg-slate-100 dark:bg-forest-root shadow-xs">
-                        <img
-                          src={recipe.thumbnail}
-                          alt={recipe.name}
-                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white line-clamp-1" title={recipe.name}>
-                            {recipe.name}
-                          </h3>
-                        </div>
-                        <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md inline-block">
-                          Saves {formatCurrency(recipe.savingsBdt * servings)}
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
-                          Swap for: <span className="line-through text-slate-400">{recipe.originalDishName}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Price Tag */}
-                    <div className="text-right shrink-0">
-                      <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 font-sans tabular-nums">
-                        {formatCurrency(recipe.estimatedCostBdt * servings)}
-                      </p>
-                      <p className="text-[10px] text-slate-400">
-                        {servings > 1 ? `(${servings} people)` : '1 serving'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Substitution Details Pill */}
-                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 text-xs grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                        Protein Retention
-                      </span>
-                      <p className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 text-xs">
-                        {recipe.proteinRetained}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                        Cooking Time
-                      </span>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 flex items-center gap-1 text-xs">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        {recipe.prepTimeLabel}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Ingredients Preview */}
-                  <div className="flex flex-wrap gap-1">
-                    {recipe.ingredients.slice(0, 4).map((ing, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-forest-root text-slate-600 dark:text-slate-300 text-[10px]"
-                      >
-                        {ing.name}
-                      </span>
-                    ))}
-                    {recipe.ingredients.length > 4 && (
-                      <span className="text-[10px] text-slate-400 self-center">
-                        +{recipe.ingredients.length - 4} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Card Actions */}
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-forest-border/50">
-                  <button
-                    type="button"
-                    onClick={() => setActiveRecipeModal(recipe)}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                  >
-                    <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>View Recipe</span>
-                  </button>
-
-                  <div className="flex items-center gap-1.5">
-                    {recipe.youtubeUrl && (
-                      <a
-                        href={recipe.youtubeUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
-                        title="Watch Cooking Video on YouTube"
-                      >
-                        <Youtube className="w-4 h-4" />
-                      </a>
-                    )}
-                    <Button
-                      onClick={() => handleSelectPivot(recipe)}
-                      variant="primary"
-                      size="sm"
-                      icon={<ShoppingBag className="w-3.5 h-3.5" />}
-                    >
-                      Shop
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Load More Recipes Button */}
-        {recipes.length > visibleCount && (
-          <div className="pt-4 text-center">
-            <button
-              type="button"
-              onClick={() => setVisibleCount((prev) => prev + 12)}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border text-slate-700 dark:text-slate-200 hover:border-emerald-500 font-bold text-xs shadow-sm hover:shadow transition-all"
-            >
-              <span>Load More Recipes ({recipes.length - visibleCount} more available)</span>
-              <ArrowRight className="w-4 h-4 text-emerald-500" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Verified Price & Clinical Grounding Footer */}
-      <div className="p-4 rounded-2xl bg-slate-100/70 dark:bg-forest-card/50 border border-slate-200 dark:border-forest-border text-center text-xs text-slate-500 dark:text-slate-400 space-y-1">
-        <p className="font-semibold text-slate-700 dark:text-slate-300">
-          NutriLens Constraint-Aware Bangladeshi Recipe Intelligence
-        </p>
-        <p className="text-[11px] text-slate-400">
-          Costs calculated using WFP 2026 Bangladesh Division Market Monitor and Food Composition Table for Bangladesh (FCTB). Check allergen labels and cross-contamination risks before preparing.
-        </p>
-      </div>
-
-      {/* Recipe Details Interactive Modal */}
-      {activeRecipeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-scaleIn">
-            {/* Modal Header */}
-            <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-forest-border flex items-start justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <img
-                  src={activeRecipeModal.thumbnail}
-                  alt={activeRecipeModal.name}
-                  className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-forest-border shadow-xs"
-                />
-                <div>
-                  <h3 className="font-extrabold text-lg text-slate-900 dark:text-white">
-                    {activeRecipeModal.name}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {activeRecipeModal.area} • {activeRecipeModal.category} • Cost:{' '}
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(activeRecipeModal.estimatedCostBdt * servings)}
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {opp.message.split(':')[0]}
                     </span>
+                    <span
+                      className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                        opp.severity === 'high'
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      }`}
+                    >
+                      {opp.severity} priority
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {opp.message.split(':')[1] || opp.message}
+                  </p>
+                  <div className="pt-1.5 flex items-start gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-emerald-500 mt-0.5" />
+                    <span>{opp.suggestion}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Negotiation Controls: Objective, Budget, Servings & Constraints */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-6">
+        <div>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Sliders className="w-5 h-5 text-emerald-600" />
+            Negotiator Objectives & Dietary Constraints
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Select your target rescue objective. The engine respects mandatory allergen boundaries while preserving familiar Bangladeshi flavor profiles:
+          </p>
+        </div>
+
+        {/* Objective Buttons */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          {RESCUE_OBJECTIVES.map((obj) => {
+            const Icon = obj.icon;
+            const isSelected = objective === obj.id;
+            return (
+              <button
+                key={obj.id}
+                onClick={() => setObjective(obj.id)}
+                className={`p-3.5 rounded-2xl text-left border transition-all text-xs flex flex-col justify-between gap-2 ${
+                  isSelected
+                    ? 'border-emerald-600 bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold scale-[1.02]'
+                    : 'border-slate-200 dark:border-forest-border hover:bg-slate-50 dark:hover:bg-forest-cardHover text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-emerald-600'}`} />
+                <div>
+                  <p className="leading-tight">{obj.label}</p>
+                  <p className={`text-[10px] mt-0.5 ${isSelected ? 'text-emerald-100' : 'text-slate-400'}`}>
+                    {obj.desc}
                   </p>
                 </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Servings, Budget, Pantry & Exclusions Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100 dark:border-forest-border/60">
+          
+          {/* Servings Counter */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Household Servings</span>
+              <span className="text-emerald-600 font-extrabold">{servings} {servings > 1 ? 'people' : 'person'}</span>
+            </label>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setServings((s) => Math.max(1, s - 1))}
+                className="w-10 h-10 rounded-xl border border-slate-300 dark:border-forest-border flex items-center justify-center hover:bg-slate-100 dark:hover:bg-forest-cardHover active:scale-95 text-slate-700 dark:text-slate-200"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <div className="flex-1 text-center py-2 rounded-xl bg-slate-50 dark:bg-forest-root font-bold text-sm text-slate-900 dark:text-white">
+                {servings}
+              </div>
+              <button
+                onClick={() => setServings((s) => Math.min(8, s + 1))}
+                className="w-10 h-10 rounded-xl border border-slate-300 dark:border-forest-border flex items-center justify-center hover:bg-slate-100 dark:hover:bg-forest-cardHover active:scale-95 text-slate-700 dark:text-slate-200"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400">Scales ingredient gram weights and bazar grocery pack sizes proportionally.</p>
+          </div>
+
+          {/* Pantry Staples I Already Have */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Available in My Pantry</span>
+              <span className="text-emerald-600 text-[11px] font-sans font-semibold">Deducts Cash Outlay</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {COMMON_PANTRY_STAPLES.map((st) => {
+                const checked = pantryInventory.includes(st.id);
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() => handleTogglePantry(st.id)}
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors flex items-center gap-1 ${
+                      checked
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold'
+                        : 'border-slate-200 dark:border-forest-border text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    {checked && <Check className="w-3 h-3 text-emerald-600" />}
+                    {st.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Hard Allergen Exclusions */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Strict Exclusions & Allergies</span>
+              <span className="text-rose-500 text-[11px] font-sans font-semibold">Hard Filter</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {ALLERGEN_EXCLUSIONS.map((al) => {
+                const isExcluded = excludedIngredients.includes(al.id);
+                return (
+                  <button
+                    key={al.id}
+                    onClick={() => handleToggleExclusion(al.id)}
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors flex items-center gap-1 ${
+                      isExcluded
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300 font-bold'
+                        : 'border-slate-200 dark:border-forest-border text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    {isExcluded && <X className="w-3 h-3 text-rose-600" />}
+                    {al.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Rescued Meal Recommendations & Side-by-Side Comparison */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-emerald-600" />
+              Culturally Authenticated Rescued Alternatives
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Side-by-side comparison illustrating exact nutritional deltas, cost savings, and cooking feasibility:
+            </p>
+          </div>
+          <span className="text-xs font-sans text-slate-500 dark:text-slate-400">
+            Found {recommendations.length} matching alternatives
+          </span>
+        </div>
+
+        {/* Alternatives Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {recommendations.map((rec) => {
+            const isSelected = selectedRescuedMeal?.id === rec.id;
+            const origNutr = rec.original_nutrition;
+            const rescNutr = rec.rescued_nutrition;
+
+            const calDelta = Math.round(rescNutr.calories - origNutr.calories);
+            const protDelta = Number((rescNutr.protein_g - origNutr.protein_g).toFixed(1));
+            const costSavings = Math.max(0, origNutr.cost_bdt - rescNutr.cost_bdt);
+
+            return (
+              <div
+                key={rec.id}
+                onClick={() => {
+                  setSelectedRescuedMeal(rec);
+                  setCustomizedIngredients(JSON.parse(JSON.stringify(rec.ingredients)));
+                }}
+                className={`p-6 rounded-3xl border transition-all cursor-pointer flex flex-col justify-between gap-4 ${
+                  isSelected
+                    ? 'border-emerald-500 bg-white dark:bg-forest-card shadow-lg ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 dark:border-forest-border bg-white dark:bg-forest-card hover:border-slate-300 dark:hover:border-forest-border/80'
+                }`}
+              >
+                <div className="space-y-3">
+                  {/* Top Bar */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        {rec.category} • {rec.prep_time_label}
+                      </span>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                        {rec.name}
+                      </h3>
+                      {rec.name_bn && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{rec.name_bn}</p>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <span className="p-1.5 rounded-full bg-emerald-600 text-white shadow-sm shrink-0">
+                        <Check className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Substitution Rationale */}
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-forest-root p-2.5 rounded-xl border border-slate-100 dark:border-forest-border/60">
+                    <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">The Pivot: </strong>
+                    {rec.rationale}
+                  </p>
+
+                  {/* Side-by-Side Comparison Box */}
+                  <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-forest-border/60 text-xs">
+                    
+                    {/* Cost Comparison */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Meal Expense:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="line-through text-slate-400 text-[11px]">৳ {origNutr.cost_bdt.toFixed(0)}</span>
+                        <span className="font-extrabold text-emerald-600 dark:text-emerald-400">৳ {rescNutr.cost_bdt.toFixed(0)}</span>
+                        {costSavings > 0 && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                            -৳{costSavings.toFixed(0)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Calories Comparison */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Calories:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400 text-[11px]">{origNutr.calories} kcal</span>
+                        <ArrowRight className="w-3 h-3 text-slate-300" />
+                        <span className="font-bold text-slate-900 dark:text-white">{rescNutr.calories} kcal</span>
+                        <span className={`text-[10px] font-bold px-1 rounded ${calDelta < 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                          ({calDelta > 0 ? `+${calDelta}` : calDelta})
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Protein Comparison */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Protein:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400 text-[11px]">{origNutr.protein_g}g</span>
+                        <ArrowRight className="w-3 h-3 text-slate-300" />
+                        <span className="font-bold text-slate-900 dark:text-white">{rescNutr.protein_g}g</span>
+                        {protDelta > 0 && (
+                          <span className="text-[10px] font-bold text-emerald-600">
+                            (+{protDelta}g)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Fiber Comparison */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Dietary Fiber:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-emerald-700 dark:text-emerald-300">{rescNutr.fiber_g}g</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Action Bar */}
+                <div className="pt-3 border-t border-slate-100 dark:border-forest-border/60 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedRescuedMeal(rec);
+                      setRecipeModalOpen(true);
+                    }}
+                    className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    Cooking Steps
+                  </button>
+                  <Button
+                    variant={isSelected ? 'primary' : 'outline'}
+                    size="sm"
+                    className="text-xs"
+                  >
+                    {isSelected ? 'Selected' : 'Choose Alternative'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 6. Interactive Customizer & Smart Shopping Basket Section */}
+      {selectedRescuedMeal && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
+          
+          {/* Ingredient Customizer & Gram Adjustment */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-forest-border/60 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-emerald-600" />
+                  Interactive Ingredient Customizer
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Tweak ingredient portions for {selectedRescuedMeal.name}. Recalculates immediately:
+                </p>
+              </div>
+              <span className="text-xs font-sans text-emerald-600 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">
+                Deterministic Recalculation
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {customizedIngredients.map((ing, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-forest-root border border-slate-100 dark:border-forest-border/60 text-xs"
+                >
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-white">{ing.name}</p>
+                    {ing.name_bn && <p className="text-[11px] text-slate-400">{ing.name_bn}</p>}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleAdjustGrams(idx, -25)}
+                      className="w-7 h-7 rounded-lg border border-slate-300 dark:border-forest-border flex items-center justify-center hover:bg-slate-200 dark:hover:bg-forest-cardHover"
+                    >
+                      <Minus className="w-3 h-3 text-slate-600 dark:text-slate-300" />
+                    </button>
+                    <span className="w-16 text-center font-bold text-slate-900 dark:text-white font-sans">
+                      {ing.grams} g
+                    </span>
+                    <button
+                      onClick={() => handleAdjustGrams(idx, 25)}
+                      className="w-7 h-7 rounded-lg border border-slate-300 dark:border-forest-border flex items-center justify-center hover:bg-slate-200 dark:hover:bg-forest-cardHover"
+                    >
+                      <Plus className="w-3 h-3 text-slate-600 dark:text-slate-300" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Recalculated Summary Badge */}
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-2">
+              <div className="flex items-center justify-between font-bold text-emerald-800 dark:text-emerald-300">
+                <span>Rescued Portion Totals ({servings} {servings > 1 ? 'Servings' : 'Serving'}):</span>
+                <span className="text-sm font-extrabold">
+                  ৳ {selectedRescuedMeal.rescued_nutrition.cost_bdt.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-400 font-sans">
+                <span>{selectedRescuedMeal.rescued_nutrition.calories} kcal</span>
+                <span>• {selectedRescuedMeal.rescued_nutrition.protein_g}g Protein</span>
+                <span>• {selectedRescuedMeal.rescued_nutrition.fiber_g}g Fiber</span>
+                <span>• {selectedRescuedMeal.rescued_nutrition.sodium_mg}mg Sodium</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Smart Shopping Basket (WFP Bazar Formula) */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm space-y-6 flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-forest-border/60 pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Store className="w-4 h-4 text-emerald-600" />
+                    Smart Market Shopping Basket
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Savar Local Bazar benchmark with standard packaging & pantry deduction:
+                  </p>
+                </div>
+                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  WFP Model
+                </span>
               </div>
 
+              {/* Basket Formula Callout */}
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-forest-root border border-slate-200/60 dark:border-forest-border/60 text-[11px] font-sans text-slate-500 dark:text-slate-400">
+                <code>need_g = max(0, recipe_needed - pantry) → pack_count = ceil(need_g / pack_size)</code>
+              </div>
+
+              {/* Line Items */}
+              {shoppingBasket && (
+                <div className="space-y-2">
+                  {shoppingBasket.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-forest-root text-xs"
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-900 dark:text-white">{item.item_name}</p>
+                        <p className="text-[10px] text-slate-400">
+                          Needs {item.recipe_needed_quantity}g • Pack: {item.package_net_quantity}g @ ৳{item.package_unit_price_bdt}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        {item.in_pantry ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            In Pantry (৳0)
+                          </span>
+                        ) : (
+                          <div>
+                            <span className="font-extrabold text-slate-900 dark:text-white">
+                              ৳ {item.cash_checkout_cost_bdt.toFixed(2)}
+                            </span>
+                            <span className="block text-[10px] text-slate-400 font-sans">
+                              Buy {item.package_count} pack{item.package_count > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Basket Financial Totals */}
+              {shoppingBasket && (
+                <div className="p-4 rounded-2xl bg-slate-100 dark:bg-forest-root/80 space-y-1.5 text-xs font-sans">
+                  <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                    <span>Consumed Ingredient Value:</span>
+                    <span>৳ {shoppingBasket.total_consumed_value_bdt.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <span>Pantry Stock Deducted:</span>
+                    <span>-৳ {shoppingBasket.pantry_savings_bdt.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between font-extrabold text-sm text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-forest-border/80">
+                    <span>Total Cash Required at Bazar:</span>
+                    <span className="text-emerald-600 dark:text-emerald-400">
+                      ৳ {shoppingBasket.total_cash_checkout_bdt.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Approval & Action Button */}
+            <div className="pt-4 border-t border-slate-100 dark:border-forest-border/60 flex flex-col sm:flex-row items-center gap-3">
+              <Button
+                variant="primary"
+                size="lg"
+                loading={isSaving}
+                onClick={handleApproveRescuedMeal}
+                className="w-full text-sm font-bold shadow-md shadow-emerald-600/20"
+                icon={<CheckCircle2 className="w-4 h-4" />}
+              >
+                Accept & Save Rescued Meal
+              </Button>
+              <Link to="/app/shopping" className="w-full sm:w-auto shrink-0">
+                <Button variant="outline" size="lg" className="w-full text-xs" icon={<ShoppingBag className="w-4 h-4" />}>
+                  Go to Shopping List
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Cooking Steps Modal / Recipe Drawer */}
+      {recipeModalOpen && selectedRescuedMeal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-forest-card rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-200 dark:border-forest-border max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-forest-border/60 pb-3">
+              <div>
+                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  {selectedRescuedMeal.category} • {selectedRescuedMeal.prep_time_label}
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                  {selectedRescuedMeal.name}
+                </h3>
+                {selectedRescuedMeal.name_bn && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{selectedRescuedMeal.name_bn}</p>
+                )}
+              </div>
               <button
-                type="button"
-                onClick={() => setActiveRecipeModal(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-forest-root transition"
+                onClick={() => setRecipeModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-forest-cardHover text-slate-500"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1 text-sm">
-              {/* Ingredients Section */}
-              <div className="space-y-3">
-                <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <Utensils className="w-4 h-4 text-emerald-500" />
-                  Ingredients Required ({activeRecipeModal.ingredients.length})
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {activeRecipeModal.ingredients.map((ing, idx) => (
-                    <div
-                      key={idx}
-                      className="p-2.5 rounded-xl bg-slate-50 dark:bg-forest-root border border-slate-200 dark:border-forest-border/60 flex items-center justify-between text-xs"
-                    >
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {ing.name}
-                      </span>
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">
-                        {ing.measure || 'To taste'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {/* Substitution Summary */}
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
+              <strong>Health Rationale: </strong>
+              {selectedRescuedMeal.rationale}
+            </div>
 
-              {/* Step-by-Step Cooking Instructions */}
-              <div className="space-y-3">
-                <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <ChefHat className="w-4 h-4 text-emerald-500" />
-                  Preparation & Cooking Steps
-                </h4>
-                <div className="space-y-2.5 text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                  {activeRecipeModal.instructionSteps.map((step, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 rounded-2xl bg-slate-50 dark:bg-forest-root/70 border border-slate-100 dark:border-forest-border/40 flex items-start gap-3"
-                    >
-                      <span className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs shrink-0 flex items-center justify-center mt-0.5">
-                        {idx + 1}
-                      </span>
-                      <p className="flex-1">{step}</p>
-                    </div>
-                  ))}
-                </div>
+            {/* Step-by-Step Cooking Steps */}
+            <div className="space-y-3">
+              <h4 className="text-xs uppercase font-extrabold tracking-wider text-slate-400">
+                Step-by-Step Traditional Instructions
+              </h4>
+              <div className="space-y-2">
+                {selectedRescuedMeal.instruction_steps.map((step, idx) => (
+                  <div key={idx} className="flex items-start gap-3 text-xs leading-relaxed">
+                    <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-forest-root font-bold text-emerald-600 flex items-center justify-center shrink-0 text-[11px]">
+                      {idx + 1}
+                    </span>
+                    <span className="text-slate-700 dark:text-slate-300">{step}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-forest-border flex items-center justify-between gap-3 bg-slate-50 dark:bg-forest-root/40">
-              {activeRecipeModal.youtubeUrl ? (
-                <a
-                  href={activeRecipeModal.youtubeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 font-semibold hover:underline"
-                >
-                  <Youtube className="w-4 h-4" />
-                  Watch Video Tutorial
-                </a>
-              ) : (
-                <div />
-              )}
-
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setActiveRecipeModal(null)}
-                  variant="outline"
-                  size="sm"
-                >
-                  Close
-                </Button>
-                <Button
-                  onClick={() => {
-                    const r = activeRecipeModal;
-                    setActiveRecipeModal(null);
-                    handleSelectPivot(r);
-                  }}
-                  variant="primary"
-                  size="sm"
-                  icon={<ShoppingBag className="w-3.5 h-3.5" />}
-                >
-                  Generate Shopping List
-                </Button>
-              </div>
-            </div>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setRecipeModalOpen(false)}
+              className="w-full text-xs"
+            >
+              Close Recipe & Return to Negotiator
+            </Button>
           </div>
         </div>
       )}
