@@ -264,8 +264,12 @@ CRITICAL RULES:
   const rawModels = [
     primaryModel,
     secondaryModel,
+    'gemini-3.5-flash-lite',
     'gemini-3.1-flash-lite',
     'gemini-flash-lite-latest',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash-lite',
   ];
   const seenModels = new Set<string>();
   const modelsToTry = rawModels.filter((m) => {
@@ -281,7 +285,7 @@ CRITICAL RULES:
   for (const apiKey of keysToTry) {
     for (const model of modelsToTry) {
       const abortCtrl = new AbortController();
-      const timer = setTimeout(() => abortCtrl.abort(), 3500);
+      const timer = setTimeout(() => abortCtrl.abort(), 12000);
 
       try {
         const res = await fetch(
@@ -536,10 +540,8 @@ export async function analyzeMealImage(params: {
   }
 
   // 2. Direct Gemini Vision Multimodal Detection (with Dual-Model and Backup Key Failover)
-  const FALLBACK_GEMINI_KEY = 'AQ.Ab8RN6LjnYNr2o5EzwLyymdqNOLsZvIBNTwkAAeUikiO0Cuvug';
-  const FALLBACK_BACKUP_KEY = 'AQ.Ab8RN6JfzdHBE2I2c1crVelJE96PiPyq3ar8dSlCrRqDXxrVXg';
-  const clientGeminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').replace(/['"]/g, '').trim() || FALLBACK_GEMINI_KEY;
-  const backupGeminiApiKey = (import.meta.env.VITE_GEMINI_BACKUP_API_KEY || '').replace(/['"]/g, '').trim() || FALLBACK_BACKUP_KEY;
+  const clientGeminiApiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').replace(/['"]/g, '').trim();
+  const backupGeminiApiKey = (import.meta.env.VITE_GEMINI_BACKUP_API_KEY || '').replace(/['"]/g, '').trim();
   if (clientGeminiApiKey && imageBase64) {
     try {
       const aiResult = await callGeminiVisionDirect(imageBase64, clientGeminiApiKey, backupGeminiApiKey, manualQuery, language);
@@ -604,9 +606,8 @@ export async function analyzeMealImage(params: {
 
   // 3. Image Analysis Failure Handling:
   // Note: True non-food rejections are handled above when the AI model explicitly examines the photo.
-  // If we reach here with an image, it means the API service was unreachable, timed out, or had a connection drop.
-  // We report AI_SERVICE_ERROR rather than misdiagnosing valid food photos as "non-food".
-  if (file || imageBase64) {
+  // If we reach here with an image without a manual query or demo preset, it means the API service was unreachable, timed out, or had a connection drop.
+  if ((file || imageBase64) && !manualQuery) {
     clearDraftAnalysis();
     const err: any = new Error(
       'AI vision service is temporarily unavailable or could not connect. Please check your network connection and click Retry.'

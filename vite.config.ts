@@ -22,6 +22,8 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         configure: (proxy) => {
+          // Remove Vite's verbose default error logger to eliminate terminal ECONNREFUSED noise when running in client mode
+          proxy.removeAllListeners('error');
           proxy.on('error', (_err, _req, res: any) => {
             if (res && !res.headersSent && typeof res.writeHead === 'function') {
               res.writeHead(503, { 'Content-Type': 'application/json' });

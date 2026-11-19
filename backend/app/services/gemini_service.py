@@ -16,7 +16,7 @@ def get_vision_http_client() -> httpx.AsyncClient:
     global _VISION_HTTP_CLIENT
     if _VISION_HTTP_CLIENT is None or _VISION_HTTP_CLIENT.is_closed:
         _VISION_HTTP_CLIENT = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=2.0, read=4.0, write=2.0, pool=2.0),
+            timeout=httpx.Timeout(connect=3.0, read=12.0, write=5.0, pool=3.0),
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
         )
     return _VISION_HTTP_CLIENT
@@ -99,6 +99,9 @@ class GeminiService:
                 models_to_try = [
                     settings.GEMINI_VISION_MODEL,
                     settings.GEMINI_FALLBACK_MODEL,
+                    "gemini-2.0-flash",
+                    "gemini-1.5-flash",
+                    "gemini-2.0-flash-lite",
                     "gemini-flash-lite-latest",
                 ]
                 # Deduplicate while preserving order
@@ -141,115 +144,115 @@ class GeminiService:
                             logger.warning(f"[NutriLens Failover] Model {model} failed ({resp.status_code}). Trying next model...")
                             continue
 
-                            data = resp.json()
-                            text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                            if text:
-                                clean_text = text.strip()
-                                if clean_text.startswith("```"):
-                                    clean_text = clean_text.split("```")[1]
-                                    if clean_text.startswith("json"):
-                                        clean_text = clean_text[4:]
-                                ai_json = json.loads(clean_text.strip())
-                                
-                                outcome = ai_json.get("outcome", "FOOD_DETECTED")
-                                is_food = ai_json.get("is_food", True)
-                                rejection_reason = ai_json.get("rejection_reason")
+                        data = resp.json()
+                        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        if text:
+                            clean_text = text.strip()
+                            if clean_text.startswith("```"):
+                                clean_text = clean_text.split("```")[1]
+                                if clean_text.startswith("json"):
+                                    clean_text = clean_text[4:]
+                            ai_json = json.loads(clean_text.strip())
+                            
+                            outcome = ai_json.get("outcome", "FOOD_DETECTED")
+                            is_food = ai_json.get("is_food", True)
+                            rejection_reason = ai_json.get("rejection_reason")
 
-                                if outcome == "NO_FOOD_DETECTED" or not is_food:
-                                    return FoodRecognizeResponse(
-                                        image_id=str(uuid.uuid4()),
-                                        meal_type=meal_type,
-                                        recognition_outcome="NO_FOOD_DETECTED",
-                                        is_food=False,
-                                        rejection_reason=rejection_reason or "No recognizable food was detected in this image. Please upload a clear picture of your meal.",
-                                        candidates=[],
-                                        requires_user_confirmation=False,
-                                        uncertainty_detected=False,
-                                    )
+                            if outcome == "NO_FOOD_DETECTED" or not is_food:
+                                return FoodRecognizeResponse(
+                                    image_id=str(uuid.uuid4()),
+                                    meal_type=meal_type,
+                                    recognition_outcome="NO_FOOD_DETECTED",
+                                    is_food=False,
+                                    rejection_reason=rejection_reason or "No recognizable food was detected in this image. Please upload a clear picture of your meal.",
+                                    candidates=[],
+                                    requires_user_confirmation=False,
+                                    uncertainty_detected=False,
+                                )
 
-                                if outcome == "UNCERTAIN_IMAGE":
-                                    return FoodRecognizeResponse(
-                                        image_id=str(uuid.uuid4()),
-                                        meal_type=meal_type,
-                                        recognition_outcome="UNCERTAIN_IMAGE",
-                                        is_food=False,
-                                        rejection_reason=rejection_reason or "Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.",
-                                        candidates=[],
-                                        requires_user_confirmation=False,
-                                        uncertainty_detected=True,
-                                    )
+                            if outcome == "UNCERTAIN_IMAGE":
+                                return FoodRecognizeResponse(
+                                    image_id=str(uuid.uuid4()),
+                                    meal_type=meal_type,
+                                    recognition_outcome="UNCERTAIN_IMAGE",
+                                    is_food=False,
+                                    rejection_reason=rejection_reason or "Image is too blurry or unclear to detect food. Please provide a clear, well-lit picture of your meal.",
+                                    candidates=[],
+                                    requires_user_confirmation=False,
+                                    uncertainty_detected=True,
+                                )
 
-                                raw_items = ai_json.get("detected_dishes", [])
-                                if not raw_items and isinstance(ai_json, list):
-                                    raw_items = ai_json
-                                elif not raw_items and isinstance(ai_json, dict) and "items" in ai_json:
-                                    raw_items = ai_json["items"]
+                            raw_items = ai_json.get("detected_dishes", [])
+                            if not raw_items and isinstance(ai_json, list):
+                                raw_items = ai_json
+                            elif not raw_items and isinstance(ai_json, dict) and "items" in ai_json:
+                                raw_items = ai_json["items"]
 
-                                candidates = []
-                                uncertainty = False
-                                for item in raw_items:
-                                    det_count = None
-                                    if item.get("detected_count") is not None:
-                                        try:
-                                            det_count = float(item["detected_count"])
-                                        except (ValueError, TypeError):
-                                            det_count = None
+                            candidates = []
+                            uncertainty = False
+                            for item in raw_items:
+                                det_count = None
+                                if item.get("detected_count") is not None:
+                                    try:
+                                        det_count = float(item["detected_count"])
+                                    except (ValueError, TypeError):
+                                        det_count = None
 
-                                    pkg_weight = None
-                                    if item.get("package_net_weight_grams") is not None:
-                                        try:
-                                            pkg_weight = float(item["package_net_weight_grams"])
-                                        except (ValueError, TypeError):
-                                            pkg_weight = None
+                                pkg_weight = None
+                                if item.get("package_net_weight_grams") is not None:
+                                    try:
+                                        pkg_weight = float(item["package_net_weight_grams"])
+                                    except (ValueError, TypeError):
+                                        pkg_weight = None
 
-                                    cand = FoodCandidate(
-                                        candidate_id=str(uuid.uuid4())[:8],
-                                        food_name=item.get("food_name") or item.get("label") or "Unknown Food",
-                                        bangla_name=item.get("bangla_name") or item.get("label_bn"),
-                                        confidence=float(item.get("confidence", 0.90)),
-                                        preparation_state=item.get("preparation_state", "boiled"),
-                                        portion_basis=item.get("portion_basis", "visual_plate_ratio"),
-                                        default_grams=float(item.get("default_grams") or item.get("estimated_grams") or 150.0),
-                                        uncertain_factors=item.get("uncertain_factors", []),
-                                        is_countable=bool(item.get("is_countable", False)),
-                                        detected_count=det_count,
-                                        count_unit=item.get("count_unit"),
-                                        identity_confidence=float(item.get("identity_confidence", item.get("confidence", 0.90))),
-                                        count_confidence=float(item["count_confidence"]) if item.get("count_confidence") is not None else None,
-                                        weight_confidence=float(item.get("weight_confidence", 0.80)),
-                                        packaging_detected=bool(item.get("packaging_detected", False)),
-                                        package_net_weight_grams=pkg_weight,
-                                    )
-                                    if cand.uncertain_factors:
-                                        uncertainty = True
-                                    candidates.append(cand)
+                                cand = FoodCandidate(
+                                    candidate_id=str(uuid.uuid4())[:8],
+                                    food_name=item.get("food_name") or item.get("label") or "Unknown Food",
+                                    bangla_name=item.get("bangla_name") or item.get("label_bn"),
+                                    confidence=float(item.get("confidence", 0.90)),
+                                    preparation_state=item.get("preparation_state", "boiled"),
+                                    portion_basis=item.get("portion_basis", "visual_plate_ratio"),
+                                    default_grams=float(item.get("default_grams") or item.get("estimated_grams") or 150.0),
+                                    uncertain_factors=item.get("uncertain_factors", []),
+                                    is_countable=bool(item.get("is_countable", False)),
+                                    detected_count=det_count,
+                                    count_unit=item.get("count_unit"),
+                                    identity_confidence=float(item.get("identity_confidence", item.get("confidence", 0.90))),
+                                    count_confidence=float(item["count_confidence"]) if item.get("count_confidence") is not None else None,
+                                    weight_confidence=float(item.get("weight_confidence", 0.80)),
+                                    packaging_detected=bool(item.get("packaging_detected", False)),
+                                    package_net_weight_grams=pkg_weight,
+                                )
+                                if cand.uncertain_factors:
+                                    uncertainty = True
+                                candidates.append(cand)
 
-                                if candidates:
-                                    clarif_qs = ClarificationService.generate_clarification_questions(
-                                        [c.model_dump() for c in candidates],
-                                        raw_questions=ai_json.get("overall_questions") if isinstance(ai_json.get("overall_questions"), list) else None,
-                                    )
-                                    return FoodRecognizeResponse(
-                                        image_id=str(uuid.uuid4()),
-                                        meal_type=meal_type,
-                                        recognition_outcome="FOOD_DETECTED",
-                                        is_food=True,
-                                        candidates=candidates,
-                                        clarification_questions=clarif_qs,
-                                        requires_user_confirmation=True,
-                                        uncertainty_detected=uncertainty,
-                                    )
-                                else:
-                                    return FoodRecognizeResponse(
-                                        image_id=str(uuid.uuid4()),
-                                        meal_type=meal_type,
-                                        recognition_outcome="NO_FOOD_DETECTED",
-                                        is_food=False,
-                                        rejection_reason="No recognizable food was detected in this image. Please upload a clear picture of your meal.",
-                                        candidates=[],
-                                        requires_user_confirmation=False,
-                                        uncertainty_detected=False,
-                                    )
+                            if candidates:
+                                clarif_qs = ClarificationService.generate_clarification_questions(
+                                    [c.model_dump() for c in candidates],
+                                    raw_questions=ai_json.get("overall_questions") if isinstance(ai_json.get("overall_questions"), list) else None,
+                                )
+                                return FoodRecognizeResponse(
+                                    image_id=str(uuid.uuid4()),
+                                    meal_type=meal_type,
+                                    recognition_outcome="FOOD_DETECTED",
+                                    is_food=True,
+                                    candidates=candidates,
+                                    clarification_questions=clarif_qs,
+                                    requires_user_confirmation=True,
+                                    uncertainty_detected=uncertainty,
+                                )
+                            else:
+                                return FoodRecognizeResponse(
+                                    image_id=str(uuid.uuid4()),
+                                    meal_type=meal_type,
+                                    recognition_outcome="NO_FOOD_DETECTED",
+                                    is_food=False,
+                                    rejection_reason="No recognizable food was detected in this image. Please upload a clear picture of your meal.",
+                                    candidates=[],
+                                    requires_user_confirmation=False,
+                                    uncertainty_detected=False,
+                                )
             except Exception as e:
                 logger.warning(f"Gemini API call failed: {e}.")
 

@@ -20,7 +20,7 @@ def get_ai_http_client() -> httpx.AsyncClient:
     global _AI_HTTP_CLIENT
     if _AI_HTTP_CLIENT is None or _AI_HTTP_CLIENT.is_closed:
         _AI_HTTP_CLIENT = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=2.0, read=3.5, write=2.0, pool=2.0),
+            timeout=httpx.Timeout(connect=3.0, read=10.0, write=3.0, pool=3.0),
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
         )
     return _AI_HTTP_CLIENT
@@ -60,8 +60,11 @@ class AIProviderService:
         # Keep user's configured model first, followed immediately by high-speed verified fallbacks
         models_to_try = [
             chat_model,
-            settings.GEMINI_FALLBACK_MODEL,  # e.g. "gemini-3.1-flash-lite" (sub-second response)
-            settings.GEMINI_VISION_MODEL,    # "gemini-3.5-flash-lite"
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-2.0-flash-lite",
+            settings.GEMINI_FALLBACK_MODEL,
+            settings.GEMINI_VISION_MODEL,
             "gemini-flash-lite-latest",
         ]
         # Deduplicate models preserving order

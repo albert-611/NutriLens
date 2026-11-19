@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     GEMINI_BACKUP_API_KEY: str = ""
     GEMINI_VISION_MODEL: str = "gemini-3.5-flash-lite"
     GEMINI_FALLBACK_MODEL: str = "gemini-3.1-flash-lite"
-    GEMINI_CHAT_MODEL: str = "gemma-4-26b"
+    GEMINI_CHAT_MODEL: str = "gemma-4-26b-a4b-it"
 
     # USDA FoodData Central API
     USDA_API_KEY: str = ""
