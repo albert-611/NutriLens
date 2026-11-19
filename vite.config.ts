@@ -36,6 +36,7 @@ export default defineConfig({
     },
   },
   build: {
+    chunkSizeWarningLimit: 3500,
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
