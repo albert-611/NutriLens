@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
     recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
     food_id UUID NOT NULL REFERENCES foods(id) ON DELETE RESTRICT,
     quantity_g NUMERIC(8,2) NOT NULL CHECK (quantity_g > 0),
-    input_state TEXT NOT NULL CHECK (input_state IN ('raw', 'boiled', 'steamed', 'fried', 'curried', 'drained')),
+    input_state TEXT NOT NULL CHECK (input_state IN ('raw', 'boiled', 'steamed', 'fried', 'roasted', 'curried', 'drained', 'commercial')),
     is_optional BOOLEAN NOT NULL DEFAULT false,
     display_order INTEGER NOT NULL DEFAULT 1,
     notes TEXT,
