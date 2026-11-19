@@ -146,7 +146,7 @@ export const MealRescuePage: React.FC = () => {
             Constraint Solver
           </span>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Powered by TheMealDB Culinary API
+            Authentic Bangladeshi & Cultural Recipes
           </span>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-forest-card text-slate-500 dark:text-slate-400 font-mono">
             WFP 2026 Price Grounding
@@ -382,7 +382,7 @@ export const MealRescuePage: React.FC = () => {
           {isLoading ? (
             <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              Generating from TheMealDB...
+              Loading verified recipes...
             </span>
           ) : (
             <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -556,21 +556,13 @@ export const MealRescuePage: React.FC = () => {
         )}
       </div>
 
-      {/* TheMealDB Attribution Footer as specified in SKILL.md */}
+      {/* Verified Price & Clinical Grounding Footer */}
       <div className="p-4 rounded-2xl bg-slate-100/70 dark:bg-forest-card/50 border border-slate-200 dark:border-forest-border text-center text-xs text-slate-500 dark:text-slate-400 space-y-1">
-        <p>
-          Recipe data, instructions, and imagery sourced from{' '}
-          <a
-            href="https://www.themealdb.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline inline-flex items-center gap-0.5"
-          >
-            TheMealDB <ExternalLink className="w-3 h-3 ml-0.5" />
-          </a>
+        <p className="font-semibold text-slate-700 dark:text-slate-300">
+          NutriLens Constraint-Aware Bangladeshi Recipe Intelligence
         </p>
         <p className="text-[11px] text-slate-400">
-          Costs calculated using WFP 2026 Bangladesh Division Market Monitor. Check allergen labels and cross-contamination risks before preparing.
+          Costs calculated using WFP 2026 Bangladesh Division Market Monitor and Food Composition Table for Bangladesh (FCTB). Check allergen labels and cross-contamination risks before preparing.
         </p>
       </div>
 

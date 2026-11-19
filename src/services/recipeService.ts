@@ -1,22 +1,18 @@
 /**
- * TheMealDB Recipe & Meal Rescue Service for NutriLens
- *
- * Implements TheMealDB API integration based on the specification in `Recepie API/SKILL.md`
- * and `Recepie API/openapi-v1.yaml`.
+ * Local Authentic Bangladeshi & Cultural Recipe Service for NutriLens
+ * 100% Self-Contained, Zero External Network API Calls or Latency.
  *
  * Capabilities:
- * - High-capacity recipe catalog (hundreds of full authentic recipes across all cuisines)
- * - Search meals by name, category, cuisine/area, or main ingredient
- * - Full recipe lookup with ingredients, measurements, instructions, and video links
+ * - High-capacity authentic Bangladeshi and cultural recipe catalog (40+ dishes)
+ * - Instant local search by dish name (English & Bengali), category, or main ingredient
+ * - Full recipe details with measured ingredients, step-by-step instructions, and nutrient breakdown
  * - Cultural & budget substitution engine (Constraint-Aware Meal Rescue)
- * - Grounded Bangladesh bazar cost & protein calculations
- * - On-demand Random Recipe Generation ("Surprise Rescue")
- * - 100% offline resilience with verified local fallback meals
+ * - Grounded Bangladesh bazar cost (WFP 2026 market benchmarks) & FCDB protein calculations
+ * - Instant Random Recipe Generator ("Surprise Rescue")
+ * - 100% offline resilience with zero external network or gateway dependency
  */
 
 import { BANGLADESHI_RESCUE_RECIPES } from '../data/bangladeshiRecipes';
-
-const THEMEALDB_BASE_URL = 'https://www.themealdb.com/api/json/v1/1';
 
 export interface RecipeIngredient {
   name: string;
@@ -528,80 +524,22 @@ for (const fb of VERIFIED_FALLBACK_RESCUES) {
 
 export const recipeService = {
   /**
-   * Loads a rich, multi-letter catalog of hundreds of authentic TheMealDB recipes in the background.
+   * Returns the entire verified in-memory recipe collection immediately (no external network latency).
    */
   async ensureCatalogLoaded(): Promise<MealRescueRecipe[]> {
-    if (catalogInitialized && recipeCache.size > 20) {
-      return Array.from(recipeCache.values());
-    }
-
-    if (catalogLoadingPromise) {
-      return catalogLoadingPromise;
-    }
-
-    catalogLoadingPromise = (async () => {
-      // Fetch multi-letter batches: c (Chicken, Curry), b (Biryani, Beef), s (Soup, Salmon, Spaghetti), p (Pasta, Potato)
-      const letters = ['c', 'b', 's', 'p', 'm', 'e'];
-      try {
-        const batchResults = await Promise.all(
-          letters.map((letter) =>
-            fetch(`${THEMEALDB_BASE_URL}/search.php?f=${letter}`)
-              .then((res) => (res.ok ? res.json() : { meals: [] }))
-              .catch(() => ({ meals: [] }))
-          )
-        );
-
-        for (const data of batchResults) {
-          if (data && Array.isArray(data.meals)) {
-            for (const m of data.meals) {
-              if (m && m.idMeal && !recipeCache.has(m.idMeal)) {
-                const parsed = parseMealDbRecipe(m);
-                recipeCache.set(parsed.id, parsed);
-              }
-            }
-          }
-        }
-        catalogInitialized = true;
-      } catch (err) {
-        console.warn('TheMealDB multi-letter batch fetch note:', err);
-      }
-
-      return Array.from(recipeCache.values());
-    })();
-
-    return catalogLoadingPromise;
+    return Array.from(recipeCache.values());
   },
 
   /**
-   * Search meals across TheMealDB official JSON API.
-   * Auto-falls back to verified local recipes if offline.
+   * Search meals across the local authentic recipe collection.
    */
   async searchMeals(query: string): Promise<MealRescueRecipe[]> {
     const cleanQuery = query.trim().toLowerCase();
+    const catalog = Array.from(recipeCache.values());
     if (!cleanQuery) {
-      return this.ensureCatalogLoaded();
+      return catalog;
     }
 
-    try {
-      const res = await fetch(`${THEMEALDB_BASE_URL}/search.php?s=${encodeURIComponent(cleanQuery)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.meals) && data.meals.length > 0) {
-          const parsedList: MealRescueRecipe[] = [];
-          for (const m of data.meals) {
-            const parsed = parseMealDbRecipe(m);
-            recipeCache.set(parsed.id, parsed);
-            parsedList.push(parsed);
-          }
-          return parsedList;
-        }
-      }
-    } catch (err) {
-      console.warn('TheMealDB search request error, checking local library:', err);
-    }
-
-    // Comprehensive catalog search
-    const catalog = await this.ensureCatalogLoaded();
     const filtered = catalog.filter(
       (r) =>
         r.name.toLowerCase().includes(cleanQuery) ||
@@ -616,55 +554,21 @@ export const recipeService = {
   },
 
   /**
-   * Fetches full recipe details by TheMealDB idMeal.
-   * Implements Step 3 in SKILL.md: "Call lookup.php?i={idMeal} to retrieve the complete record".
+   * Fetches full recipe details by id from the local collection.
    */
   async getMealById(idMeal: string): Promise<MealRescueRecipe | null> {
-    if (recipeCache.has(idMeal)) {
-      return recipeCache.get(idMeal)!;
-    }
-
-    try {
-      const res = await fetch(`${THEMEALDB_BASE_URL}/lookup.php?i=${encodeURIComponent(idMeal)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.meals) && data.meals[0]) {
-          const parsed = parseMealDbRecipe(data.meals[0]);
-          recipeCache.set(idMeal, parsed);
-          return parsed;
-        }
-      }
-    } catch (err) {
-      console.warn('TheMealDB lookup request error:', err);
-    }
-
-    return null;
+    return recipeCache.get(idMeal) || null;
   },
 
   /**
-   * Generates a completely fresh random meal rescue from TheMealDB (`random.php`).
+   * Picks a random authentic meal rescue instantly with 0 network latency.
    */
   async getRandomMeal(): Promise<MealRescueRecipe | null> {
-    try {
-      const res = await fetch(`${THEMEALDB_BASE_URL}/random.php`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.meals) && data.meals[0]) {
-          const parsed = parseMealDbRecipe(data.meals[0]);
-          recipeCache.set(parsed.id, parsed);
-          return parsed;
-        }
-      }
-    } catch (err) {
-      console.warn('TheMealDB random request error:', err);
-    }
-
-    // Pick random from catalog
     const catalog = Array.from(recipeCache.values());
     if (catalog.length > 0) {
       return catalog[Math.floor(Math.random() * catalog.length)];
     }
-    return VERIFIED_FALLBACK_RESCUES[0];
+    return BANGLADESHI_RESCUE_RECIPES[0] || VERIFIED_FALLBACK_RESCUES[0];
   },
 
   /**
@@ -672,33 +576,9 @@ export const recipeService = {
    */
   async getMealsByCategory(category: string): Promise<MealRescueRecipe[]> {
     const cleanCat = category.trim().toLowerCase();
-    const catalog = await this.ensureCatalogLoaded();
+    const catalog = Array.from(recipeCache.values());
     const matched = catalog.filter((r) => r.category.toLowerCase() === cleanCat);
-
-    if (matched.length >= 10) {
-      return matched;
-    }
-
-    try {
-      const res = await fetch(`${THEMEALDB_BASE_URL}/filter.php?c=${encodeURIComponent(category)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.meals) && data.meals.length > 0) {
-          const topCandidates = data.meals.slice(0, 15);
-          const fullRecipes = await Promise.all(
-            topCandidates.map(async (m: any) => {
-              const full = await this.getMealById(m.idMeal);
-              return full || parseMealDbRecipe(m);
-            })
-          );
-          return fullRecipes;
-        }
-      }
-    } catch (err) {
-      console.warn('TheMealDB category filter error:', err);
-    }
-
-    return matched.length > 0 ? matched : VERIFIED_FALLBACK_RESCUES;
+    return matched.length > 0 ? matched : catalog;
   },
 
   /**
@@ -715,8 +595,7 @@ export const recipeService = {
   }): Promise<MealRescueRecipe[]> {
     const { budgetBdt, servings, maxPrepTime, cuisineType, category, exclusions, searchQuery } = params;
 
-    // 1. Ensure catalog has loaded authentic recipes
-    let pool: MealRescueRecipe[] = [];
+    let pool = Array.from(recipeCache.values());
 
     if (searchQuery && searchQuery.trim().length > 0) {
       pool = await this.searchMeals(searchQuery);
@@ -724,11 +603,9 @@ export const recipeService = {
       pool = await this.getMealsByCategory(category);
     } else if (cuisineType === 'bangladeshi') {
       pool = [...BANGLADESHI_RESCUE_RECIPES];
-    } else {
-      pool = await this.ensureCatalogLoaded();
     }
 
-    // Always ensure all 40 authentic Bangladeshi recipes are represented in the pool
+    // Always ensure all authentic Bangladeshi recipes are included in the pool
     for (const bd of BANGLADESHI_RESCUE_RECIPES) {
       if (!pool.some((p) => p.id === bd.id || p.name.toLowerCase() === bd.name.toLowerCase())) {
         if (cuisineType === 'all' || cuisineType === 'bangladeshi') {
