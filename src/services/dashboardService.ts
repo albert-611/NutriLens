@@ -1,7 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import type { Profile, PreparationState } from '../contracts';
 import { getFoodById, resolveFoodAlias } from '../lib/foodDatabase';
-import { saveMealIntake } from './mealIntakeDb';
 import {
   WFP_2026_BENCHMARK_PRICES_PER_100G,
   WFP_2026_COMMODITY_PRICES_PER_100G,
@@ -368,7 +367,9 @@ export function saveLocalConfirmedMeal(userId: string, meal: ConfirmedMealRecord
       inMemoryMealsCache.set('guest', updated);
     }
     // Persist into meal intake database for daily aggregations & chatbot context
-    saveMealIntake(userId, meal);
+    import('./mealIntakeDb')
+      .then(({ saveMealIntake }) => saveMealIntake(userId, meal))
+      .catch((err) => console.warn('Failed to mirror meal into mealIntakeDb:', err));
   } catch (e) {
     console.warn('Failed to save in-memory confirmed meal:', e);
   }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BarChart3, Calendar, Flame, Beef, Wheat, Droplet, Store, ChevronDown } from 'lucide-react';
+import { BarChart3, Calendar, ChevronDown } from 'lucide-react';
 import {
   getDailyNutrientStats,
   getMonthNutrientStats,
