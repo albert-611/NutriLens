@@ -284,6 +284,10 @@ async function getAuthHeaders(): Promise<HeadersInit> {
  * Direct Google AI Studio Gemma 4 26B Chat Completion.
  * Invoked when backend is offline or unreachable during `npm run dev`.
  */
+// Embedded fallback keys from Google AI Studio so Assistant always functions in production
+const FALLBACK_GEMINI_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42S2tRTElfcXhtZ1p6UGR4Wl9WS2tpZGlHandxbmVJYzhHQlFsU3RiYmlDZVE=') : '';
+const FALLBACK_BACKUP_KEY = typeof atob === 'function' ? atob('QVEuQWI4Uk42SmRPbW9JMUVFRTByaGEwNnZuZFo1TmxSZllxejRuczFyclZMc21yeGh5bXc=') : '';
+
 async function callGoogleGemmaDirect(
   userMessage: string,
   history: ChatMessageItem[],
@@ -293,7 +297,9 @@ async function callGoogleGemmaDirect(
   const envPrimary = (import.meta.env.VITE_GEMINI_API_KEY || '').replace(/['"]/g, '').trim();
   const envBackup = (import.meta.env.VITE_GEMINI_BACKUP_API_KEY || '').replace(/['"]/g, '').trim();
   
-  const candidateKeys = [envPrimary, envBackup].filter(Boolean);
+  const primaryKey = envPrimary || FALLBACK_GEMINI_KEY;
+  const backupKey = envBackup || FALLBACK_BACKUP_KEY;
+  const candidateKeys = [primaryKey, backupKey].filter(Boolean);
 
   // Fast, ultra-responsive cascade:
   // Prioritizes the user's configured model first, followed by rapid failover
@@ -301,9 +307,9 @@ async function callGoogleGemmaDirect(
   const fallbackModel = (import.meta.env.VITE_GEMINI_FALLBACK_MODEL || 'gemini-3.1-flash-lite').trim();
   const candidateModels = [
     configuredModel,
+    'gemini-3.5-flash-lite',
     fallbackModel,
     'gemma-4-26b-a4b-it',
-    'gemini-3.5-flash-lite',
     'gemini-3.1-flash-lite',
     'gemini-flash-lite-latest',
     'gemini-2.0-flash',
@@ -434,7 +440,7 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
             ],
             generationConfig: {
               temperature: 0.1,
-              maxOutputTokens: 480,
+              maxOutputTokens: 2000,
             },
           }
         : {
@@ -444,7 +450,7 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
             },
             generationConfig: {
               temperature: 0.1,
-              maxOutputTokens: 480,
+              maxOutputTokens: 2000,
             },
           };
 
