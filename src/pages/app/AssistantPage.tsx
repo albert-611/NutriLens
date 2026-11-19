@@ -133,10 +133,10 @@ export const AssistantPage: React.FC = () => {
     return userName.charAt(0).toUpperCase();
   }, [userName]);
 
-  // Load conversations on mount
+  // Load conversations on mount or when user session resolves
   useEffect(() => {
     loadConversations();
-  }, []);
+  }, [user?.id]);
 
   const loadConversations = async () => {
     try {
@@ -294,7 +294,10 @@ export const AssistantPage: React.FC = () => {
       if (!activeConversationId && response.conversation_id) {
         setActiveConversationId(response.conversation_id);
       }
-      assistantService.listConversations().then(setConversations).catch(() => {});
+      try {
+        const updatedList = await assistantService.listConversations();
+        setConversations(updatedList);
+      } catch {}
     } catch (err: any) {
       setMessages((prev) => prev.filter((m) => m.id !== streamMsgId || m.content.trim().length > 0));
       setErrorMsg(err.message || 'Unable to connect to NutriLens AI. Please try again.');

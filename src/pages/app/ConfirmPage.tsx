@@ -54,6 +54,7 @@ import {
 import { searchUSDAFoodsDirect } from '../../services/usdaService';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { saveLocalConfirmedMeal, formatMealTime, calculateItemCost } from '../../services/dashboardService';
+import { ensureProfileExists } from '../../services/authService';
 import {
   getServingOptionsForFood,
   convertQuantityToGrams,
@@ -123,7 +124,7 @@ export const ConfirmPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile, foodRestrictions } = useAuth();
+  const { user, profile, foodRestrictions } = useAuth();
 
   // 1. Initial State from router or draft storage
   const [analysisData, setAnalysisData] = useState<AnalyzeMealResponse | null>(null);
@@ -936,7 +937,7 @@ export const ConfirmPage: React.FC = () => {
 
     try {
       let savedMealLogId: string | null = null;
-      let authenticatedUserId: string | null = null;
+      let authenticatedUserId: string | null = user?.id || profile?.id || null;
 
       // Format confirmed items for persistence and local state
       const confirmedMealItems = items.map((it) => {
@@ -967,12 +968,21 @@ export const ConfirmPage: React.FC = () => {
       if (isSupabaseConfigured) {
         try {
           const { data: authData } = await supabase.auth.getUser();
-          if (authData?.user) {
-            authenticatedUserId = authData.user.id;
+          const targetUserId = authData?.user?.id || user?.id || profile?.id;
+          if (targetUserId) {
+            authenticatedUserId = targetUserId;
+
+            // Ensure profile exists in profiles table so foreign key constraint does not reject meal_logs
+            try {
+              await ensureProfileExists(targetUserId, authData?.user?.user_metadata?.full_name || profile?.display_name);
+            } catch (profErr) {
+              console.warn('ensureProfileExists notice in confirm:', profErr);
+            }
+
             const { data: logData, error: logErr } = await supabase
               .from('meal_logs')
               .insert({
-                user_id: authData.user.id,
+                user_id: targetUserId,
                 input_mode: analysisData?.input_mode || 'photo',
                 status: 'confirmed',
                 consent_at: nowIso,
@@ -982,12 +992,10 @@ export const ConfirmPage: React.FC = () => {
 
             if (!logErr && logData) {
               savedMealLogId = logData.id;
-              const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-              const fallbackFoodUuid = '33333333-3333-3333-3333-333333333301';
 
               // 1. Persist exact verified nutrients & items JSON snapshot to meal_reports
               try {
-                await supabase.from('meal_reports').upsert({
+                await supabase.from('meal_reports').insert({
                   meal_log_id: savedMealLogId,
                   revision: 1,
                   total_energy_kcal: mealTotals.calories,
@@ -995,34 +1003,20 @@ export const ConfirmPage: React.FC = () => {
                   total_carbohydrate_g: mealTotals.carbs,
                   total_fat_g: mealTotals.fat,
                   evidence_sources: confirmedMealItems,
-                }, { onConflict: 'meal_log_id,revision' });
+                });
               } catch (repErr) {
                 console.warn('meal_reports snapshot notice:', repErr);
               }
-
-              // 2. Persist relational meal_items with fallback resilience
-              const rows = items.map((it, idx) => ({
-                meal_log_id: savedMealLogId,
-                food_id: uuidRegex.test(it.foodId) ? it.foodId : fallbackFoodUuid,
-                confirmed_grams: it.grams,
-                preparation_state: it.preparationState,
-                portion_source: 'user_entered',
-                confidence_notes: it.conversionNote || it.uncertaintyReasons.join('; '),
-                display_order: idx + 1,
-              }));
-
-              const { error: itemsErr } = await supabase.from('meal_items').insert(rows);
-              if (itemsErr) {
-                console.warn('meal_items FK notice, retrying with canonical fallback:', itemsErr);
-                const safeRows = rows.map((r) => ({ ...r, food_id: fallbackFoodUuid }));
-                await supabase.from('meal_items').insert(safeRows);
-              }
+            } else if (logErr) {
+              console.warn('meal_logs insert error from Supabase:', logErr);
             }
           }
         } catch (dbErr) {
           console.warn('Supabase persistence notice:', dbErr);
         }
       }
+
+      const effectiveUserId = authenticatedUserId || user?.id || profile?.id || 'guest';
 
       const localMealRecord = {
         id: savedMealLogId || `meal_${Date.now()}`,
@@ -1040,8 +1034,10 @@ export const ConfirmPage: React.FC = () => {
         items: confirmedMealItems,
       };
 
-      if (authenticatedUserId) {
-        saveLocalConfirmedMeal(authenticatedUserId, localMealRecord);
+      // Always save locally under effective user ID and fallback guest cache
+      saveLocalConfirmedMeal(effectiveUserId, localMealRecord);
+      if (effectiveUserId !== 'guest') {
+        saveLocalConfirmedMeal('guest', localMealRecord);
       }
 
       const confirmedPayload = items.map((it) => ({

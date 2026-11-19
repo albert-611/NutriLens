@@ -248,8 +248,29 @@ const LOCAL_MEALS_PREFIX = 'nutrilens_confirmed_meals_';
 export function getLocalConfirmedMeals(userId: string): ConfirmedMealRecord[] {
   try {
     const raw = localStorage.getItem(`${LOCAL_MEALS_PREFIX}${userId}`);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    const list: ConfirmedMealRecord[] = raw ? JSON.parse(raw) : [];
+
+    // Also check guest and unassigned caches to merge any meals logged across session transitions
+    if (userId && userId !== 'guest') {
+      const guestRaw = localStorage.getItem(`${LOCAL_MEALS_PREFIX}guest`);
+      if (guestRaw) {
+        try {
+          const guestList: ConfirmedMealRecord[] = JSON.parse(guestRaw);
+          const map = new Map<string, ConfirmedMealRecord>();
+          for (const m of list) map.set(m.id, m);
+          for (const m of guestList) {
+            if (!map.has(m.id)) {
+              map.set(m.id, m);
+            }
+          }
+          return Array.from(map.values()).sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+        } catch {}
+      }
+    }
+
+    return list;
   } catch (e) {
     console.warn('Failed to parse local confirmed meals:', e);
     return [];
@@ -366,7 +387,25 @@ export async function fetchUserConfirmedMeals(userId: string): Promise<Confirmed
         });
       }
 
-      if (itemSummaries.length === 0) continue;
+      if (itemSummaries.length === 0) {
+        if (report && report.total_energy_kcal) {
+          itemSummaries = [{
+            foodId: 'food',
+            name: 'Confirmed Meal',
+            nameBn: 'নিশ্চিত খাবার',
+            category: 'mixed_dishes',
+            grams: 200,
+            preparationState: 'cooked',
+            calories: Number(report.total_energy_kcal) || 0,
+            protein: Number(report.total_protein_g) || 0,
+            carbs: Number(report.total_carbohydrate_g) || 0,
+            fat: Number(report.total_fat_g) || 0,
+            cost: 45,
+          }];
+        } else {
+          continue;
+        }
+      }
 
       const totalCal = report?.total_energy_kcal ? Number(report.total_energy_kcal) : itemSummaries.reduce((a, b) => a + b.calories, 0);
       const totalPro = report?.total_protein_g ? Number(report.total_protein_g) : Number(itemSummaries.reduce((a, b) => a + b.protein, 0).toFixed(1));

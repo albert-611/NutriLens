@@ -57,10 +57,10 @@ export const DashboardPage: React.FC = () => {
 
   // Load live metrics from Supabase & Local Cache
   const loadMetrics = async () => {
-    if (!user?.id) return;
+    const effectiveUserId = user?.id || profile?.id || 'guest';
     setIsLoading(true);
     try {
-      const data = await getDashboardMetrics(user.id, profile);
+      const data = await getDashboardMetrics(effectiveUserId, profile);
       setMetrics(data);
     } catch (err) {
       console.warn('Failed to load dashboard metrics:', err);
@@ -71,7 +71,7 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     loadMetrics();
-  }, [user?.id, profile]);
+  }, [user?.id, profile?.id]);
 
   // Quick Action to log a confirmed traditional meal for rapid verification
   const handleLogQuickMeal = async () => {

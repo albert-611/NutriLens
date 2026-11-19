@@ -196,41 +196,13 @@ interface CloudChatHistory {
 }
 
 async function syncChatToCloud(
-  user: any,
-  activeConvId: string,
-  messages: ChatMessageItem[],
-  conversations: ConversationSummary[]
+  _user: any,
+  _activeConvId: string,
+  _messages: ChatMessageItem[],
+  _conversations: ConversationSummary[]
 ): Promise<void> {
-  if (!user || !user.id) return;
-  try {
-    const existing = user.user_metadata?.nutrilens_chat_history as CloudChatHistory | undefined;
-    const messagesByConv: Record<string, ChatMessageItem[]> = {
-      ...(existing?.messagesByConv || {}),
-    };
-    messagesByConv[activeConvId] = messages.slice(-40); // Store up to 40 latest messages per chat
-
-    // Retain up to 15 recent conversations in cloud metadata
-    const trimmedConvs = conversations.slice(0, 15);
-
-    // Prune stale conversations from messagesByConv
-    const validConvIds = new Set(trimmedConvs.map((c) => c.id));
-    for (const cid of Object.keys(messagesByConv)) {
-      if (!validConvIds.has(cid)) {
-        delete messagesByConv[cid];
-      }
-    }
-
-    await supabase.auth.updateUser({
-      data: {
-        nutrilens_chat_history: {
-          conversations: trimmedConvs,
-          messagesByConv,
-        },
-      },
-    });
-  } catch (e) {
-    console.warn('Cloud chat history sync notice:', e);
-  }
+  // Database tables 'ai_conversations' and 'ai_messages' serve as the authoritative persistent cloud storage.
+  // We avoid mutating raw_user_meta_data via auth.updateUser to prevent rate limits and unnecessary JWT bloat.
 }
 
 // Local conversation storage helpers for client fallback mode
@@ -639,8 +611,7 @@ export const assistantService = {
     }
     localStorage.setItem(convKey, JSON.stringify(storedConvs));
 
-    // Return response IMMEDIATELY to user UI for instant sub-second response
-    // Database and cloud cross-device sync runs asynchronously in the background
+    // Persist conversation and messages to PostgreSQL ai_conversations & ai_messages in background
     if (user && user.id) {
       (async () => {
         try {
@@ -667,15 +638,12 @@ export const assistantService = {
               role: 'assistant',
               content: replyText,
               created_at: nowIso,
-              metadata: asstMsg.metadata,
+              metadata: asstMsg.metadata || {},
             },
           ]);
         } catch (dbErr) {
           console.warn('Background assistant message sync notice:', dbErr);
         }
-
-        // Also synchronize to cloud user_metadata for 100% reliable cross-device sync
-        await syncChatToCloud(user, resolvedConvId, updatedMessages, storedConvs);
       })().catch((err) => console.warn('Background sync error:', err));
     }
 
@@ -701,6 +669,7 @@ export const assistantService = {
 
   /**
    * Retrieves conversations owned exclusively by the authenticated user.
+   * Merges PostgreSQL records and local storage to ensure 100% data persistence.
    */
   async listConversations(): Promise<ConversationSummary[]> {
     const headers = await getAuthHeaders();
@@ -724,8 +693,32 @@ export const assistantService = {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || 'guest';
+    const convKey = getLocalConvKey(userId);
+
+    // 1. Read local storage cache first
+    let localConvs: ConversationSummary[] = [];
+    try {
+      localConvs = JSON.parse(localStorage.getItem(convKey) || '[]');
+      if (userId !== 'guest') {
+        const guestConvs: ConversationSummary[] = JSON.parse(
+          localStorage.getItem(getLocalConvKey('guest')) || '[]'
+        );
+        if (guestConvs.length > 0) {
+          const map = new Map<string, ConversationSummary>();
+          for (const c of localConvs) map.set(c.id, c);
+          for (const c of guestConvs) {
+            if (!map.has(c.id)) map.set(c.id, c);
+          }
+          localConvs = Array.from(map.values()).sort(
+            (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          );
+        }
+      }
+    } catch {}
+
+    // 2. Fetch and merge from PostgreSQL ai_conversations table
     if (user && user.id) {
-      // 1. Primary: PostgreSQL ai_conversations table
       try {
         const { data: dbConvs, error: dbErr } = await supabase
           .from('ai_conversations')
@@ -733,32 +726,28 @@ export const assistantService = {
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false });
 
-        if (!dbErr && dbConvs && dbConvs.length > 0) {
-          const convKey = getLocalConvKey(user.id);
-          localStorage.setItem(convKey, JSON.stringify(dbConvs));
-          return dbConvs;
+        if (!dbErr && dbConvs) {
+          const map = new Map<string, ConversationSummary>();
+          for (const c of dbConvs) map.set(c.id, c);
+          for (const c of localConvs) {
+            if (!map.has(c.id)) {
+              map.set(c.id, c);
+            }
+          }
+          const merged = Array.from(map.values()).sort(
+            (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          );
+          try {
+            localStorage.setItem(convKey, JSON.stringify(merged));
+          } catch {}
+          return merged;
         }
       } catch (err) {
         console.warn('Supabase listConversations table notice:', err);
       }
-
-      // 2. Cloud User Metadata (syncs across all devices seamlessly via Supabase Auth)
-      const cloudHistory = user.user_metadata?.nutrilens_chat_history as CloudChatHistory | undefined;
-      if (cloudHistory && Array.isArray(cloudHistory.conversations) && cloudHistory.conversations.length > 0) {
-        const convKey = getLocalConvKey(user.id);
-        localStorage.setItem(convKey, JSON.stringify(cloudHistory.conversations));
-        if (cloudHistory.messagesByConv) {
-          for (const [cid, msgs] of Object.entries(cloudHistory.messagesByConv)) {
-            localStorage.setItem(getLocalMessagesKey(cid), JSON.stringify(msgs));
-          }
-        }
-        return cloudHistory.conversations;
-      }
     }
 
-    const userId = user?.id || 'guest';
-    const stored = localStorage.getItem(getLocalConvKey(userId));
-    return stored ? JSON.parse(stored) : [];
+    return localConvs;
   },
 
   /**
@@ -816,15 +805,12 @@ export const assistantService = {
     stored.unshift(summary);
     localStorage.setItem(convKey, JSON.stringify(stored));
 
-    if (user && user.id) {
-      await syncChatToCloud(user, cid, [], stored);
-    }
-
     return summary;
   },
 
   /**
    * Retrieves the full message history for a specific conversation.
+   * Merges database messages with local cache to guarantee zero data loss.
    */
   async getConversation(conversationId: string): Promise<ConversationDetail> {
     const headers = await getAuthHeaders();
@@ -848,81 +834,82 @@ export const assistantService = {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user && user.id) {
-      // 1. Primary: PostgreSQL ai_messages table
-      if (isValidUUID(conversationId)) {
-        try {
-          const [convRes, msgRes] = await Promise.all([
-            supabase
-              .from('ai_conversations')
-              .select('id, title, created_at, updated_at')
-              .eq('id', conversationId)
-              .eq('user_id', user.id)
-              .maybeSingle(),
-            supabase
-              .from('ai_messages')
-              .select('id, role, content, created_at, metadata')
-              .eq('conversation_id', conversationId)
-              .eq('user_id', user.id)
-              .order('created_at', { ascending: true }),
-          ]);
-
-          if (msgRes.data && msgRes.data.length > 0) {
-            const formattedMessages: ChatMessageItem[] = msgRes.data.map((m: any) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-              created_at: m.created_at,
-              metadata: m.metadata,
-            }));
-            localStorage.setItem(
-              getLocalMessagesKey(conversationId),
-              JSON.stringify(formattedMessages)
-            );
-            return {
-              id: conversationId,
-              title: convRes.data?.title || 'Personal Nutrition Chat',
-              created_at: convRes.data?.created_at || msgRes.data[0].created_at,
-              updated_at: convRes.data?.updated_at || msgRes.data[msgRes.data.length - 1].created_at,
-              messages: formattedMessages,
-            };
-          }
-        } catch (err) {
-          console.warn('Supabase getConversation table notice:', err);
-        }
-      }
-
-      // 2. Cloud user_metadata history (cross-device sync)
-      const cloudHistory = user.user_metadata?.nutrilens_chat_history as CloudChatHistory | undefined;
-      const cloudMsgs = cloudHistory?.messagesByConv?.[conversationId];
-      if (cloudMsgs && cloudMsgs.length > 0) {
-        localStorage.setItem(getLocalMessagesKey(conversationId), JSON.stringify(cloudMsgs));
-        const matchingConv = cloudHistory.conversations?.find((c) => c.id === conversationId);
-        return {
-          id: conversationId,
-          title: matchingConv?.title || 'Personal Nutrition Chat',
-          created_at: matchingConv?.created_at || cloudMsgs[0].created_at,
-          updated_at: matchingConv?.updated_at || cloudMsgs[cloudMsgs.length - 1].created_at,
-          messages: cloudMsgs,
-        };
-      }
-    }
-
     const userId = user?.id || 'guest';
     const convKey = getLocalConvKey(userId);
-    const storedConvs: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
+    let storedConvs: ConversationSummary[] = [];
+    try {
+      storedConvs = JSON.parse(localStorage.getItem(convKey) || '[]');
+    } catch {}
     const currentConv = storedConvs.find((c) => c.id === conversationId);
 
-    const storedMessages: ChatMessageItem[] = JSON.parse(
-      localStorage.getItem(getLocalMessagesKey(conversationId)) || '[]'
-    );
+    let localMessages: ChatMessageItem[] = [];
+    try {
+      localMessages = JSON.parse(
+        localStorage.getItem(getLocalMessagesKey(conversationId)) || '[]'
+      );
+    } catch {}
+
+    if (user && user.id && isValidUUID(conversationId)) {
+      try {
+        const [convRes, msgRes] = await Promise.all([
+          supabase
+            .from('ai_conversations')
+            .select('id, title, created_at, updated_at')
+            .eq('id', conversationId)
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          supabase
+            .from('ai_messages')
+            .select('id, role, content, created_at, metadata')
+            .eq('conversation_id', conversationId)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: true }),
+        ]);
+
+        if (msgRes.data && msgRes.data.length > 0) {
+          const dbMessages: ChatMessageItem[] = msgRes.data.map((m: any) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            created_at: m.created_at,
+            metadata: m.metadata || {},
+          }));
+
+          // Merge local and db messages by ID
+          const map = new Map<string, ChatMessageItem>();
+          for (const m of localMessages) map.set(m.id, m);
+          for (const m of dbMessages) map.set(m.id, m);
+
+          const mergedMessages = Array.from(map.values()).sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+
+          try {
+            localStorage.setItem(
+              getLocalMessagesKey(conversationId),
+              JSON.stringify(mergedMessages)
+            );
+          } catch {}
+
+          return {
+            id: conversationId,
+            title: convRes.data?.title || currentConv?.title || 'Personal Nutrition Chat',
+            created_at: convRes.data?.created_at || (mergedMessages[0] ? mergedMessages[0].created_at : new Date().toISOString()),
+            updated_at: convRes.data?.updated_at || (mergedMessages[mergedMessages.length - 1] ? mergedMessages[mergedMessages.length - 1].created_at : new Date().toISOString()),
+            messages: mergedMessages,
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase getConversation table notice:', err);
+      }
+    }
 
     return {
       id: conversationId,
       title: currentConv?.title || 'Personal Nutrition Chat',
       created_at: currentConv?.created_at || new Date().toISOString(),
       updated_at: currentConv?.updated_at || new Date().toISOString(),
-      messages: storedMessages,
+      messages: localMessages,
     };
   },
 

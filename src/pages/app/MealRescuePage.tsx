@@ -85,7 +85,7 @@ export const MealRescuePage: React.FC = () => {
         if (!isCancelled) {
           setRecipes(results);
           setIsLoading(false);
-          setVisibleCount(16);
+          setVisibleCount(12);
         }
       } catch (err) {
         if (!isCancelled) {
