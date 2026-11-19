@@ -63,7 +63,12 @@ export const AssistantPage: React.FC = () => {
   const { i18n } = useTranslation();
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      return sessionStorage.getItem('nutrilens_active_chat_conv_id') || null;
+    }
+    return null;
+  });
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -136,8 +141,15 @@ export const AssistantPage: React.FC = () => {
       setErrorMsg(null);
       const list = await assistantService.listConversations();
       setConversations(list);
-      if (list.length > 0 && !activeConversationId) {
-        selectConversation(list[0].id);
+
+      // Restore active conversation from session memory or default to the most recent conversation
+      const storedActiveId = typeof sessionStorage !== 'undefined'
+        ? sessionStorage.getItem('nutrilens_active_chat_conv_id')
+        : null;
+
+      const targetId = activeConversationId || storedActiveId || (list.length > 0 ? list[0].id : null);
+      if (targetId) {
+        selectConversation(targetId);
       }
     } catch (err: any) {
       console.warn('Could not load conversations:', err);
@@ -147,6 +159,9 @@ export const AssistantPage: React.FC = () => {
   const selectConversation = async (conversationId: string) => {
     try {
       setActiveConversationId(conversationId);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('nutrilens_active_chat_conv_id', conversationId);
+      }
       setSidebarOpen(false);
       setErrorMsg(null);
       const detail = await assistantService.getConversation(conversationId);
@@ -158,6 +173,9 @@ export const AssistantPage: React.FC = () => {
 
   const startNewConversation = () => {
     setActiveConversationId(null);
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('nutrilens_active_chat_conv_id');
+    }
     setMessages([]);
     setErrorMsg(null);
     setSidebarOpen(false);
@@ -284,8 +302,11 @@ export const AssistantPage: React.FC = () => {
         )
       );
 
-      if (!activeConversationId && response.conversation_id) {
+      if (response.conversation_id) {
         setActiveConversationId(response.conversation_id);
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('nutrilens_active_chat_conv_id', response.conversation_id);
+        }
       }
       try {
         const updatedList = await assistantService.listConversations();

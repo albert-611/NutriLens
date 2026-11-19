@@ -209,6 +209,51 @@ async function syncChatToCloud(
 const inMemoryConversations = new Map<string, ConversationSummary[]>();
 const inMemoryMessages = new Map<string, ChatMessageItem[]>();
 
+// Tab-scoped ephemeral session storage helpers (survives F5 refresh without writing to persistent disk localStorage)
+function getSessionMessages(conversationId: string): ChatMessageItem[] {
+  try {
+    if (typeof sessionStorage === 'undefined') return [];
+    const raw = sessionStorage.getItem(`nutrilens_session_msgs_${conversationId}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessionMessages(conversationId: string, msgs: ChatMessageItem[]): void {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(`nutrilens_session_msgs_${conversationId}`, JSON.stringify(msgs));
+    }
+  } catch {}
+}
+
+function deleteSessionMessages(conversationId: string): void {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(`nutrilens_session_msgs_${conversationId}`);
+    }
+  } catch {}
+}
+
+function getSessionConvs(userId: string): ConversationSummary[] {
+  try {
+    if (typeof sessionStorage === 'undefined') return [];
+    const raw = sessionStorage.getItem(`nutrilens_session_convs_${userId}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSessionConvs(userId: string, convs: ConversationSummary[]): void {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(`nutrilens_session_convs_${userId}`, JSON.stringify(convs));
+    }
+  } catch {}
+}
+
 // Scrub any legacy conversation items from localStorage
 export function scrubLegacyChatLocalStorage(): void {
   try {
@@ -598,6 +643,7 @@ export const assistantService = {
 
     const updatedMessages = [...existingMessages, userMsg, asstMsg];
     inMemoryMessages.set(resolvedConvId, updatedMessages);
+    saveSessionMessages(resolvedConvId, updatedMessages);
 
     // Update conversation summary
     let authUser: any = null;
@@ -612,7 +658,7 @@ export const assistantService = {
       } catch {}
     }
     const userId = authUser?.id || 'guest';
-    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || [];
+    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || getSessionConvs(userId);
     const existingIndex = storedConvs.findIndex((c) => c.id === resolvedConvId);
 
     const title = existingIndex >= 0 ? storedConvs[existingIndex].title : message.slice(0, 30);
@@ -629,42 +675,50 @@ export const assistantService = {
       storedConvs.unshift(convSummary);
     }
     inMemoryConversations.set(userId, storedConvs);
+    saveSessionConvs(userId, storedConvs);
 
-    // Persist conversation and messages to PostgreSQL ai_conversations & ai_messages in background
+    // Persist conversation and messages to PostgreSQL ai_conversations & ai_messages
     if (authUser && authUser.id && isValidUUID(resolvedConvId)) {
-      (async () => {
-        try {
-          await supabase.from('ai_conversations').upsert({
-            id: resolvedConvId,
-            user_id: authUser.id,
-            title: convSummary.title,
-            created_at: convSummary.created_at || nowIso,
-            updated_at: nowIso,
-          }, { onConflict: 'id' });
+      try {
+        const { error: convErr } = await supabase.from('ai_conversations').upsert({
+          id: resolvedConvId,
+          user_id: authUser.id,
+          title: convSummary.title,
+          created_at: convSummary.created_at || nowIso,
+          updated_at: nowIso,
+        }, { onConflict: 'id' });
 
-          await supabase.from('ai_messages').insert([
-            {
-              id: userMsgId,
-              conversation_id: resolvedConvId,
-              user_id: authUser.id,
-              role: 'user',
-              content: message,
-              created_at: nowIso,
-            },
-            {
-              id: asstMsgId,
-              conversation_id: resolvedConvId,
-              user_id: authUser.id,
-              role: 'assistant',
-              content: replyText,
-              created_at: nowIso,
-              metadata: asstMsg.metadata || {},
-            },
-          ]);
-        } catch (dbErr) {
-          console.warn('Background assistant message sync notice:', dbErr);
+        if (convErr) {
+          console.warn('ai_conversations upsert error:', convErr);
         }
-      })().catch((err) => console.warn('Background sync error:', err));
+
+        const { error: msgErr } = await supabase.from('ai_messages').insert([
+          {
+            id: userMsgId,
+            conversation_id: resolvedConvId,
+            user_id: authUser.id,
+            role: 'user',
+            content: message,
+            created_at: nowIso,
+            metadata: {},
+          },
+          {
+            id: asstMsgId,
+            conversation_id: resolvedConvId,
+            user_id: authUser.id,
+            role: 'assistant',
+            content: replyText,
+            created_at: nowIso,
+            metadata: asstMsg.metadata || {},
+          },
+        ]);
+
+        if (msgErr) {
+          console.warn('ai_messages insert error:', msgErr);
+        }
+      } catch (dbErr) {
+        console.warn('Database assistant message sync notice:', dbErr);
+      }
     }
 
     return {
@@ -726,10 +780,10 @@ export const assistantService = {
     const userId = user?.id || 'guest';
     scrubLegacyChatLocalStorage();
 
-    // 1. Read in-memory cache first (zero localStorage)
-    let localConvs: ConversationSummary[] = inMemoryConversations.get(userId) || [];
+    // 1. Read in-memory cache and session cache first (zero localStorage)
+    let localConvs: ConversationSummary[] = inMemoryConversations.get(userId) || getSessionConvs(userId);
     if (userId !== 'guest') {
-      const guestConvs = inMemoryConversations.get('guest') || [];
+      const guestConvs = inMemoryConversations.get('guest') || getSessionConvs('guest');
       if (guestConvs.length > 0) {
         const map = new Map<string, ConversationSummary>();
         for (const c of localConvs) map.set(c.id, c);
@@ -763,6 +817,7 @@ export const assistantService = {
             (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
           );
           inMemoryConversations.set(userId, merged);
+          saveSessionConvs(userId, merged);
           return merged;
         }
       } catch (err) {
@@ -868,10 +923,10 @@ export const assistantService = {
     }
     const userId = user?.id || 'guest';
     scrubLegacyChatLocalStorage();
-    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || [];
+    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || getSessionConvs(userId);
     const currentConv = storedConvs.find((c) => c.id === conversationId);
 
-    let localMessages: ChatMessageItem[] = inMemoryMessages.get(conversationId) || [];
+    let localMessages: ChatMessageItem[] = inMemoryMessages.get(conversationId) || getSessionMessages(conversationId);
 
     if (user && user.id && isValidUUID(conversationId)) {
       try {
@@ -886,7 +941,6 @@ export const assistantService = {
             .from('ai_messages')
             .select('id, role, content, created_at, metadata')
             .eq('conversation_id', conversationId)
-            .eq('user_id', user.id)
             .order('created_at', { ascending: true }),
         ]);
 
@@ -909,6 +963,7 @@ export const assistantService = {
           );
 
           inMemoryMessages.set(conversationId, mergedMessages);
+          saveSessionMessages(conversationId, mergedMessages);
 
           return {
             id: conversationId,
@@ -1071,10 +1126,12 @@ export const assistantService = {
         }
       } catch {}
     }
-    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || [];
+    const storedConvs: ConversationSummary[] = inMemoryConversations.get(userId) || getSessionConvs(userId);
     const filtered = storedConvs.filter((c) => c.id !== conversationId);
     inMemoryConversations.set(userId, filtered);
+    saveSessionConvs(userId, filtered);
     inMemoryMessages.delete(conversationId);
+    deleteSessionMessages(conversationId);
     return true;
   },
 
