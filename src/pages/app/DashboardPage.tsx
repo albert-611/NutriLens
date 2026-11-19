@@ -279,6 +279,7 @@ export const DashboardPage: React.FC = () => {
         <div className="lg:col-span-8">
           <NutrientStackBarChart
             stats={dailyStats}
+            userId={effectiveUserId}
             targetCalories={targetCalories}
           />
         </div>

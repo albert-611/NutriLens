@@ -322,11 +322,10 @@ export async function getMealsWeekwise(userId: string): Promise<{
   const all = await getAllMealIntakes(userId);
   const now = new Date();
   
-  // Calculate start of current week (Monday)
+  // Calculate start of current week (Sunday)
   const dayOfWeek = now.getDay(); // 0 is Sunday
-  const distanceToMonday = (dayOfWeek + 6) % 7;
   const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - distanceToMonday);
+  startOfWeek.setDate(now.getDate() - dayOfWeek);
   startOfWeek.setHours(0, 0, 0, 0);
 
   const thisWeek: StoredMealRecord[] = [];
@@ -372,21 +371,74 @@ export async function getMealsMonthwise(userId: string): Promise<{
 }
 
 /**
- * Generates daily stacked nutrient statistics across a specified number of days (default: 7 days).
- * Returns array of days with exact stacks of protein, carbs, fat, fibre, and total calories.
+ * Generates daily stacked nutrient statistics across a specified number of days.
+ * For 7-day mode: strictly aligns with the Sunday - Saturday calendar week.
  */
 export async function getDailyNutrientStats(userId: string, daysCount: number = 7): Promise<DailyNutrientStat[]> {
   const all = await getAllMealIntakes(userId);
-  const today = new Date();
+  const now = new Date();
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  const stats: DailyNutrientStat[] = [];
+  // 1. Current Week (Sun - Sat)
+  if (daysCount === 7) {
+    const currentDayOfWeek = now.getDay(); // 0 is Sunday
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - currentDayOfWeek);
+    sunday.setHours(0, 0, 0, 0);
 
+    const stats: DailyNutrientStat[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sunday);
+      d.setDate(sunday.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+
+      const isToday = d.toDateString() === now.toDateString();
+      const isYesterday = new Date(now.getTime() - 86400000).toDateString() === d.toDateString();
+      const dayLabel = isToday ? 'Today' : isYesterday ? 'Yesterday' : dayNames[d.getDay()];
+      const dateFormatted = `${monthNames[d.getMonth()]} ${d.getDate()}`;
+
+      const dayMeals = all.filter((m) => m.date === dateStr);
+
+      let calories = 0;
+      let protein = 0;
+      let carbs = 0;
+      let fat = 0;
+      let fibre = 0;
+      let cost = 0;
+
+      for (const m of dayMeals) {
+        calories += Number(m.calories) || 0;
+        protein += Number(m.protein) || 0;
+        carbs += Number(m.carbs) || 0;
+        fat += Number(m.fat) || 0;
+        fibre += Number(m.fibre) || 0;
+        cost += Number(m.bazarCost) || 0;
+      }
+
+      stats.push({
+        date: dateStr,
+        dayLabel,
+        dateFormatted,
+        calories: Math.round(calories),
+        protein: Number(protein.toFixed(1)),
+        carbs: Number(carbs.toFixed(1)),
+        fat: Number(fat.toFixed(1)),
+        fibre: Number(fibre.toFixed(1)),
+        cost: Number(cost.toFixed(2)),
+        mealCount: dayMeals.length,
+        meals: dayMeals,
+      });
+    }
+    return stats;
+  }
+
+  // 2. Trailing N days (14 days, 30 days)
+  const stats: DailyNutrientStat[] = [];
   for (let i = daysCount - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
 
     const isToday = i === 0;
@@ -394,7 +446,66 @@ export async function getDailyNutrientStats(userId: string, daysCount: number = 
     const dayLabel = isToday ? 'Today' : isYesterday ? 'Yesterday' : dayNames[d.getDay()];
     const dateFormatted = `${monthNames[d.getMonth()]} ${d.getDate()}`;
 
-    // Filter meals for this date
+    const dayMeals = all.filter((m) => m.date === dateStr);
+
+    let calories = 0;
+    let protein = 0;
+    let carbs = 0;
+    let fat = 0;
+    let fibre = 0;
+    let cost = 0;
+
+    for (const m of dayMeals) {
+      calories += Number(m.calories) || 0;
+      protein += Number(m.protein) || 0;
+      carbs += Number(m.carbs) || 0;
+      fat += Number(m.fat) || 0;
+      fibre += Number(m.fibre) || 0;
+      cost += Number(m.bazarCost) || 0;
+    }
+
+    stats.push({
+      date: dateStr,
+      dayLabel,
+      dateFormatted,
+      calories: Math.round(calories),
+      protein: Number(protein.toFixed(1)),
+      carbs: Number(carbs.toFixed(1)),
+      fat: Number(fat.toFixed(1)),
+      fibre: Number(fibre.toFixed(1)),
+      cost: Number(cost.toFixed(2)),
+      mealCount: dayMeals.length,
+      meals: dayMeals,
+    });
+  }
+
+  return stats;
+}
+
+/**
+ * Generates nutrient statistics for a specific month (all days of that month, e.g. 1st to 30th/31st).
+ */
+export async function getMonthNutrientStats(
+  userId: string,
+  year: number,
+  monthIndex: number // 0 = Jan, 11 = Dec
+): Promise<DailyNutrientStat[]> {
+  const all = await getAllMealIntakes(userId);
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const todayStr = new Date().toISOString().split('T')[0];
+  const stats: DailyNutrientStat[] = [];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, monthIndex, day);
+    const dateStr = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+    const isToday = dateStr === todayStr;
+    const dayLabel = isToday ? 'Today' : dayNames[d.getDay()];
+    const dateFormatted = `${monthNames[monthIndex]} ${day}`;
+
     const dayMeals = all.filter((m) => m.date === dateStr);
 
     let calories = 0;
