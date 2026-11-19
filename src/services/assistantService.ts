@@ -111,8 +111,8 @@ let isBackendAvailable: boolean | null = null;
 let lastBackendAttempt = 0;
 
 function shouldAttemptBackend(): boolean {
-  // Only attempt FastAPI backend if explicitly enabled in environment variables
-  if (import.meta.env.VITE_USE_BACKEND_API !== 'true') {
+  // If explicitly disabled in environment variables, skip backend
+  if (import.meta.env.VITE_USE_BACKEND_API === 'false') {
     return false;
   }
   // On production links without an external backend URL, never attempt local /api relative routes
@@ -126,7 +126,7 @@ function shouldAttemptBackend(): boolean {
     }
   }
   if (isBackendAvailable === false) {
-    if (Date.now() - lastBackendAttempt > 300000) {
+    if (Date.now() - lastBackendAttempt > 15000) {
       isBackendAvailable = null;
       return true;
     }
@@ -303,15 +303,15 @@ async function callGoogleGemmaDirect(
   // Fast, ultra-responsive cascade:
   // Prioritizes the user's configured model first, followed by rapid failover
   const configuredModel = (import.meta.env.VITE_GEMINI_CHAT_MODEL || 'gemma-4-26b-a4b-it').trim();
+  const fallbackModel = (import.meta.env.VITE_GEMINI_FALLBACK_MODEL || 'gemini-3.1-flash-lite').trim();
   const candidateModels = [
     configuredModel,
+    fallbackModel,
+    'gemini-3.1-flash-lite',
     'gemini-3.5-flash-lite',
     'gemini-flash-lite-latest',
-    'gemini-3.1-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
   ].filter(Boolean);
-  // Deduplicate
+  // Deduplicate while preserving order
   const uniqueModels = Array.from(new Set(candidateModels));
 
   // Extract all verified profile, nutrition, and budget data
@@ -446,10 +446,13 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
           };
 
       // 1. First Attempt: Real-time SSE Stream (Token streaming yields sub-second TTFT)
+      let streamSucceeded = false;
+      let shouldSkipDirectFallback = false;
+
       if (typeof window !== 'undefined' && typeof window.ReadableStream !== 'undefined') {
         const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`;
         const streamAbort = new AbortController();
-        const streamTimer = setTimeout(() => streamAbort.abort(), 12000);
+        const streamTimer = setTimeout(() => streamAbort.abort(), 3500);
 
         try {
           const streamRes = await fetch(streamUrl, {
@@ -494,19 +497,27 @@ CRITICAL CLINICAL & OPERATIONAL RULES:
             }
 
             if (accumulatedCleanText.trim()) {
+              streamSucceeded = true;
               return accumulatedCleanText.trim();
             }
+          } else {
+            // Model returned HTTP 503, 404, or 429 — skip direct fallback for this model and proceed to next model
+            shouldSkipDirectFallback = true;
           }
         } catch (streamErr: any) {
           clearTimeout(streamTimer);
-          console.warn(`Streaming attempt on ${model} notice:`, streamErr?.message);
+          console.warn(`[NutriLens Fast Chat] Stream on ${model} timed out/failed. Switching model...`);
         }
       }
 
-      // 2. Standard Fallback Non-Streaming Request
+      if (shouldSkipDirectFallback) {
+        continue;
+      }
+
+      // 2. Standard Fallback Non-Streaming Request (Fast 2.5s timeout)
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       const abortCtrl = new AbortController();
-      const timer = setTimeout(() => abortCtrl.abort(), 8000);
+      const timer = setTimeout(() => abortCtrl.abort(), 2500);
 
       try {
         const response = await fetch(url, {
@@ -574,7 +585,7 @@ export const assistantService = {
     if (shouldAttemptBackend()) {
       try {
         const backendAbort = new AbortController();
-        const backendTimer = setTimeout(() => backendAbort.abort(), 700);
+        const backendTimer = setTimeout(() => backendAbort.abort(), 4000);
         const res = await fetch(`${API_BASE}/api/v1/assistant/chat`, {
           method: 'POST',
           headers,

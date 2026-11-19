@@ -25,6 +25,28 @@
       })();
     </script>
 
+    <!-- Cookie Sanitizer: prune bloated/stale localhost cookies to prevent HTTP 431 errors -->
+    <script>
+      (function() {
+        try {
+          if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+            var raw = document.cookie;
+            if (raw && raw.length > 2000) {
+              var parts = raw.split(';');
+              for (var i = 0; i < parts.length; i++) {
+                var eq = parts[i].indexOf('=');
+                var name = eq > -1 ? parts[i].substr(0, eq).trim() : parts[i].trim();
+                if (name) {
+                  document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;';
+                  document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=localhost;';
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- Cinematic intro: paint the brand green (and lock scroll) before the JS bundle loads -->
     <script>
       (function() {

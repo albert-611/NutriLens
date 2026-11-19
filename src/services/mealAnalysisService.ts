@@ -264,9 +264,8 @@ CRITICAL RULES:
   const rawModels = [
     primaryModel,
     secondaryModel,
+    'gemini-3.1-flash-lite',
     'gemini-flash-lite-latest',
-    'gemini-3-flash-preview',
-    'gemini-flash-latest',
   ];
   const seenModels = new Set<string>();
   const modelsToTry = rawModels.filter((m) => {
@@ -282,7 +281,7 @@ CRITICAL RULES:
   for (const apiKey of keysToTry) {
     for (const model of modelsToTry) {
       const abortCtrl = new AbortController();
-      const timer = setTimeout(() => abortCtrl.abort(), 8000);
+      const timer = setTimeout(() => abortCtrl.abort(), 3500);
 
       try {
         const res = await fetch(
@@ -311,7 +310,7 @@ CRITICAL RULES:
               generationConfig: {
                 response_mime_type: 'application/json',
                 temperature: 0.1,
-                max_output_tokens: 1500,
+                maxOutputTokens: 800,
               },
             }),
           }

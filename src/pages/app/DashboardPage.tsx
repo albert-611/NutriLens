@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Trash2,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { formatCurrency } from '../../lib/formatters';
@@ -32,6 +33,7 @@ import {
 export const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { profile, user } = useAuth();
+  const navigate = useNavigate();
 
   const displayName = profile?.display_name || profile?.full_name || user?.user_metadata?.full_name || 'Member';
   const photoUrl = profile?.avatar_url || (user?.user_metadata as any)?.avatar_url || (user?.user_metadata as any)?.picture;
@@ -78,6 +80,42 @@ export const DashboardPage: React.FC = () => {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleMealClick = (meal: ConfirmedMealRecord) => {
+    // Transform items into confirmedItems structure with high fidelity for ReportPage
+    const confirmedItems = (meal.items && meal.items.length > 0)
+      ? meal.items.map((it, idx) => ({
+          id: it.foodId || `item_${idx}`,
+          foodId: it.foodId,
+          foodName: it.name,
+          foodNameBn: it.nameBn,
+          category: it.category,
+          state: it.preparationState || 'cooked',
+          grams: it.grams || 100,
+          calories: it.calories,
+          protein: it.protein,
+          carbs: it.carbs,
+          fat: it.fat,
+          cost: it.cost,
+        }))
+      : meal.title.split('+').map((part, idx) => ({
+          id: `item_${idx}`,
+          foodId: `item_${idx}`,
+          foodName: part.trim(),
+          grams: 150,
+          state: 'cooked',
+        }));
+
+    navigate(`/app/report?mealId=${encodeURIComponent(meal.id)}`, {
+      state: {
+        meal,
+        confirmedItems,
+        mealTitle: meal.title,
+        mealTitleBn: meal.titleBn,
+        mealTime: meal.time,
+      },
+    });
   };
 
   useEffect(() => {
@@ -286,11 +324,21 @@ export const DashboardPage: React.FC = () => {
               {recentMeals.map((meal) => (
                 <div
                   key={meal.id}
-                  className="p-5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-sm hover:border-emerald-500/40 transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleMealClick(meal)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleMealClick(meal);
+                    }
+                  }}
+                  className="group p-5 rounded-2xl bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border shadow-xs hover:border-emerald-500/60 dark:hover:border-emerald-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  title="Click to view detailed nutrition report"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-bold text-sm text-slate-900 dark:text-white">
+                      <p className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                         {meal.title}
                       </p>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -318,15 +366,21 @@ export const DashboardPage: React.FC = () => {
                       </p>
                       <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 font-sans font-medium">FCDB VERIFIED</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteMeal(meal.id)}
-                      disabled={deletingId === meal.id}
-                      className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0"
-                      title="Delete meal record"
-                    >
-                      <Trash2 className={`w-4 h-4 ${deletingId === meal.id ? 'animate-spin' : ''}`} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteMeal(meal.id);
+                        }}
+                        disabled={deletingId === meal.id}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0"
+                        title="Delete meal record"
+                      >
+                        <Trash2 className={`w-4 h-4 ${deletingId === meal.id ? 'animate-spin' : ''}`} />
+                      </button>
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all hidden sm:block shrink-0" />
+                    </div>
                   </div>
                 </div>
               ))}

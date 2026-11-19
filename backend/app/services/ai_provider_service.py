@@ -13,13 +13,25 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Persistent connection-pooled HTTP client with keepalive to eliminate TLS handshake latency
+_AI_HTTP_CLIENT: Optional[httpx.AsyncClient] = None
+
+def get_ai_http_client() -> httpx.AsyncClient:
+    global _AI_HTTP_CLIENT
+    if _AI_HTTP_CLIENT is None or _AI_HTTP_CLIENT.is_closed:
+        _AI_HTTP_CLIENT = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=2.0, read=3.5, write=2.0, pool=2.0),
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
+        )
+    return _AI_HTTP_CLIENT
+
 class AIProviderService:
     @staticmethod
     async def generate_chat_response(
         system_prompt: str,
         messages: List[Dict[str, str]], # List of {"role": "user"|"assistant", "content": "..."}
-        temperature: float = 0.4,
-        max_tokens: int = 1000
+        temperature: float = 0.2,
+        max_tokens: int = 600
     ) -> Dict[str, Any]:
         """
         Executes a chat completion across the configured provider.
@@ -44,32 +56,28 @@ class AIProviderService:
                 candidate_keys.append(k)
 
         chat_model = settings.GEMINI_CHAT_MODEL.strip().replace("google/", "")
+        
+        # Keep user's configured model first, followed immediately by high-speed verified fallbacks
         models_to_try = [
             chat_model,
-            "gemma-4-26b-a4b-it",
-            "gemma-4-31b-it",
-            "gemma-4-26b",
-            "gemma-4-26b-it",
-            "gemma-4-26b-a4b",
-            "gemma-2-27b-it",
-            settings.GEMINI_VISION_MODEL,
-            settings.GEMINI_FALLBACK_MODEL,
-            "gemini-3.5-flash-lite",
-            "gemini-3.1-flash-lite",
+            settings.GEMINI_FALLBACK_MODEL,  # e.g. "gemini-3.1-flash-lite" (sub-second response)
+            settings.GEMINI_VISION_MODEL,    # "gemini-3.5-flash-lite"
             "gemini-flash-lite-latest",
         ]
-        # Deduplicate models
+        # Deduplicate models preserving order
         seen = set()
         unique_models = [m for m in models_to_try if m and not (m in seen or seen.add(m))]
+
+        client = get_ai_http_client()
 
         for key in candidate_keys:
             for gmodel in unique_models:
                 try:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{gmodel}:generateContent?key={key}"
                     
-                    # Construct Google AI Studio contents payload
+                    # Construct Google AI Studio contents payload (latest 6 messages for high speed)
                     contents = []
-                    for m in messages[-8:]:
+                    for m in messages[-6:]:
                         role = "user" if m["role"] == "user" else "model"
                         contents.append({"role": role, "parts": [{"text": m["content"]}]})
 
@@ -88,17 +96,21 @@ class AIProviderService:
                             "parts": [{"text": system_prompt}]
                         }
 
-                    async with httpx.AsyncClient(timeout=8.0) as client:
+                    try:
                         resp = await client.post(
                             url,
                             headers={"Content-Type": "application/json"},
                             json=payload
                         )
+                    except (httpx.TimeoutException, httpx.RequestError) as net_err:
+                        logger.warning(f"[NutriLens Fast AI] Model {gmodel} network timeout/error ({net_err}). Rapid failover to next model...")
+                        continue
 
-                        # If model (e.g. some Gemma variants) rejects system_instruction with HTTP 400, retry inline
-                        if resp.status_code == 400 and "system_instruction" in payload:
-                            merged_text = f"{system_prompt}\n\n{contents[0]['parts'][0]['text']}"
-                            inline_contents = [{"role": contents[0]["role"], "parts": [{"text": merged_text}]}] + contents[1:]
+                    # If model (e.g. some Gemma variants) rejects system_instruction with HTTP 400, retry inline
+                    if resp.status_code == 400 and "system_instruction" in payload:
+                        merged_text = f"{system_prompt}\n\n{contents[0]['parts'][0]['text']}"
+                        inline_contents = [{"role": contents[0]["role"], "parts": [{"text": merged_text}]}] + contents[1:]
+                        try:
                             resp = await client.post(
                                 url,
                                 headers={"Content-Type": "application/json"},
@@ -110,25 +122,28 @@ class AIProviderService:
                                     }
                                 }
                             )
+                        except (httpx.TimeoutException, httpx.RequestError):
+                            continue
 
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            candidate = data.get("candidates", [{}])[0]
-                            parts = candidate.get("content", {}).get("parts", [])
-                            text = "".join(p.get("text", "") for p in parts)
-                            if text:
-                                usage = data.get("usageMetadata", {})
-                                display_model = "Gemma 4 26B" if "gemma" in gmodel.lower() else gmodel
-                                return {
-                                    "reply": text,
-                                    "provider": "google_ai_studio",
-                                    "model": display_model,
-                                    "input_tokens": usage.get("promptTokenCount", 0),
-                                    "output_tokens": usage.get("candidatesTokenCount", 0),
-                                    "status": "success"
-                                }
-                        else:
-                            logger.warning(f"Google AI Studio model {gmodel} failed with HTTP {resp.status_code}")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        candidate = data.get("candidates", [{}])[0]
+                        parts = candidate.get("content", {}).get("parts", [])
+                        text = "".join(p.get("text", "") for p in parts)
+                        if text:
+                            usage = data.get("usageMetadata", {})
+                            display_model = "Gemma 4 26B" if "gemma" in gmodel.lower() else gmodel
+                            return {
+                                "reply": text,
+                                "provider": "google_ai_studio",
+                                "model": display_model,
+                                "input_tokens": usage.get("promptTokenCount", 0),
+                                "output_tokens": usage.get("candidatesTokenCount", 0),
+                                "status": "success"
+                            }
+                    else:
+                        logger.warning(f"Google AI Studio model {gmodel} failed with HTTP {resp.status_code}. Rapid failover...")
+                        continue
                 except Exception as ex:
                     logger.warning(f"Google AI Studio {gmodel} error: {ex}")
 

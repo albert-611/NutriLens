@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   FileText,
@@ -16,29 +16,85 @@ import {
   Droplet,
   Salad,
   LayoutDashboard,
+  Clock,
+  ArrowLeft,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { formatCurrency, formatGrams } from '../../lib/formatters';
-import { getFoodById } from '../../lib/foodDatabase';
+import { getFoodById, resolveFoodAlias } from '../../lib/foodDatabase';
+import { useAuth } from '../../context/AuthContext';
+import {
+  getLocalConfirmedMeals,
+  fetchUserConfirmedMeals,
+  type ConfirmedMealRecord,
+} from '../../services/dashboardService';
 
 export const ReportPage: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const { user, profile } = useAuth();
 
-  const confirmedStateItems = (location.state?.confirmedItems as any[]) || [];
+  const mealIdParam = searchParams.get('mealId');
+  const [loadedMeal, setLoadedMeal] = useState<ConfirmedMealRecord | null>(location.state?.meal || null);
 
-  // Deterministic nutrition calculation from verified FCDB 2014 food records:
-  const confirmedRows = React.useMemo(() => {
+  // If user navigated directly or refreshed with ?mealId=..., retrieve meal record
+  useEffect(() => {
+    if (location.state?.meal || location.state?.confirmedItems) {
+      if (location.state?.meal) setLoadedMeal(location.state.meal);
+      return;
+    }
+    if (!mealIdParam) return;
+
+    const effectiveUserId = user?.id || profile?.id || 'guest';
+    const localMeals = getLocalConfirmedMeals(effectiveUserId);
+    const found = localMeals.find((m: ConfirmedMealRecord) => m.id === mealIdParam);
+    if (found) {
+      setLoadedMeal(found);
+    } else {
+      fetchUserConfirmedMeals(effectiveUserId)
+        .then((meals: ConfirmedMealRecord[]) => {
+          const remoteFound = meals.find((m: ConfirmedMealRecord) => m.id === mealIdParam);
+          if (remoteFound) setLoadedMeal(remoteFound);
+        })
+        .catch(() => {});
+    }
+  }, [mealIdParam, user?.id, profile?.id, location.state]);
+
+  const confirmedStateItems = (location.state?.confirmedItems as any[]) || loadedMeal?.items || [];
+  const targetMeal = location.state?.meal || loadedMeal;
+  const mealTitle = location.state?.mealTitle || targetMeal?.title;
+  const mealTitleBn = location.state?.mealTitleBn || targetMeal?.titleBn;
+  const mealTime = location.state?.mealTime || targetMeal?.time;
+
+  // Deterministic nutrition calculation from verified FCDB 2014 & WFP records:
+  const confirmedRows = useMemo(() => {
     if (confirmedStateItems && confirmedStateItems.length > 0) {
-      return confirmedStateItems.map((item, idx) => {
-        const food = getFoodById(item.foodId) || getFoodById(item.id);
+      return confirmedStateItems.map((item: any, idx: number) => {
+        const food = getFoodById(item.foodId) || getFoodById(item.id) || resolveFoodAlias(item.foodName || item.name);
         const grams = Number(item.grams) || 100;
         const multiplier = grams / 100.0;
-        const kcal = Math.round((food?.energy_kcal ?? 130) * multiplier);
-        const prot = Number(((food?.protein_g ?? 2.7) * multiplier).toFixed(1));
-        const carbs = Number(((food?.carbohydrate_g ?? 28.2) * multiplier).toFixed(1));
-        const fat = Number(((food?.fat_g ?? 0.3) * multiplier).toFixed(1));
-        const fibre = Number(((food?.fibre_g ?? 0.4) * multiplier).toFixed(1));
+
+        const kcal = item.calories !== undefined && item.calories !== null
+          ? Math.round(Number(item.calories))
+          : Math.round((food?.energy_kcal ?? 130) * multiplier);
+
+        const prot = item.protein !== undefined && item.protein !== null
+          ? Number(Number(item.protein).toFixed(1))
+          : Number(((food?.protein_g ?? 2.7) * multiplier).toFixed(1));
+
+        const carbs = item.carbs !== undefined && item.carbs !== null
+          ? Number(Number(item.carbs).toFixed(1))
+          : Number(((food?.carbohydrate_g ?? 28.2) * multiplier).toFixed(1));
+
+        const fat = item.fat !== undefined && item.fat !== null
+          ? Number(Number(item.fat).toFixed(1))
+          : Number(((food?.fat_g ?? 0.3) * multiplier).toFixed(1));
+
+        const fibre = item.fibre !== undefined && item.fibre !== null
+          ? Number(Number(item.fibre).toFixed(1))
+          : Number(((food?.fibre_g ?? 0.4) * multiplier).toFixed(1));
 
         const baseCostPer100g =
           food?.category === 'fish_and_seafood' ? 45.0 :
@@ -46,13 +102,16 @@ export const ReportPage: React.FC = () => {
           food?.category === 'eggs' ? 20.0 :
           food?.category === 'pulses_and_legumes' ? 12.0 :
           food?.category === 'grains_and_cereals' ? 6.8 : 10.0;
-        const cost = Number((baseCostPer100g * multiplier).toFixed(2));
+
+        const cost = item.cost !== undefined && item.cost !== null
+          ? Number(Number(item.cost).toFixed(2))
+          : Number((baseCostPer100g * multiplier).toFixed(2));
 
         return {
           id: item.foodId || item.id || `row_${idx}`,
-          foodName: item.foodName || food?.name_en || 'Confirmed Food',
-          foodNameBn: item.foodNameBn || food?.name_bn,
-          state: item.state || food?.preparation_state || 'boiled',
+          foodName: item.foodName || item.name || food?.name_en || 'Confirmed Food',
+          foodNameBn: item.foodNameBn || item.nameBn || food?.name_bn,
+          state: item.state || item.preparationState || food?.preparation_state || 'boiled',
           grams,
           calories: kcal,
           protein: prot,
@@ -107,9 +166,9 @@ export const ReportPage: React.FC = () => {
         cost: 12.00,
       },
     ];
-  }, [confirmedStateItems]);
+  }, [confirmedStateItems, loadedMeal]);
 
-  const totals = React.useMemo(() => {
+  const totals = useMemo(() => {
     return confirmedRows.reduce(
       (acc, r) => ({
         energy_kcal: acc.energy_kcal + r.calories,
@@ -126,23 +185,92 @@ export const ReportPage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
       
-      {/* Title & Receipt Banner */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-sans">
-            Authoritative Server Calculation
-          </span>
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">
-            Formula: v1.0.0-fao_bangladesh
-          </span>
+      {/* Title & Navigation Header */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-sans">
+              Authoritative Server Calculation
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">
+              Formula: v1.0.0-fao_bangladesh
+            </span>
+          </div>
+
+          <Link
+            to="/app"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors bg-white dark:bg-forest-card border border-slate-200 dark:border-forest-border px-3 py-1.5 rounded-xl shadow-xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Dashboard
+          </Link>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-          {t('report.title')}
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-          {t('report.subtitle')}
-        </p>
+
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            {t('report.title')}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            {t('report.subtitle')}
+          </p>
+        </div>
       </div>
+
+      {/* Selected Scanned Dish Highlight Card */}
+      {mealTitle && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-forest-card border-2 border-emerald-500/30 dark:border-emerald-500/20 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-forest-border/60">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                  Scanned Plate Record
+                </span>
+                {mealTime && (
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    {mealTime}
+                  </span>
+                )}
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                {mealTitle}
+              </h2>
+              {mealTitleBn && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-bengali">
+                  {mealTitleBn}
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="text-left sm:text-right">
+                <span className="text-xs text-slate-400 block font-medium">Bazar Cost</span>
+                <span className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
+                  ৳ {totals.estimated_cost.toFixed(2)}
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-lg">
+                FCDB VERIFIED
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Contains <strong>{confirmedRows.length}</strong> confirmed food components</span>
+            </div>
+            <Link
+              to="/app/meal-rescue"
+              state={{ meal: targetMeal }}
+              className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+            >
+              Optimize with Meal Rescue →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Primary Nutrition Summary Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">

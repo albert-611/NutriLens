@@ -2,11 +2,24 @@ import logging
 import json
 import uuid
 from typing import List, Optional, Dict, Any
+import httpx
 from app.core.config import settings
 from app.schemas.food import FoodCandidate, FoodRecognizeResponse
 from app.services.clarification_service import ClarificationService
 
 logger = logging.getLogger(__name__)
+
+# Persistent connection-pooled HTTP client with keepalive to eliminate TLS handshake latency
+_VISION_HTTP_CLIENT: Optional[httpx.AsyncClient] = None
+
+def get_vision_http_client() -> httpx.AsyncClient:
+    global _VISION_HTTP_CLIENT
+    if _VISION_HTTP_CLIENT is None or _VISION_HTTP_CLIENT.is_closed:
+        _VISION_HTTP_CLIENT = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=2.0, read=4.0, write=2.0, pool=2.0),
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
+        )
+    return _VISION_HTTP_CLIENT
 
 class GeminiService:
     @staticmethod
@@ -86,11 +99,7 @@ class GeminiService:
                 models_to_try = [
                     settings.GEMINI_VISION_MODEL,
                     settings.GEMINI_FALLBACK_MODEL,
-                    "gemini-3.5-flash-lite",
-                    "gemini-3.1-flash-lite",
                     "gemini-flash-lite-latest",
-                    "gemini-flash-latest",
-                    "gemini-3.1-flash-lite-preview",
                 ]
                 # Deduplicate while preserving order
                 seen_models = set()
@@ -101,10 +110,11 @@ class GeminiService:
                     if k and k.strip("\"' ")
                 ]
 
-                async with httpx.AsyncClient(timeout=6.0) as http_client:
-                    for current_key in candidate_keys:
-                        for model in candidate_models:
-                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={current_key}"
+                http_client = get_vision_http_client()
+                for current_key in candidate_keys:
+                    for model in candidate_models:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={current_key}"
+                        try:
                             resp = await http_client.post(
                                 url,
                                 headers={
@@ -115,16 +125,21 @@ class GeminiService:
                                     "contents": [{"parts": parts}],
                                     "generationConfig": {
                                         "response_mime_type": "application/json",
-                                        "temperature": 0.2
+                                        "temperature": 0.1,
+                                        "maxOutputTokens": 800,
                                     }
                                 }
                             )
-                            if resp.status_code == 429:
-                                logger.warning(f"[NutriLens Failover] Model {model} quota/rate limit exceeded (429). Switching to fallback model...")
-                                continue
-                            elif resp.status_code != 200:
-                                logger.warning(f"[NutriLens Failover] Model {model} failed ({resp.status_code}). Trying next model...")
-                                continue
+                        except (httpx.TimeoutException, httpx.RequestError) as net_err:
+                            logger.warning(f"[NutriLens Fast Vision] Model {model} network timeout/error ({net_err}). Rapid failover...")
+                            continue
+
+                        if resp.status_code == 429:
+                            logger.warning(f"[NutriLens Failover] Model {model} quota/rate limit exceeded (429). Switching to fallback model...")
+                            continue
+                        elif resp.status_code != 200:
+                            logger.warning(f"[NutriLens Failover] Model {model} failed ({resp.status_code}). Trying next model...")
+                            continue
 
                             data = resp.json()
                             text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
