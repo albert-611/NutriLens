@@ -23,7 +23,7 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
   className = '',
 }) => {
   const [selectedRange, setSelectedRange] = useState<RangeOption>('7');
-  
+
   // Specific Month state
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
@@ -122,7 +122,7 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
       }}
       className={`p-4 rounded-xl bg-white dark:bg-forest-card border border-slate-200/80 dark:border-forest-border shadow-2xs space-y-4 ${className}`}
     >
-      
+
       {/* 1. Header & Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="space-y-0.5">
@@ -138,8 +138,8 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
             {selectedRange === '7'
               ? 'Sunday - Saturday weekly intake breakdown'
               : selectedRange === 'month'
-              ? `Daily breakdown for ${monthOptions.find((m) => m.year === selectedYear && m.month === selectedMonth)?.label}`
-              : `Last ${selectedRange} days intake breakdown`}
+                ? `Daily breakdown for ${monthOptions.find((m) => m.year === selectedYear && m.month === selectedMonth)?.label}`
+                : `Last ${selectedRange} days intake breakdown`}
           </p>
         </div>
 
@@ -152,9 +152,8 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
               type="button"
               onMouseEnter={() => setHoveredNutrient('protein')}
               onMouseLeave={() => setHoveredNutrient(null)}
-              className={`flex items-center gap-1.5 transition-all font-semibold ${
-                hoveredNutrient && hoveredNutrient !== 'protein' ? 'opacity-25' : 'opacity-100'
-              }`}
+              className={`flex items-center gap-1.5 transition-all font-semibold ${hoveredNutrient && hoveredNutrient !== 'protein' ? 'opacity-25' : 'opacity-100'
+                }`}
               title="Highlight Protein"
             >
               <span className="w-2.5 h-2.5 rounded-xs shadow-2xs" style={{ backgroundColor: '#3CB371' }} />
@@ -166,9 +165,8 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
               type="button"
               onMouseEnter={() => setHoveredNutrient('carbs')}
               onMouseLeave={() => setHoveredNutrient(null)}
-              className={`flex items-center gap-1.5 transition-all font-semibold ${
-                hoveredNutrient && hoveredNutrient !== 'carbs' ? 'opacity-25' : 'opacity-100'
-              }`}
+              className={`flex items-center gap-1.5 transition-all font-semibold ${hoveredNutrient && hoveredNutrient !== 'carbs' ? 'opacity-25' : 'opacity-100'
+                }`}
               title="Highlight Carbohydrate"
             >
               <span className="w-2.5 h-2.5 rounded-xs shadow-2xs" style={{ backgroundColor: '#66CDAA' }} />
@@ -180,9 +178,8 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
               type="button"
               onMouseEnter={() => setHoveredNutrient('fat')}
               onMouseLeave={() => setHoveredNutrient(null)}
-              className={`flex items-center gap-1.5 transition-all font-semibold ${
-                hoveredNutrient && hoveredNutrient !== 'fat' ? 'opacity-25' : 'opacity-100'
-              }`}
+              className={`flex items-center gap-1.5 transition-all font-semibold ${hoveredNutrient && hoveredNutrient !== 'fat' ? 'opacity-25' : 'opacity-100'
+                }`}
               title="Highlight Fats"
             >
               <span className="w-2.5 h-2.5 rounded-xs shadow-2xs" style={{ backgroundColor: '#2E8B57' }} />
@@ -195,44 +192,40 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
             <button
               type="button"
               onClick={() => setSelectedRange('7')}
-              className={`px-2 py-0.5 rounded-md transition-all ${
-                selectedRange === '7'
+              className={`px-2 py-0.5 rounded-md transition-all ${selectedRange === '7'
                   ? 'bg-white dark:bg-forest-card text-emerald-600 dark:text-emerald-400 shadow-2xs'
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+                }`}
             >
               7 Days (Sun-Sat)
             </button>
             <button
               type="button"
               onClick={() => setSelectedRange('14')}
-              className={`px-2 py-0.5 rounded-md transition-all ${
-                selectedRange === '14'
+              className={`px-2 py-0.5 rounded-md transition-all ${selectedRange === '14'
                   ? 'bg-white dark:bg-forest-card text-emerald-600 dark:text-emerald-400 shadow-2xs'
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+                }`}
             >
               14 Days
             </button>
             <button
               type="button"
               onClick={() => setSelectedRange('30')}
-              className={`px-2 py-0.5 rounded-md transition-all ${
-                selectedRange === '30'
+              className={`px-2 py-0.5 rounded-md transition-all ${selectedRange === '30'
                   ? 'bg-white dark:bg-forest-card text-emerald-600 dark:text-emerald-400 shadow-2xs'
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+                }`}
             >
               30 Days
             </button>
             <button
               type="button"
               onClick={() => setSelectedRange('month')}
-              className={`px-2 py-0.5 rounded-md transition-all ${
-                selectedRange === 'month'
+              className={`px-2 py-0.5 rounded-md transition-all ${selectedRange === 'month'
                   ? 'bg-white dark:bg-forest-card text-emerald-600 dark:text-emerald-400 shadow-2xs'
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+                }`}
             >
               Month
             </button>
@@ -306,11 +299,10 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
               >
                 {/* Total Energy Number */}
                 <span
-                  className={`text-[10px] font-bold mb-1 transition-all ${
-                    isSelected
+                  className={`text-[10px] font-bold mb-1 transition-all ${isSelected
                       ? 'text-slate-900 dark:text-white font-black'
                       : 'text-slate-400 opacity-0 group-hover:opacity-100'
-                  }`}
+                    }`}
                 >
                   {stat.calories > 0 ? `${stat.calories}` : ''}
                 </span>
@@ -330,11 +322,10 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
                             setHoveredNutrient('fat');
                           }}
                           onMouseLeave={() => setHoveredNutrient(null)}
-                          className={`w-full transition-all duration-150 border-b border-white/20 dark:border-forest-card/30 ${
-                            hoveredNutrient && hoveredNutrient !== 'fat'
+                          className={`w-full transition-all duration-150 border-b border-white/20 dark:border-forest-card/30 ${hoveredNutrient && hoveredNutrient !== 'fat'
                               ? 'opacity-20'
                               : 'opacity-100 hover:brightness-110'
-                          }`}
+                            }`}
                           style={{
                             height: `${fatHeightPct}%`,
                             backgroundColor: '#2E8B57',
@@ -351,11 +342,10 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
                             setHoveredNutrient('protein');
                           }}
                           onMouseLeave={() => setHoveredNutrient(null)}
-                          className={`w-full transition-all duration-150 border-b border-white/20 dark:border-forest-card/30 ${
-                            hoveredNutrient && hoveredNutrient !== 'protein'
+                          className={`w-full transition-all duration-150 border-b border-white/20 dark:border-forest-card/30 ${hoveredNutrient && hoveredNutrient !== 'protein'
                               ? 'opacity-20'
                               : 'opacity-100 hover:brightness-110'
-                          }`}
+                            }`}
                           style={{
                             height: `${proteinHeightPct}%`,
                             backgroundColor: '#3CB371',
@@ -372,11 +362,10 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
                             setHoveredNutrient('carbs');
                           }}
                           onMouseLeave={() => setHoveredNutrient(null)}
-                          className={`w-full transition-all duration-150 ${
-                            hoveredNutrient && hoveredNutrient !== 'carbs'
+                          className={`w-full transition-all duration-150 ${hoveredNutrient && hoveredNutrient !== 'carbs'
                               ? 'opacity-20'
                               : 'opacity-100 hover:brightness-110'
-                          }`}
+                            }`}
                           style={{
                             height: `${carbsHeightPct}%`,
                             backgroundColor: '#66CDAA',
@@ -393,11 +382,10 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
                 {/* X-Axis Day & Date */}
                 <div className="mt-1.5 text-center">
                   <span
-                    className={`block text-[11px] font-bold leading-tight ${
-                      isSelected
+                    className={`block text-[11px] font-bold leading-tight ${isSelected
                         ? 'text-slate-900 dark:text-white font-extrabold'
                         : 'text-slate-600 dark:text-slate-400'
-                    }`}
+                      }`}
                   >
                     {stat.dayLabel}
                   </span>
@@ -435,9 +423,8 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
           <div className="flex items-center justify-between sm:justify-end gap-5 sm:gap-7 shrink-0 px-1 sm:px-0">
             {/* Protein: #3CB371 */}
             <div
-              className={`text-center sm:text-right transition-all duration-150 ${
-                hoveredNutrient && hoveredNutrient !== 'protein' ? 'opacity-30' : 'opacity-100'
-              }`}
+              className={`text-center sm:text-right transition-all duration-150 ${hoveredNutrient && hoveredNutrient !== 'protein' ? 'opacity-30' : 'opacity-100'
+                }`}
             >
               <span
                 className="block text-[10px] font-bold uppercase tracking-wider transition-colors duration-150 text-slate-500 dark:text-slate-400"
@@ -459,9 +446,8 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
 
             {/* Carbohydrate: #66CDAA */}
             <div
-              className={`text-center sm:text-right transition-all duration-150 ${
-                hoveredNutrient && hoveredNutrient !== 'carbs' ? 'opacity-30' : 'opacity-100'
-              }`}
+              className={`text-center sm:text-right transition-all duration-150 ${hoveredNutrient && hoveredNutrient !== 'carbs' ? 'opacity-30' : 'opacity-100'
+                }`}
             >
               <span
                 className="block text-[10px] font-bold uppercase tracking-wider transition-colors duration-150 text-slate-500 dark:text-slate-400"
@@ -483,9 +469,8 @@ export const NutrientStackBarChart: React.FC<NutrientStackBarChartProps> = ({
 
             {/* Fats: #2E8B57 */}
             <div
-              className={`text-center sm:text-right transition-all duration-150 ${
-                hoveredNutrient && hoveredNutrient !== 'fat' ? 'opacity-30' : 'opacity-100'
-              }`}
+              className={`text-center sm:text-right transition-all duration-150 ${hoveredNutrient && hoveredNutrient !== 'fat' ? 'opacity-30' : 'opacity-100'
+                }`}
             >
               <span
                 className="block text-[10px] font-bold uppercase tracking-wider transition-colors duration-150 text-slate-500 dark:text-slate-400"
