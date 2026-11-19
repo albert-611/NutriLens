@@ -14,6 +14,7 @@ import {
   getDashboardMetrics,
   calculatePersonalizedTargets,
 } from './dashboardService';
+import { getChatbotNutrientContext } from './mealIntakeDb';
 
 export interface ChatMessageItem {
   id: string;
@@ -355,6 +356,8 @@ async function callGoogleGemmaDirect(
   const budgetSpent = contextSummary.budget?.spent_today !== undefined ? `${contextSummary.budget.spent_today} ${contextSummary.budget.currency}` : '0 BDT';
   const budgetRemaining = contextSummary.budget?.remaining_today !== undefined ? `${contextSummary.budget.remaining_today} ${contextSummary.budget.currency}` : `${budgetDaily}`;
 
+  const mealHistorySummary = await getChatbotNutrientContext(contextSummary.user_id);
+
   const systemInstruction = `You are **NutriLens AI — Your Personal Nutrition Assistant**, a certified, empathetic, culturally grounded clinical nutrition companion built specifically for Bangladesh and South Asian diets.
 
 CRITICAL LATENCY & REASONING GUARDRAIL: Respond immediately and directly with no thinking, no reasoning steps, no internal monologue, and no scratchpad notes. Format directly as the final user-facing response.
@@ -382,6 +385,8 @@ You are conversing with ${name}. You have DIRECT ACCESS to their authenticated p
   - Fat Consumed: ${fatConsumed}
 • Confirmed Foods Eaten Today:
   ${recentFoods}
+• Historical Meal Intake Database (Logged Plates & Weekwise Summary):
+${mealHistorySummary}
 • Daily Food Budget:
   - Daily Budget Allowance: ৳ ${budgetDaily}
   - Spent Today: ৳ ${budgetSpent}

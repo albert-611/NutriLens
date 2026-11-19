@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import type { Profile, PreparationState } from '../contracts';
 import { getFoodById, resolveFoodAlias } from '../lib/foodDatabase';
+import { saveMealIntake } from './mealIntakeDb';
 import {
   WFP_2026_BENCHMARK_PRICES_PER_100G,
   WFP_2026_COMMODITY_PRICES_PER_100G,
@@ -300,8 +301,19 @@ export function cleanAllDummyMealsFromLocalStorage(): void {
  * Gets in-memory transient confirmed meals for the user.
  */
 export function getLocalConfirmedMeals(userId: string): ConfirmedMealRecord[] {
-  cleanAllDummyMealsFromLocalStorage();
-  const list = inMemoryMealsCache.get(userId) || inMemoryMealsCache.get('guest') || [];
+  let list = inMemoryMealsCache.get(userId) || inMemoryMealsCache.get('guest') || [];
+  if (list.length === 0 && typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(`nutrilens_meal_intake_db_v2_${userId || 'guest'}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          list = parsed.filter((m) => !isSampleDummyMeal(m));
+          inMemoryMealsCache.set(userId, list);
+        }
+      }
+    } catch {}
+  }
   return list.filter((m) => !isSampleDummyMeal(m));
 }
 
@@ -355,6 +367,8 @@ export function saveLocalConfirmedMeal(userId: string, meal: ConfirmedMealRecord
     if (userId !== 'guest') {
       inMemoryMealsCache.set('guest', updated);
     }
+    // Persist into meal intake database for daily aggregations & chatbot context
+    saveMealIntake(userId, meal);
   } catch (e) {
     console.warn('Failed to save in-memory confirmed meal:', e);
   }

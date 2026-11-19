@@ -19,6 +19,7 @@ import { ShoppingPage } from '../pages/app/ShoppingPage';
 import { ProfilePage } from '../pages/app/ProfilePage';
 import { SettingsPage } from '../pages/app/SettingsPage';
 import { AssistantPage } from '../pages/app/AssistantPage';
+import { RecentAnalysisPage } from '../pages/app/RecentAnalysisPage';
 
 // Lazy-load BazarPage: the WFP dataset (~4 MB) is split into its own chunk
 // and only downloaded when the user navigates to /app/bazar
@@ -76,6 +77,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="analyze" element={<AnalyzePage />} />
         <Route path="confirm" element={<ConfirmPage />} />
         <Route path="report" element={<ReportPage />} />
+        <Route path="recent-analysis" element={<RecentAnalysisPage />} />
         <Route
           path="bazar"
           element={

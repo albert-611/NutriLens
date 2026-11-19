@@ -6,6 +6,7 @@ import {
   Camera,
   CheckSquare,
   FileText,
+  History,
   Store,
   Sparkles,
   ShoppingBag,
@@ -26,6 +27,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ mobileOpen, setMobileOpe
 
   const navigation = [
     { name: t('nav.dashboard'), href: '/app', icon: LayoutDashboard, end: true },
+    { name: 'Recent Analysis', href: '/app/recent-analysis', icon: History },
     { name: t('nav.analyze'), href: '/app/analyze', icon: Camera },
     { name: t('nav.confirm'), href: '/app/confirm', icon: CheckSquare },
     { name: t('nav.report'), href: '/app/report', icon: FileText },
@@ -63,23 +65,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ mobileOpen, setMobileOpe
         </button>
       </div>
 
-      {/* Market Pilot Badge */}
-      <div className="px-5 py-3">
-        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
-          <p className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
-            <span>Savar / Ashulia Pilot</span>
-            <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-              Active
-            </span>
-          </p>
-          <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
-            Savar & Ashulia Market Feed Active
-          </p>
-        </div>
-      </div>
-
       {/* Nav List */}
-      <div className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
+      <div className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
         <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-2">
           Nutrition Intelligence
         </p>
