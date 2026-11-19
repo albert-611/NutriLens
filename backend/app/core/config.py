@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     ]
 
     # Supabase Managed Infrastructure
-    SUPABASE_URL: str = "https://ysukhcfigyosuatdpkji.supabase.co"
-    SUPABASE_ANON_KEY: str = "sb_publishable_4BTp6dN2YXFZq7-gKq3bsw_EBVLrrGE"
+    SUPABASE_URL: str = "https://jmzvrtfpkgbruqqctsgr.supabase.co"
+    SUPABASE_ANON_KEY: str = "sb_publishable_VfvpXvIxKfd1TQaYBdIiww_MhHYGXyl"
     SUPABASE_JWT_SECRET: str = "your-supabase-jwt-secret-from-dashboard"
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 

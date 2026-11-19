@@ -278,6 +278,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data, error } = await supabase.auth.getSession();
         if (error) {
           console.warn('Supabase getSession notice:', error);
+          await supabase.auth.signOut().catch(() => {});
         }
 
         if (mounted) {

@@ -2,11 +2,11 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
-  'https://ysukhcfigyosuatdpkji.supabase.co';
+  'https://jmzvrtfpkgbruqqctsgr.supabase.co';
 
 const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'sb_publishable_4BTp6dN2YXFZq7-gKq3bsw_EBVLrrGE';
+  'sb_publishable_VfvpXvIxKfd1TQaYBdIiww_MhHYGXyl';
 
 // Strictly check if Supabase is properly configured with a real project URL and anon key
 export const isSupabaseConfigured = Boolean(
@@ -21,11 +21,13 @@ export const isSupabaseConfigured = Boolean(
 const clientUrl = isSupabaseConfigured ? supabaseUrl : 'https://placeholder.supabase.co';
 const clientKey = isSupabaseConfigured ? supabaseAnonKey : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key_unconfigured';
 
+const projectId = supabaseUrl.split('//')[1]?.split('.')[0] || 'default';
+
 export const supabase = createClient(clientUrl, clientKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storageKey: 'nutrilens-auth-token',
+    storageKey: `nutrilens-auth-${projectId}`,
   },
 });
