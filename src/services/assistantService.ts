@@ -590,8 +590,18 @@ export const assistantService = {
     localStorage.setItem(getLocalMessagesKey(resolvedConvId), JSON.stringify(updatedMessages));
 
     // Update conversation summary
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id || 'guest';
+    let authUser: any = null;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      authUser = authData?.user || null;
+    } catch {}
+    if (!authUser) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        authUser = sessionData?.session?.user || null;
+      } catch {}
+    }
+    const userId = authUser?.id || 'guest';
     const convKey = getLocalConvKey(userId);
     const storedConvs: ConversationSummary[] = JSON.parse(localStorage.getItem(convKey) || '[]');
     const existingIndex = storedConvs.findIndex((c) => c.id === resolvedConvId);
@@ -612,13 +622,14 @@ export const assistantService = {
     localStorage.setItem(convKey, JSON.stringify(storedConvs));
 
     // Persist conversation and messages to PostgreSQL ai_conversations & ai_messages in background
-    if (user && user.id) {
+    if (authUser && authUser.id && isValidUUID(resolvedConvId)) {
       (async () => {
         try {
           await supabase.from('ai_conversations').upsert({
             id: resolvedConvId,
-            user_id: user.id,
+            user_id: authUser.id,
             title: convSummary.title,
+            created_at: convSummary.created_at || nowIso,
             updated_at: nowIso,
           }, { onConflict: 'id' });
 
@@ -626,7 +637,7 @@ export const assistantService = {
             {
               id: userMsgId,
               conversation_id: resolvedConvId,
-              user_id: user.id,
+              user_id: authUser.id,
               role: 'user',
               content: message,
               created_at: nowIso,
@@ -634,7 +645,7 @@ export const assistantService = {
             {
               id: asstMsgId,
               conversation_id: resolvedConvId,
-              user_id: user.id,
+              user_id: authUser.id,
               role: 'assistant',
               content: replyText,
               created_at: nowIso,
@@ -692,7 +703,17 @@ export const assistantService = {
       }
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      user = authData?.user || null;
+    } catch {}
+    if (!user) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        user = sessionData?.session?.user || null;
+      } catch {}
+    }
     const userId = user?.id || 'guest';
     const convKey = getLocalConvKey(userId);
 
@@ -833,7 +854,17 @@ export const assistantService = {
       }
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
+    let user: any = null;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      user = authData?.user || null;
+    } catch {}
+    if (!user) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        user = sessionData?.session?.user || null;
+      } catch {}
+    }
     const userId = user?.id || 'guest';
     const convKey = getLocalConvKey(userId);
     let storedConvs: ConversationSummary[] = [];

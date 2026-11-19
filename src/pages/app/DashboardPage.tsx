@@ -18,18 +18,14 @@ import {
   UtensilsCrossed,
   CheckCircle2,
   RefreshCw,
-  PlusCircle,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { formatCurrency } from '../../lib/formatters';
 import {
   getDashboardMetrics,
-  saveLocalConfirmedMeal,
-  formatMealTime,
   type DashboardMetrics,
   type ConfirmedMealRecord,
 } from '../../services/dashboardService';
-import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 export const DashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -41,7 +37,6 @@ export const DashboardPage: React.FC = () => {
   const [imgError, setImgError] = useState(false);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoggingQuickMeal, setIsLoggingQuickMeal] = useState(false);
 
   useEffect(() => {
     setImgError(false);
@@ -71,135 +66,12 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     loadMetrics();
+    const handleMealConfirmed = () => {
+      loadMetrics();
+    };
+    window.addEventListener('nutrilens_meal_confirmed', handleMealConfirmed);
+    return () => window.removeEventListener('nutrilens_meal_confirmed', handleMealConfirmed);
   }, [user?.id, profile?.id]);
-
-  // Quick Action to log a confirmed traditional meal for rapid verification
-  const handleLogQuickMeal = async () => {
-    if (!user?.id) return;
-    setIsLoggingQuickMeal(true);
-    try {
-      const nowIso = new Date().toISOString();
-      const timeInfo = formatMealTime(nowIso);
-      const mealId = `meal_${Date.now()}`;
-
-      const quickItems = [
-        {
-          foodId: '33333333-3333-3333-3333-333333333301',
-          name: 'Cooked White Rice (Parboiled)',
-          nameBn: 'সিদ্ধ সাদা ভাত',
-          category: 'grains_and_cereals',
-          grams: 200,
-          preparationState: 'boiled',
-          calories: 260,
-          protein: 5.4,
-          carbs: 56.4,
-          fat: 0.6,
-          cost: 14.0,
-        },
-        {
-          foodId: '33333333-3333-3333-3333-333333333308',
-          name: 'Cooked Red Lentils (Masoor Dal)',
-          nameBn: 'মসুর ডাল',
-          category: 'pulses_and_legumes',
-          grams: 150,
-          preparationState: 'boiled',
-          calories: 147,
-          protein: 11.7,
-          carbs: 22.8,
-          fat: 1.1,
-          cost: 19.5,
-        },
-        {
-          foodId: '33333333-3333-3333-3333-333333333324',
-          name: 'Fried Chicken Egg (Dim Bhaji)',
-          nameBn: 'ডিম ভাজি',
-          category: 'eggs',
-          grams: 60,
-          preparationState: 'fried',
-          calories: 118,
-          protein: 7.6,
-          carbs: 0.8,
-          fat: 9.2,
-          cost: 13.0,
-        },
-      ];
-
-      const quickMealRecord: ConfirmedMealRecord = {
-        id: mealId,
-        title: 'Cooked White Rice + Masoor Dal + Dim Bhaji',
-        titleBn: 'সিদ্ধ সাদা ভাত + মসুর ডাল + ডিম ভাজি',
-        time: timeInfo.display,
-        timestamp: nowIso,
-        mealType: timeInfo.mealType,
-        calories: 525,
-        protein: 24.7,
-        carbs: 80.0,
-        fat: 10.9,
-        bazarCost: 46.5,
-        status: 'confirmed',
-        items: quickItems,
-      };
-
-      // 1. Save locally
-      saveLocalConfirmedMeal(user.id, quickMealRecord);
-
-      // 2. Save to Supabase if configured
-      if (isSupabaseConfigured) {
-        try {
-          const { data: logData, error: logErr } = await supabase
-            .from('meal_logs')
-            .insert({
-              user_id: user.id,
-              input_mode: 'manual_search',
-              status: 'confirmed',
-              consent_at: nowIso,
-            })
-            .select('id')
-            .single();
-
-          if (!logErr && logData) {
-            try {
-              await supabase.from('meal_reports').upsert({
-                meal_log_id: logData.id,
-                revision: 1,
-                total_energy_kcal: 525,
-                total_protein_g: 24.7,
-                total_carbohydrate_g: 80.0,
-                total_fat_g: 10.9,
-                evidence_sources: quickItems,
-              }, { onConflict: 'meal_log_id,revision' });
-            } catch (repErr) {
-              console.warn('meal_reports snapshot notice:', repErr);
-            }
-
-            const fallbackFoodUuid = '33333333-3333-3333-3333-333333333301';
-            const rows = quickItems.map((it, idx) => ({
-              meal_log_id: logData.id,
-              food_id: it.foodId || fallbackFoodUuid,
-              confirmed_grams: it.grams,
-              preparation_state: it.preparationState,
-              portion_source: 'user_entered',
-              display_order: idx + 1,
-            }));
-
-            const { error: itemsErr } = await supabase.from('meal_items').insert(rows);
-            if (itemsErr) {
-              const safeRows = rows.map((r) => ({ ...r, food_id: fallbackFoodUuid }));
-              await supabase.from('meal_items').insert(safeRows);
-            }
-          }
-        } catch (dbErr) {
-          console.warn('Supabase meal log insertion bypassed:', dbErr);
-        }
-      }
-
-      await loadMetrics();
-    } catch (e) {
-      console.error('Failed to log quick meal:', e);
-    } finally {
-      setIsLoggingQuickMeal(false);
-    }
-  };
 
   const dailyBudget = metrics?.dailyBudget || profile?.budget_amount || 150;
   const targetCalories = metrics?.targetCalories || 2000;
@@ -448,15 +320,6 @@ export const DashboardPage: React.FC = () => {
                     Scan Food Photo
                   </Button>
                 </Link>
-                <Button
-                  variant="outline"
-                  size="md"
-                  onClick={handleLogQuickMeal}
-                  disabled={isLoggingQuickMeal}
-                  icon={<PlusCircle className="w-4 h-4 text-emerald-600" />}
-                >
-                  {isLoggingQuickMeal ? 'Logging...' : 'Log Sample Bangladeshi Plate'}
-                </Button>
               </div>
             </div>
           )}

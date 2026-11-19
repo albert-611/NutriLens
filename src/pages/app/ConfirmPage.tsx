@@ -967,8 +967,13 @@ export const ConfirmPage: React.FC = () => {
 
       if (isSupabaseConfigured) {
         try {
-          const { data: authData } = await supabase.auth.getUser();
-          const targetUserId = authData?.user?.id || user?.id || profile?.id;
+          let { data: authData } = await supabase.auth.getUser();
+          let targetUserId = authData?.user?.id || user?.id || profile?.id;
+          if (!targetUserId) {
+            const { data: sessionData } = await supabase.auth.getSession();
+            targetUserId = sessionData?.session?.user?.id;
+          }
+
           if (targetUserId) {
             authenticatedUserId = targetUserId;
 
@@ -995,7 +1000,7 @@ export const ConfirmPage: React.FC = () => {
 
               // 1. Persist exact verified nutrients & items JSON snapshot to meal_reports
               try {
-                await supabase.from('meal_reports').insert({
+                await supabase.from('meal_reports').upsert({
                   meal_log_id: savedMealLogId,
                   revision: 1,
                   total_energy_kcal: mealTotals.calories,
@@ -1003,9 +1008,29 @@ export const ConfirmPage: React.FC = () => {
                   total_carbohydrate_g: mealTotals.carbs,
                   total_fat_g: mealTotals.fat,
                   evidence_sources: confirmedMealItems,
-                });
+                }, { onConflict: 'meal_log_id,revision' });
               } catch (repErr) {
                 console.warn('meal_reports snapshot notice:', repErr);
+              }
+
+              // 2. Persist individual items to meal_items
+              try {
+                const fallbackFoodUuid = '33333333-3333-3333-3333-333333333301';
+                const rows = confirmedMealItems.map((it, idx) => ({
+                  meal_log_id: savedMealLogId,
+                  food_id: it.foodId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(it.foodId) ? it.foodId : fallbackFoodUuid,
+                  confirmed_grams: it.grams,
+                  preparation_state: it.preparationState || 'cooked',
+                  portion_source: 'user_entered',
+                  display_order: idx + 1,
+                }));
+                const { error: itemsErr } = await supabase.from('meal_items').insert(rows);
+                if (itemsErr) {
+                  const safeRows = rows.map((r) => ({ ...r, food_id: fallbackFoodUuid }));
+                  await supabase.from('meal_items').insert(safeRows);
+                }
+              } catch (itemsErr) {
+                console.warn('meal_items insert notice:', itemsErr);
               }
             } else if (logErr) {
               console.warn('meal_logs insert error from Supabase:', logErr);
@@ -1038,6 +1063,11 @@ export const ConfirmPage: React.FC = () => {
       saveLocalConfirmedMeal(effectiveUserId, localMealRecord);
       if (effectiveUserId !== 'guest') {
         saveLocalConfirmedMeal('guest', localMealRecord);
+      }
+
+      // Notify other views (like Dashboard) that a real meal has been confirmed
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('nutrilens_meal_confirmed'));
       }
 
       const confirmedPayload = items.map((it) => ({

@@ -15,6 +15,7 @@ import {
   Wheat,
   Droplet,
   Salad,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { formatCurrency, formatGrams } from '../../lib/formatters';
@@ -258,16 +259,23 @@ export const ReportPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Forward Action: Meal Rescue / Shopping */}
+        {/* Forward Action: Dashboard / Meal Rescue */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-forest-border/60">
-          <Link to="/app/bazar" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
-            ← Explore Savar Bazar Prices
-          </Link>
-          <Link to="/app/meal-rescue">
-            <Button variant="primary" size="md" icon={<Sparkles className="w-4 h-4" />} iconPosition="right">
-              Optimize Next Meal (Meal Rescue)
+          <Link to="/app/dashboard">
+            <Button variant="outline" size="md" icon={<LayoutDashboard className="w-4 h-4 text-emerald-600" />}>
+              View Dashboard & Intake
             </Button>
           </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/app/bazar" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">
+              ← Explore Savar Bazar Prices
+            </Link>
+            <Link to="/app/meal-rescue">
+              <Button variant="primary" size="md" icon={<Sparkles className="w-4 h-4" />} iconPosition="right">
+                Optimize Next Meal
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </div>
