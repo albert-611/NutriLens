@@ -832,6 +832,8 @@ export async function fetchFullNutritionProfile(
       goalDetRes,
       nutPrefRes,
       budPrefRes,
+      legacyRestRes,
+      profRes,
     ] = await Promise.all([
       supabase.from('user_medical_conditions').select('*').eq('user_id', userId),
       supabase.from('user_food_allergies').select('*').eq('user_id', userId),
@@ -840,6 +842,8 @@ export async function fetchFullNutritionProfile(
       supabase.from('user_nutritional_goals_detailed').select('*').eq('user_id', userId),
       supabase.from('user_nutrition_preferences').select('*').eq('user_id', userId).maybeSingle(),
       supabase.from('user_budget_preferences').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('user_food_restrictions').select('*').eq('user_id', userId),
+      supabase.from('profiles').select('declared_allergens, dietary_exclusions, budget_amount, household_size, budget_duration_days').eq('id', userId).maybeSingle(),
     ]);
 
     if (medRes.data && medRes.data.length > 0) {
@@ -917,11 +921,7 @@ export async function fetchFullNutritionProfile(
 
     // Fallbacks from user_food_restrictions if detailed tables are empty
     if (result.allergies.length === 0 || result.intolerances.length === 0) {
-      const { data: legacyRestrictions } = await supabase
-        .from('user_food_restrictions')
-        .select('*')
-        .eq('user_id', userId);
-
+      const legacyRestrictions = legacyRestRes?.data;
       if (legacyRestrictions && legacyRestrictions.length > 0) {
         legacyRestrictions.forEach((r: any) => {
           if (r.restriction_type === 'allergy' && !result.allergies.includes(r.restriction_value)) {
@@ -940,11 +940,7 @@ export async function fetchFullNutritionProfile(
     }
 
     // Fallbacks from profiles table
-    const { data: profData } = await supabase
-      .from('profiles')
-      .select('declared_allergens, dietary_exclusions, budget_amount, household_size, budget_duration_days')
-      .eq('id', userId)
-      .maybeSingle();
+    const profData = profRes?.data;
 
     if (profData) {
       if (result.allergies.length === 0 && Array.isArray(profData.declared_allergens) && profData.declared_allergens.length > 0) {

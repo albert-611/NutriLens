@@ -23,7 +23,6 @@ import {
   saveFullNutritionProfile,
   deleteUserAccount,
   ensureProfileExists,
-  fetchFullNutritionProfile,
 } from '../services/authService';
 
 interface AuthContextType {
@@ -122,7 +121,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const userRef = useRef<User | null>(null);
   userRef.current = user;
 
+  // Debounce and in-flight tracking to prevent rapid duplicate queries to Supabase
+  const isLoadingUserDataRef = useRef(false);
+  const lastLoadedUserIdRef = useRef<string | null>(null);
+  const lastLoadTimestampRef = useRef<number>(0);
+
   const loadUserData = useCallback(async (userId: string, currentUser?: User | null) => {
+    if (!userId) return;
+
+    // Prevent duplicate queries within 6 seconds for the same user
+    const now = Date.now();
+    if (isLoadingUserDataRef.current) return;
+    if (lastLoadedUserIdRef.current === userId && now - lastLoadTimestampRef.current < 6000) {
+      return;
+    }
+
+    isLoadingUserDataRef.current = true;
+    lastLoadedUserIdRef.current = userId;
+    lastLoadTimestampRef.current = now;
+
     try {
       const effectiveUser = currentUser || userRef.current;
 
@@ -145,82 +162,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Pre-set profile with actual server-authenticated metadata so UI displays real user data immediately
       setProfile((prev) => (prev ? { ...prev, ...meta } : initialProfile));
 
-      // 1. Sync pending signup data or cloud user_metadata to PostgreSQL tables
+      // 1. One-time sync of pending signup data ONLY if explicitly present in localStorage
       const userEmail = effectiveUser?.email?.toLowerCase();
-      let pendingData: any = null;
       if (userEmail) {
         const pendingKey = `nutrilens_pending_signup_${userEmail}`;
         const pendingRaw = localStorage.getItem(pendingKey);
         if (pendingRaw) {
+          localStorage.removeItem(pendingKey);
           try {
-            pendingData = JSON.parse(pendingRaw);
-          } catch {}
-        }
-      }
-
-      const metaHasData = Boolean(
-        meta.age || meta.height_value || meta.weight_value ||
-        (Array.isArray(meta.allergies) && meta.allergies.length > 0) ||
-        (Array.isArray(meta.medical_conditions) && meta.medical_conditions.length > 0) ||
-        meta.dietary_preference || meta.primary_goal
-      );
-
-      if (pendingData || metaHasData) {
-        const p = pendingData || {};
-        try {
-          await saveFullNutritionProfile(userId, {
-            fullName: p.fullName || meta.full_name || meta.display_name,
-            displayName: p.fullName || meta.display_name || meta.full_name,
-            avatarUrl: p.avatarUrl || meta.avatar_url,
-            username: p.username || meta.username,
-            age: p.age ?? meta.age,
-            biologicalSex: p.biologicalSex || meta.biological_sex,
-            heightValue: p.heightValue ?? meta.height_value,
-            heightUnit: p.heightUnit || meta.height_unit,
-            weightValue: p.weightValue ?? meta.weight_value,
-            weightUnit: p.weightUnit || meta.weight_unit,
-            targetWeightValue: p.targetWeightValue ?? meta.target_weight_value,
-            activityLevel: p.activityLevel || meta.activity_level,
-            exerciseFrequency: p.exerciseFrequency || meta.exercise_frequency,
-            sleepDuration: p.sleepDuration || meta.sleep_duration,
-            dislikedFoods: p.dislikedFoods || meta.disliked_foods,
-            medicalConditions: p.medicalConditions?.map((c: any) => (typeof c === 'string' ? c : c.name)) || meta.medical_conditions,
-            medicalConditionSpecify: p.medicalConditions?.find((c: any) => c.specify)?.specify || meta.medical_condition_specify,
-            diabetesType: p.medicalConditions?.find((c: any) => c.diabetesType)?.diabetesType || meta.diabetes_type,
-            allergies: p.allergies?.map((a: any) => (typeof a === 'string' ? a : a.name)) || meta.allergies,
-            allergySpecify: p.allergies?.find((a: any) => a.specify)?.specify || meta.allergy_specify,
-            intolerances: p.intolerances?.map((i: any) => (typeof i === 'string' ? i : i.name)) || meta.intolerances,
-            intoleranceSpecify: p.intolerances?.find((i: any) => i.specify)?.specify || meta.intolerance_specify,
-            dietaryPreference: p.dietaryPreference || meta.dietary_preference,
-            dietaryPreferenceSpecify: p.dietaryPreferenceSpecify || meta.dietary_preference_specify,
-            userFoodRestrictions: p.foodRestrictions || meta.food_restrictions,
-            foodRestrictionsSpecify: p.foodRestrictionsSpecify || meta.food_restrictions_specify,
-            religiousRestrictions: p.religiousRestrictions || meta.religious_restrictions,
-            religiousRestrictionsSpecify: p.religiousRestrictionsSpecify || meta.religious_restrictions_specify,
-            primaryGoal: p.primaryGoal || meta.primary_goal,
-            primaryGoalSpecify: p.primaryGoalSpecify || meta.primary_goal_specify,
-            secondaryGoals: p.secondaryGoals || meta.secondary_goals,
-            secondaryGoalsSpecify: p.secondaryGoalsSpecify || meta.secondary_goals_specify,
-            budgetAmount: p.budgetAmount || meta.budget_amount || 150,
-            budgetPeriod: p.budgetPeriod || meta.budget_period || 'daily',
-            peopleCount: p.peopleCount || meta.people_count || 1,
-          });
-
-          if (userEmail) {
-            localStorage.removeItem(`nutrilens_pending_signup_${userEmail}`);
+            const pendingData = JSON.parse(pendingRaw);
+            if (pendingData && typeof pendingData === 'object') {
+              await saveFullNutritionProfile(userId, pendingData);
+            }
+          } catch (e) {
+            console.warn('Pending signup profile synchronization notice:', e);
           }
-        } catch (e) {
-          console.warn('Centralized profile synchronization notice:', e);
         }
       }
 
-      // 2. Fetch all centralized profile tables in parallel from PostgreSQL
-      let [prof, nut, rest, bud, fullNutrition] = await Promise.all([
+      // 2. Fetch centralized profile data in parallel from PostgreSQL
+      let [prof, nut, rest, bud] = await Promise.all([
         fetchUserProfile(userId),
         fetchNutritionPreferences(userId),
         fetchFoodRestrictions(userId),
         fetchBudgetPreferences(userId),
-        fetchFullNutritionProfile(userId),
       ]);
 
       if (!prof) {
@@ -229,19 +194,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (prof) {
-        // Overlay verified full nutrition data and cloud metadata into profile
-        if (fullNutrition) {
-          if (Array.isArray(fullNutrition.allergies) && fullNutrition.allergies.length > 0) {
-            prof.declared_allergens = fullNutrition.allergies;
-          }
-          if (Array.isArray(fullNutrition.foodRestrictions) && fullNutrition.foodRestrictions.length > 0) {
-            prof.dietary_exclusions = fullNutrition.foodRestrictions;
-          }
-          if (fullNutrition.primaryGoal) {
-            prof.general_goal = fullNutrition.primaryGoal as any;
-          }
-        }
-
         if (meta.age && !prof.age) prof.age = meta.age;
         if (meta.height_value && !prof.height_value) {
           prof.height_value = meta.height_value;
@@ -295,6 +247,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setBudgetPreferences(bud);
     } catch (err) {
       console.warn('Error loading user profile and preferences:', err);
+    } finally {
+      isLoadingUserDataRef.current = false;
     }
   }, []);
 
@@ -375,8 +329,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let authSubscription: { unsubscribe: () => void } | null = null;
 
     if (isSupabaseConfigured) {
-      const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
         if (!mounted) return;
+
+        // Skip token refresh events from re-triggering heavy data loading
+        if (event === 'TOKEN_REFRESHED') {
+          setSession(newSession);
+          setUser(newSession?.user ?? null);
+          userRef.current = newSession?.user ?? null;
+          return;
+        }
 
         // Block deleted users immediately from setting user or session state
         if (newSession?.user?.user_metadata?.account_deleted) {
@@ -395,14 +357,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
 
         if (newSession?.user) {
-          setProfile(
-            buildDefaultProfile(
-              newSession.user.id,
-              newSession.user.email,
-              newSession.user.user_metadata
-            )
-          );
-          loadUserData(newSession.user.id, newSession.user);
+          // If we already loaded data for this same user within the last 15 seconds, avoid re-fetching
+          const isSameUserRecentlyLoaded =
+            lastLoadedUserIdRef.current === newSession.user.id &&
+            Date.now() - lastLoadTimestampRef.current < 15000;
+
+          if (!isSameUserRecentlyLoaded) {
+            setProfile(
+              buildDefaultProfile(
+                newSession.user.id,
+                newSession.user.email,
+                newSession.user.user_metadata
+              )
+            );
+            loadUserData(newSession.user.id, newSession.user);
+          }
         } else {
           setProfile(null);
           setNutritionPreferences(null);

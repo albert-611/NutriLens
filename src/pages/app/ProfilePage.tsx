@@ -295,7 +295,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [user]);
+  }, [user?.id]);
 
   const hasDiabetesSelected = medicalConditions.some(
     (c) => c.toLowerCase().includes('diabetes') || c.toLowerCase().includes('prediabetes')
