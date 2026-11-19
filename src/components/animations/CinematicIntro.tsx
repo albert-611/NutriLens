@@ -22,7 +22,7 @@ import { completeIntro, isIntroPending, releaseIntroGate } from '../../lib/intro
 const BG = '#071A14';
 const MAX_FONT_WAIT = 1500; // ms – never hold the intro hostage to a slow font
 const MAX_ASSET_WAIT = 1200; // ms – cap on waiting for hero images
-const FAILSAFE_MS = 7000; // hard stop: the page must never stay locked
+const FAILSAFE_MS = 2000; // hard stop: the page must never stay locked
 const WORD = 'NutriLens';
 const FOCUS_CHAR_INDEX = 5; // the "L": a heavy vertical stem near the word's centre
 
@@ -203,46 +203,54 @@ export const CinematicIntro: React.FC = () => {
     const failsafe = window.setTimeout(finish, FAILSAFE_MS);
 
     const start = async () => {
-      await loadFonts();
-      if (cancelled || !rootRef.current) return;
+      try {
+        await loadFonts();
+        if (cancelled || !rootRef.current) {
+          finish();
+          return;
+        }
 
-      measure();
-      render();
-      window.addEventListener('resize', onResize);
+        measure();
+        render();
+        window.addEventListener('resize', onResize);
 
-      ctx = gsap.context(() => {
-        const tl = gsap.timeline({ paused: true, onComplete: finish });
+        ctx = gsap.context(() => {
+          const tl = gsap.timeline({ paused: true, onComplete: finish });
 
-        // STAGE 1 — the word appears, centred (0 → 0.45s)
-        tl.fromTo(state, { s0: 0.75 }, { s0: 1, duration: 0.45, ease: 'power2.out', onUpdate: render }, 0)
-          .fromTo(textRef.current, { opacity: 0 }, { opacity: 1, duration: 0.45, ease: 'power2.out' }, 0);
+          // STAGE 1 — the word appears, centred (0 → 0.45s)
+          tl.fromTo(state, { s0: 0.75 }, { s0: 1, duration: 0.45, ease: 'power2.out', onUpdate: render }, 0)
+            .fromTo(textRef.current, { opacity: 0 }, { opacity: 1, duration: 0.45, ease: 'power2.out' }, 0);
 
-        // Short beat, then hold only if the hero's images still need a moment.
-        tl.addPause(0.6, () => {
-          heroAssetsReady().then(() => {
-            if (!cancelled) tl.play();
+          // Short beat, then hold only if the hero's images still need a moment.
+          tl.addPause(0.6, () => {
+            heroAssetsReady().then(() => {
+              if (!cancelled) tl.play();
+            });
           });
-        });
 
-        // STAGE 2 — dive into the word. Exponential scale = constant perceived speed;
-        // the ease makes it accelerate toward the viewer (0.6 → 2.0s).
-        tl.fromTo(
-          state,
-          { p: 0 },
-          { p: 1, duration: 1.4, ease: 'power1.in', onUpdate: render },
-          0.6
-        );
+          // STAGE 2 — dive into the word. Exponential scale = constant perceived speed;
+          // the ease makes it accelerate toward the viewer (0.6 → 2.0s).
+          tl.fromTo(
+            state,
+            { p: 0 },
+            { p: 1, duration: 1.4, ease: 'power1.in', onUpdate: render },
+            0.6
+          );
 
-        // STAGE 3 — the page shows through the swelling letters (~1.35 → 2.0s).
-        // The hero's own entrance starts at the same instant.
-        tl.add(() => releaseIntroGate(), 1.35);
-        tl.to(veilRef.current, { opacity: 0, duration: 0.65, ease: 'power1.inOut' }, 1.35);
+          // STAGE 3 — the page shows through the swelling letters (~1.35 → 2.0s).
+          // The hero's own entrance starts at the same instant.
+          tl.add(() => releaseIntroGate(), 1.35);
+          tl.to(veilRef.current, { opacity: 0, duration: 0.65, ease: 'power1.inOut' }, 1.35);
 
-        // STAGE 4 — clean completion, overlay removed.
-        tl.add(finish, 2.05);
+          // STAGE 4 — clean completion, overlay removed.
+          tl.add(finish, 2.05);
 
-        tl.play();
-      }, rootRef);
+          tl.play();
+        }, rootRef);
+      } catch (err) {
+        console.warn('Cinematic intro bypassed:', err);
+        finish();
+      }
     };
 
     start();
