@@ -68,6 +68,24 @@ export interface DashboardMetrics {
 }
 
 /**
+ * Calculates exact nutritional energy (kcal) via the authoritative Atwater factor system:
+ * (Protein * 4) + (Carbohydrate * 4) + (Fat * 9).
+ */
+export function calculateExactKcal(
+  protein: number,
+  carbs: number,
+  fat: number,
+  fallbackKcal?: number
+): number {
+  const p = Math.max(0, Number(protein) || 0);
+  const c = Math.max(0, Number(carbs) || 0);
+  const f = Math.max(0, Number(fat) || 0);
+  const atwater = Math.round(p * 4 + c * 4 + f * 9);
+  if (atwater > 0) return atwater;
+  return Math.max(0, Math.round(Number(fallbackKcal) || 0));
+}
+
+/**
  * Calculates item market cost based on official 2026 World Food Programme (WFP) Bangladesh food prices.
  */
 export function calculateItemCost(
@@ -490,10 +508,11 @@ export async function fetchUserConfirmedMeals(userId: string): Promise<Confirmed
         }
       }
 
-      const totalCal = report?.total_energy_kcal ? Number(report.total_energy_kcal) : itemSummaries.reduce((a, b) => a + b.calories, 0);
+      const rawCal = report?.total_energy_kcal ? Number(report.total_energy_kcal) : itemSummaries.reduce((a, b) => a + b.calories, 0);
       const totalPro = report?.total_protein_g ? Number(report.total_protein_g) : Number(itemSummaries.reduce((a, b) => a + b.protein, 0).toFixed(1));
       const totalCarb = report?.total_carbohydrate_g ? Number(report.total_carbohydrate_g) : Number(itemSummaries.reduce((a, b) => a + b.carbs, 0).toFixed(1));
       const totalFat = report?.total_fat_g ? Number(report.total_fat_g) : Number(itemSummaries.reduce((a, b) => a + b.fat, 0).toFixed(1));
+      const totalCal = calculateExactKcal(totalPro, totalCarb, totalFat, rawCal);
       const totalCost = Number(itemSummaries.reduce((a, b) => a + b.cost, 0).toFixed(2));
 
       const title = itemSummaries.slice(0, 3).map((x) => x.name).join(' + ');
@@ -524,24 +543,38 @@ export async function fetchUserConfirmedMeals(userId: string): Promise<Confirmed
       });
     }
 
-    // Merge authoritative Supabase records with local drafts, deduplicating by ID and title+time signature
+    // Merge authoritative Supabase records with local drafts, deduplicating thoroughly
     const map = new Map<string, ConfirmedMealRecord>();
-    const seenSignatures = new Set<string>();
 
     for (const m of fetchedRecords) {
       if (isSampleDummyMeal(m)) continue;
       map.set(m.id, m);
-      const timeBucket = Math.floor(new Date(m.timestamp).getTime() / 20000); // 20-second proximity
-      seenSignatures.add(`${m.title.toLowerCase()}-${Math.round(m.calories)}-${timeBucket}`);
     }
 
     for (const m of localList) {
       if (isSampleDummyMeal(m)) continue;
       if (map.has(m.id)) continue;
-      const timeBucket = Math.floor(new Date(m.timestamp).getTime() / 20000);
-      if (seenSignatures.has(`${m.title.toLowerCase()}-${Math.round(m.calories)}-${timeBucket}`)) {
-        continue; // Already synchronized to Supabase
+
+      const mTime = new Date(m.timestamp).getTime();
+      const isDuplicateOfRemote = fetchedRecords.some((rem) => {
+        if (rem.id === m.id) return true;
+        const remTime = new Date(rem.timestamp).getTime();
+        const timeDiff = Math.abs(remTime - mTime);
+        // If logged within 10 minutes and matching title or close calories, it is the same meal
+        if (timeDiff < 600000) {
+          const titleMatch = rem.title.toLowerCase().trim() === m.title.toLowerCase().trim();
+          const calMatch = Math.abs((rem.calories || 0) - (m.calories || 0)) <= 35;
+          if (titleMatch || calMatch) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (isDuplicateOfRemote) {
+        continue; // Authoritative Supabase meal already synchronized
       }
+
       map.set(m.id, m);
     }
 
@@ -589,12 +622,12 @@ export async function getDashboardMetrics(userId: string, profile: Profile | nul
 
   const hasMealsToday = todayMeals.length > 0;
 
-  // Aggregate totals
-  const todayCalories = todayMeals.reduce((acc, m) => acc + m.calories, 0);
-  const todayProtein = Number(todayMeals.reduce((acc, m) => acc + m.protein, 0).toFixed(1));
-  const todayCarbs = Number(todayMeals.reduce((acc, m) => acc + m.carbs, 0).toFixed(1));
-  const todayFat = Number(todayMeals.reduce((acc, m) => acc + m.fat, 0).toFixed(1));
-  const todayCost = Number(todayMeals.reduce((acc, m) => acc + m.bazarCost, 0).toFixed(2));
+  // Aggregate exact totals using the authoritative Atwater factor system
+  const todayProtein = Number(todayMeals.reduce((acc, m) => acc + (Number(m.protein) || 0), 0).toFixed(1));
+  const todayCarbs = Number(todayMeals.reduce((acc, m) => acc + (Number(m.carbs) || 0), 0).toFixed(1));
+  const todayFat = Number(todayMeals.reduce((acc, m) => acc + (Number(m.fat) || 0), 0).toFixed(1));
+  const todayCalories = todayMeals.reduce((acc, m) => acc + calculateExactKcal(m.protein, m.carbs, m.fat, m.calories), 0);
+  const todayCost = Number(todayMeals.reduce((acc, m) => acc + (Number(m.bazarCost) || 0), 0).toFixed(2));
 
   // Percentages
   const caloriesPercent = targets.targetCalories > 0 ? Math.min(100, Math.round((todayCalories / targets.targetCalories) * 100)) : 0;

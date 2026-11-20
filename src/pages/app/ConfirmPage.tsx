@@ -53,7 +53,7 @@ import {
 } from '../../lib/foodDatabase';
 import { searchUSDAFoodsDirect } from '../../services/usdaService';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import { saveLocalConfirmedMeal, formatMealTime, calculateItemCost } from '../../services/dashboardService';
+import { saveLocalConfirmedMeal, formatMealTime, calculateItemCost, calculateExactKcal } from '../../services/dashboardService';
 import { ensureProfileExists } from '../../services/authService';
 import {
   getServingOptionsForFood,
@@ -403,11 +403,12 @@ export const ConfirmPage: React.FC = () => {
       fatMult = 1.15;
     }
 
-    const calories = Math.round((food?.energy_kcal ?? 130) * mult * calMult);
     const protein = Number(((food?.protein_g ?? 2.7) * mult).toFixed(1));
     const carbs = Number(((food?.carbohydrate_g ?? 28.2) * mult).toFixed(1));
     const fat = Number(((food?.fat_g ?? 0.3) * mult * fatMult).toFixed(1));
     const fibre = Number(((food?.fibre_g ?? 0.4) * mult).toFixed(1));
+    const rawCalories = Math.round((food?.energy_kcal ?? 130) * mult * calMult);
+    const calories = calculateExactKcal(protein, carbs, fat, rawCalories);
     const cost = calculateItemCost(it.category || food?.category, grams, it.name || food?.name_en);
 
     return { calories, protein, carbs, fat, fibre, cost };
@@ -415,7 +416,6 @@ export const ConfirmPage: React.FC = () => {
 
   // Live meal grand totals
   const mealTotals = useMemo(() => {
-    let calories = 0;
     let protein = 0;
     let carbs = 0;
     let fat = 0;
@@ -423,18 +423,22 @@ export const ConfirmPage: React.FC = () => {
 
     items.forEach((it) => {
       const n = computeItemNutrients(it);
-      calories += n.calories;
       protein += n.protein;
       carbs += n.carbs;
       fat += n.fat;
       cost += n.cost;
     });
 
+    const proFixed = Number(protein.toFixed(1));
+    const carbFixed = Number(carbs.toFixed(1));
+    const fatFixed = Number(fat.toFixed(1));
+    const calories = calculateExactKcal(proFixed, carbFixed, fatFixed);
+
     return {
       calories,
-      protein: Number(protein.toFixed(1)),
-      carbs: Number(carbs.toFixed(1)),
-      fat: Number(fat.toFixed(1)),
+      protein: proFixed,
+      carbs: carbFixed,
+      fat: fatFixed,
       cost: Number(cost.toFixed(2)),
     };
   }, [items]);

@@ -6,7 +6,14 @@
  */
 
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { calculateItemCost, formatMealTime, isSampleDummyMeal, type ConfirmedMealRecord } from './dashboardService';
+import {
+  calculateItemCost,
+  formatMealTime,
+  isSampleDummyMeal,
+  fetchUserConfirmedMeals,
+  calculateExactKcal,
+  type ConfirmedMealRecord,
+} from './dashboardService';
 
 export interface StoredMealItem {
   foodId?: string;
@@ -100,43 +107,67 @@ function writeLocalDb(userId: string, records: StoredMealRecord[]): void {
   }
 }
 
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /**
  * Converts a standard ConfirmedMealRecord to a normalized StoredMealRecord.
  */
 export function normalizeConfirmedMeal(userId: string, meal: ConfirmedMealRecord): StoredMealRecord {
   const ts = meal.timestamp || new Date().toISOString();
   const d = new Date(ts);
-  const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+  const dateStr = !isNaN(d.getTime()) ? toLocalDateStr(d) : toLocalDateStr(new Date());
 
   const items: StoredMealItem[] = (meal.items && meal.items.length > 0)
-    ? meal.items.map((it: any) => ({
-        foodId: it.foodId || it.id,
-        name: it.name || it.foodName || 'Confirmed Food',
-        nameBn: it.nameBn || it.foodNameBn,
-        category: it.category || 'mixed_dishes',
-        grams: Number(it.grams) || 100,
-        preparationState: it.preparationState || it.state || 'cooked',
-        calories: Number(it.calories) || 0,
-        protein: Number(it.protein) || 0,
-        carbs: Number(it.carbs) || 0,
-        fat: Number(it.fat) || 0,
-        fibre: Number(it.fibre) || 0,
-        cost: Number(it.cost) || calculateItemCost(it.category, Number(it.grams) || 100, it.name),
-      }))
-    : meal.title.split('+').map((part, idx) => ({
-        foodId: `item_${idx}`,
-        name: part.trim(),
-        grams: 150,
-        preparationState: 'cooked',
-        calories: Math.round(Number(meal.calories || 0) / (meal.title.split('+').length || 1)),
-        protein: Number(((meal.protein || 0) / (meal.title.split('+').length || 1)).toFixed(1)),
-        carbs: Number(((meal.carbs || 0) / (meal.title.split('+').length || 1)).toFixed(1)),
-        fat: Number(((meal.fat || 0) / (meal.title.split('+').length || 1)).toFixed(1)),
-        fibre: 1.5,
-        cost: Number(((meal.bazarCost || 0) / (meal.title.split('+').length || 1)).toFixed(2)),
-      }));
+    ? meal.items.map((it: any) => {
+        const p = Number(it.protein) || 0;
+        const c = Number(it.carbs) || 0;
+        const f = Number(it.fat) || 0;
+        const itemCal = calculateExactKcal(p, c, f, Number(it.calories) || 0);
+        return {
+          foodId: it.foodId || it.id,
+          name: it.name || it.foodName || 'Confirmed Food',
+          nameBn: it.nameBn || it.foodNameBn,
+          category: it.category || 'mixed_dishes',
+          grams: Number(it.grams) || 100,
+          preparationState: it.preparationState || it.state || 'cooked',
+          calories: itemCal,
+          protein: Number(p.toFixed(1)),
+          carbs: Number(c.toFixed(1)),
+          fat: Number(f.toFixed(1)),
+          fibre: Number(it.fibre) || 0,
+          cost: Number(it.cost) || calculateItemCost(it.category, Number(it.grams) || 100, it.name),
+        };
+      })
+    : meal.title.split('+').map((part, idx) => {
+        const count = meal.title.split('+').length || 1;
+        const p = Number(((meal.protein || 0) / count).toFixed(1));
+        const c = Number(((meal.carbs || 0) / count).toFixed(1));
+        const f = Number(((meal.fat || 0) / count).toFixed(1));
+        const cal = calculateExactKcal(p, c, f, Math.round(Number(meal.calories || 0) / count));
+        return {
+          foodId: `item_${idx}`,
+          name: part.trim(),
+          grams: 150,
+          preparationState: 'cooked',
+          calories: cal,
+          protein: p,
+          carbs: c,
+          fat: f,
+          fibre: 1.5,
+          cost: Number(((meal.bazarCost || 0) / count).toFixed(2)),
+        };
+      });
 
   const fibreSum = items.reduce((acc, it) => acc + (it.fibre || 0), 0);
+  const mealPro = Number(meal.protein) || items.reduce((acc, it) => acc + it.protein, 0);
+  const mealCarb = Number(meal.carbs) || items.reduce((acc, it) => acc + it.carbs, 0);
+  const mealFat = Number(meal.fat) || items.reduce((acc, it) => acc + it.fat, 0);
+  const exactMealCal = calculateExactKcal(mealPro, mealCarb, mealFat, Number(meal.calories) || 0);
 
   return {
     id: meal.id,
@@ -147,10 +178,10 @@ export function normalizeConfirmedMeal(userId: string, meal: ConfirmedMealRecord
     time: meal.time,
     timestamp: ts,
     mealType: meal.mealType || 'lunch',
-    calories: Number(meal.calories) || 0,
-    protein: Number(meal.protein) || 0,
-    carbs: Number(meal.carbs) || 0,
-    fat: Number(meal.fat) || 0,
+    calories: exactMealCal,
+    protein: Number(mealPro.toFixed(1)),
+    carbs: Number(mealCarb.toFixed(1)),
+    fat: Number(mealFat.toFixed(1)),
     fibre: Number(fibreSum.toFixed(1)),
     bazarCost: Number(meal.bazarCost) || 0,
     items,
@@ -201,115 +232,27 @@ export async function deleteMealIntake(userId: string, mealId: string): Promise<
 }
 
 /**
- * Gets all stored meal intakes for a user.
+ * Gets all stored meal intakes for a user, perfectly synchronized with authoritative confirmed meals.
  */
 export async function getAllMealIntakes(userId: string): Promise<StoredMealRecord[]> {
-  const localList = readLocalDb(userId);
-
-  // If Supabase is configured and user is logged in, sync with remote logs
-  if (isSupabaseConfigured && userId && userId !== 'guest') {
-    try {
-      const { data: logs, error } = await supabase
-        .from('meal_logs')
-        .select(`
-          id,
-          created_at,
-          meal_reports (
-            total_energy_kcal,
-            total_protein_g,
-            total_carbohydrate_g,
-            total_fat_g,
-            evidence_sources
-          ),
-          meal_items (
-            id,
-            food_id,
-            confirmed_grams,
-            preparation_state
-          )
-        `)
-        .eq('user_id', userId)
-        .eq('status', 'confirmed')
-        .order('created_at', { ascending: false })
-        .limit(60);
-
-      if (!error && logs && logs.length > 0) {
-        const mergedMap = new Map<string, StoredMealRecord>();
-        for (const loc of localList) {
-          mergedMap.set(loc.id, loc);
-        }
-
-        for (const log of logs) {
-          if (mergedMap.has(log.id)) continue;
-          const report = Array.isArray(log.meal_reports) ? log.meal_reports[0] : (log as any).meal_reports;
-          if (!report) continue;
-
-          let itemSummaries: StoredMealItem[] = [];
-          if (Array.isArray(report.evidence_sources) && report.evidence_sources.length > 0) {
-            itemSummaries = report.evidence_sources.map((it: any) => ({
-              foodId: it.foodId || it.id,
-              name: it.name || 'Confirmed Food',
-              nameBn: it.nameBn,
-              category: it.category || 'mixed_dishes',
-              grams: Number(it.grams) || 100,
-              preparationState: it.preparationState || 'cooked',
-              calories: Number(it.calories) || 0,
-              protein: Number(it.protein) || 0,
-              carbs: Number(it.carbs) || 0,
-              fat: Number(it.fat) || 0,
-              cost: Number(it.cost) || calculateItemCost(it.category, Number(it.grams) || 100, it.name),
-            }));
-          }
-
-          const cal = Number(report.total_energy_kcal) || itemSummaries.reduce((a, b) => a + b.calories, 0);
-          const pro = Number(report.total_protein_g) || itemSummaries.reduce((a, b) => a + b.protein, 0);
-          const carb = Number(report.total_carbohydrate_g) || itemSummaries.reduce((a, b) => a + b.carbs, 0);
-          const fat = Number(report.total_fat_g) || itemSummaries.reduce((a, b) => a + b.fat, 0);
-          const cost = Number(itemSummaries.reduce((a, b) => a + b.cost, 0).toFixed(2));
-          const timeInfo = formatMealTime(log.created_at);
-
-          const title = itemSummaries.length > 0
-            ? itemSummaries.slice(0, 3).map((x) => x.name).join(' + ')
-            : 'Confirmed Meal';
-          const titleBn = itemSummaries.length > 0
-            ? itemSummaries.slice(0, 3).map((x) => x.nameBn || x.name).join(' + ')
-            : undefined;
-
-          const rec: StoredMealRecord = {
-            id: log.id,
-            userId,
-            title,
-            titleBn,
-            date: log.created_at.split('T')[0],
-            time: timeInfo.display,
-            timestamp: log.created_at,
-            mealType: timeInfo.mealType,
-            calories: Math.round(cal),
-            protein: Number(pro.toFixed(1)),
-            carbs: Number(carb.toFixed(1)),
-            fat: Number(fat.toFixed(1)),
-            fibre: Number(itemSummaries.reduce((a, b) => a + (b.fibre || 0), 0).toFixed(1)),
-            bazarCost: cost,
-            items: itemSummaries,
-          };
-
-          if (!isSampleDummyMeal(rec)) {
-            mergedMap.set(rec.id, rec);
-          }
-        }
-
-        const fullList = Array.from(mergedMap.values()).sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
-        writeLocalDb(userId, fullList);
-        return fullList;
-      }
-    } catch (err) {
-      console.warn('Supabase meal sync error:', err);
+  try {
+    const confirmedMeals = await fetchUserConfirmedMeals(userId);
+    if (confirmedMeals && confirmedMeals.length > 0) {
+      const normalized = confirmedMeals
+        .filter((m) => !isSampleDummyMeal(m))
+        .map((m) => normalizeConfirmedMeal(userId, m));
+      // Overwrite local storage with the clean deduplicated set
+      writeLocalDb(userId, normalized);
+      return normalized;
     }
+  } catch (err) {
+    console.warn('Failed to fetch user confirmed meals in mealIntakeDb:', err);
   }
 
-  return localList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const localList = readLocalDb(userId);
+  return localList
+    .filter((m) => !isSampleDummyMeal(m))
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
 /**
@@ -392,14 +335,26 @@ export async function getDailyNutrientStats(userId: string, daysCount: number = 
     for (let i = 0; i < 7; i++) {
       const d = new Date(sunday);
       d.setDate(sunday.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = toLocalDateStr(d);
 
       const isToday = d.toDateString() === now.toDateString();
       const isYesterday = new Date(now.getTime() - 86400000).toDateString() === d.toDateString();
       const dayLabel = isToday ? 'Today' : isYesterday ? 'Yesterday' : dayNames[d.getDay()];
       const dateFormatted = `${monthNames[d.getMonth()]} ${d.getDate()}`;
 
-      const dayMeals = all.filter((m) => m.date === dateStr);
+      const dayMeals = all.filter((m) => {
+        if (m.date === dateStr) return true;
+        try {
+          const md = new Date(m.timestamp);
+          return (
+            md.getFullYear() === d.getFullYear() &&
+            md.getMonth() === d.getMonth() &&
+            md.getDate() === d.getDate()
+          );
+        } catch {
+          return false;
+        }
+      });
 
       let calories = 0;
       let protein = 0;
@@ -409,10 +364,13 @@ export async function getDailyNutrientStats(userId: string, daysCount: number = 
       let cost = 0;
 
       for (const m of dayMeals) {
-        calories += Number(m.calories) || 0;
-        protein += Number(m.protein) || 0;
-        carbs += Number(m.carbs) || 0;
-        fat += Number(m.fat) || 0;
+        const mPro = Number(m.protein) || 0;
+        const mCarb = Number(m.carbs) || 0;
+        const mFat = Number(m.fat) || 0;
+        calories += calculateExactKcal(mPro, mCarb, mFat, Number(m.calories) || 0);
+        protein += mPro;
+        carbs += mCarb;
+        fat += mFat;
         fibre += Number(m.fibre) || 0;
         cost += Number(m.bazarCost) || 0;
       }
@@ -439,14 +397,26 @@ export async function getDailyNutrientStats(userId: string, daysCount: number = 
   for (let i = daysCount - 1; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = toLocalDateStr(d);
 
     const isToday = i === 0;
     const isYesterday = i === 1;
     const dayLabel = isToday ? 'Today' : isYesterday ? 'Yesterday' : dayNames[d.getDay()];
     const dateFormatted = `${monthNames[d.getMonth()]} ${d.getDate()}`;
 
-    const dayMeals = all.filter((m) => m.date === dateStr);
+    const dayMeals = all.filter((m) => {
+      if (m.date === dateStr) return true;
+      try {
+        const md = new Date(m.timestamp);
+        return (
+          md.getFullYear() === d.getFullYear() &&
+          md.getMonth() === d.getMonth() &&
+          md.getDate() === d.getDate()
+        );
+      } catch {
+        return false;
+      }
+    });
 
     let calories = 0;
     let protein = 0;
@@ -456,10 +426,13 @@ export async function getDailyNutrientStats(userId: string, daysCount: number = 
     let cost = 0;
 
     for (const m of dayMeals) {
-      calories += Number(m.calories) || 0;
-      protein += Number(m.protein) || 0;
-      carbs += Number(m.carbs) || 0;
-      fat += Number(m.fat) || 0;
+      const mPro = Number(m.protein) || 0;
+      const mCarb = Number(m.carbs) || 0;
+      const mFat = Number(m.fat) || 0;
+      calories += calculateExactKcal(mPro, mCarb, mFat, Number(m.calories) || 0);
+      protein += mPro;
+      carbs += mCarb;
+      fat += mFat;
       fibre += Number(m.fibre) || 0;
       cost += Number(m.bazarCost) || 0;
     }
@@ -495,7 +468,7 @@ export async function getMonthNutrientStats(
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toLocalDateStr(new Date());
   const stats: DailyNutrientStat[] = [];
 
   for (let day = 1; day <= daysInMonth; day++) {
@@ -506,7 +479,19 @@ export async function getMonthNutrientStats(
     const dayLabel = isToday ? 'Today' : dayNames[d.getDay()];
     const dateFormatted = `${monthNames[monthIndex]} ${day}`;
 
-    const dayMeals = all.filter((m) => m.date === dateStr);
+    const dayMeals = all.filter((m) => {
+      if (m.date === dateStr) return true;
+      try {
+        const md = new Date(m.timestamp);
+        return (
+          md.getFullYear() === d.getFullYear() &&
+          md.getMonth() === d.getMonth() &&
+          md.getDate() === d.getDate()
+        );
+      } catch {
+        return false;
+      }
+    });
 
     let calories = 0;
     let protein = 0;
@@ -516,10 +501,13 @@ export async function getMonthNutrientStats(
     let cost = 0;
 
     for (const m of dayMeals) {
-      calories += Number(m.calories) || 0;
-      protein += Number(m.protein) || 0;
-      carbs += Number(m.carbs) || 0;
-      fat += Number(m.fat) || 0;
+      const mPro = Number(m.protein) || 0;
+      const mCarb = Number(m.carbs) || 0;
+      const mFat = Number(m.fat) || 0;
+      calories += calculateExactKcal(mPro, mCarb, mFat, Number(m.calories) || 0);
+      protein += mPro;
+      carbs += mCarb;
+      fat += mFat;
       fibre += Number(m.fibre) || 0;
       cost += Number(m.bazarCost) || 0;
     }
